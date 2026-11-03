@@ -50,25 +50,51 @@ Tarefa 02-01 integrada. Roda em paralelo com a 02-02 e a 03-01. A chave da Seman
 
 ## Resultado da entrega
 
-- **O que mudou:** Implementado o conector `SemanticScholarSource` em `src/rslapp/sources/semantic_scholar.py`, em conformidade com o protocolo `Source` (`name = "semantic_scholar"`, `needs_key = False`), com busca por relevância na API Graph da Semantic Scholar (`/graph/v1/paper/search`), substituição de hífens por espaços nos termos de busca, paginação por offset até `max_results` (com teto em 1.000 itens), conversão completa de metadados para `Work`, ritmo em nível de módulo (trava `asyncio.Lock` serializando uma chamada por vez com no mínimo 1 segundo entre inícios, relógio e espera injetáveis), retentativas exponenciais (`1`, `2`, `4` s) para 429, 5xx, timeout e rede, erro 400 com falha imediata trazendo o motivo retornado pela API, e preservação dos trabalhos obtidos em caso de falha em páginas posteriores. Criada suíte completa de testes em `tests/sources/test_semantic_scholar.py` cobrindo mapeamento, paginação, ritmo, retentativas, erros e isolamento de chave sem chamadas externas (`httpx.MockTransport`).
+- **O que mudou:** Implementado o conector `SemanticScholarSource` em `src/rslapp/sources/semantic_scholar.py` em conformidade com o protocolo `Source` (`name = "semantic_scholar"`, `needs_key = False`), com busca por relevância na API Graph da Semantic Scholar (`/graph/v1/paper/search`), substituição de hífens por espaços nos termos de busca, paginação por offset até `max_results` (com teto em 1.000 itens), aceitação de `total` numérico ou em texto com dígitos (`int`), conversão completa de metadados para `Work` (selecionando o primeiro tipo de `publicationTypes`), ritmo em nível de módulo (trava `asyncio.Lock` serializando chamadas concorrentes com pelo menos 1 segundo entre inícios, relógio e espera injetáveis), retentativas exponenciais (`1`, `2`, `4` s) para 429, 5xx, timeout e rede, erro 400 com falha imediata trazendo o motivo retornado pela API, e preservação dos trabalhos obtidos em páginas anteriores em caso de falha. Criada suíte completa de testes em `tests/sources/test_semantic_scholar.py` cobrindo concorrência com `asyncio.gather`, teto de 1.000 com descarte sem título, mapeamento, paginação, retentativas com sequência exata `[1, 2, 4]`, erros e isolamento de chave sem chamadas externas (`httpx.MockTransport`).
 - **Qual requisito serve:** FR-01 (busca por termos técnicos), FR-03 (metadados e autores), FR-08 (tratamento de falhas, ritmo e rate_limited), FR-14 (contagens de citações e referências), NFR-03 (segurança e isolamento da chave opcional), NFR-04 (retentativas com espera exponencial e ritmo serializado), D-004 (dados dos autores).
 - **O que foi assumido:** A busca solicita apenas o campo `authors` (sem subcampos `externalIds`/ORCID nem `affiliations`) para evitar respostas 400 da API da Semantic Scholar na busca por relevância; a chave `SEMANTIC_SCHOLAR_API_KEY` é estritamente opcional e lida dinamicamente de `os.environ` no momento da requisição.
-- **O que não deu para verificar:** Chamada real à API oficial com chave de produção (testes utilizam transporte simulado para garantir reprodutibilidade, rapidez e preservação de cotas).
+- **O que não deu para verificar:** A chamada real à API da Semantic Scholar com a chave aprovada do Erick (`SEMANTIC_SCHOLAR_API_KEY`), reservada para o Erick conferir a resposta 200 com os campos da spec (ver "Como testar").
 
 ## Como testar
 
-Rode os comandos de teste e verificação estática:
-```bash
-uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/sources/test_semantic_scholar.py -v
-uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
-uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
-```
+1. **Comandos para rodar (testes automatizados e verificação estática):**
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/sources/test_semantic_scholar.py -v
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
 
-Deve aparecer:
-- 13 testes aprovados (`13 passed`) em `test_semantic_scholar.py`, com 60 testes aprovados na suíte completa.
-- `ruff check .` reporta `All checks passed!`.
+2. **O que deve aparecer:**
+   - `All checks passed!` no `ruff check .`
+   - 13 testes aprovados (`13 passed`) em `test_semantic_scholar.py`, e 60 aprovados na suíte completa.
 
-Onde olhar primeiro:
-1. `src/rslapp/sources/semantic_scholar.py` — `rate_limited_call`, `RATE_LOCK` e `_request_page`: conferir que a trava em nível de módulo serializa as chamadas como uma por vez no processo, garante pelo menos 1 segundo entre os inícios de chamadas (inclusive em novas tentativas) e que 429 persistente devolve estado `rate_limited` sem lançar exceções (FR-08, NFR-04).
-2. `src/rslapp/sources/semantic_scholar.py` — `search`, `_is_valid_api_key` e cabeçalho `x-api-key`: conferir que a chave opcional é validada contra caracteres não-ASCII e espaços, enviada somente via cabeçalho `x-api-key` e nunca vaza em URL, query, reason, cache_query, repr ou logs (NFR-03).
-3. `src/rslapp/sources/semantic_scholar.py` — `_parse_work`, `_parse_author` e controle de paginação em `search`: verificar descarte de registros sem título, normalização de DOI minúsculo, paginação por offset parando em `max_results`, `next` ausente ou no teto de 1.000 resultados, e preservação de resultados parciais em caso de falha a partir da segunda página (FR-01, FR-03, FR-14, D-004).
+3. **Chamada real com SEMANTIC_SCHOLAR_API_KEY (para o Erick):**
+   Com a variável de ambiente `SEMANTIC_SCHOLAR_API_KEY` configurada (ou via Lore secrets), confirmar que a busca por relevância com os `fields` da spec responde HTTP 200:
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev python -c "
+   import asyncio
+   from rslapp.sources.semantic_scholar import SemanticScholarSource
+
+   async def main():
+       source = SemanticScholarSource()
+       res = await source.search('graph neural networks', max_results=10)
+       print('Status:', res.status)
+       print('Found:', res.found)
+       print('Fetched:', res.fetched)
+       if res.works:
+           w = res.works[0]
+           print('Primeiro artigo:', w.title)
+           print('DOI:', w.doi)
+           print('Tipo:', w.type)
+           print('Citações:', w.citations)
+           print('Autores:', [a.name for a in w.authors[:3]])
+
+   asyncio.run(main())
+   "
+   ```
+   Deve exibir `Status: ok`, `Found` com total de artigos encontrados (número inteiro positivo), `Fetched: 10`, e o primeiro artigo com metadados preenchidos (título, DOI minúsculo, tipo e citações).
+
+4. **Onde olhar primeiro (pontos de risco, do mais difícil ao mais simples):**
+   1. **Isolamento, leitura e validação da chave de API (`src/rslapp/sources/semantic_scholar.py` — `search`, `_is_valid_api_key`, cabeçalho `x-api-key`, NFR-03):** conferir que `SEMANTIC_SCHOLAR_API_KEY` é estritamente opcional, lida do ambiente na hora da chamada, enviada apenas no cabeçalho `x-api-key`, rejeitada com motivo fixo se tiver caracteres não-ASCII ou espaços, e nunca vaza em URL, query, reason, repr, cache_query ou logs.
+   2. **Ritmo serializado e limite de taxa em nível de módulo (`src/rslapp/sources/semantic_scholar.py` — `RATE_LOCK`, `rate_limited_call`, FR-08, NFR-04):** conferir que a trava `asyncio.Lock` serializa chamadas simultâneas (provado no teste com `asyncio.gather`), garante pelo menos 1 segundo entre os inícios de chamadas (com e sem chave, e entre tentativas), e que 429 persistente devolve estado `rate_limited` sem derrubar o processo.
+   3. **Paginação, parada nos 1.000 e mapeamento de campos (`src/rslapp/sources/semantic_scholar.py` — `search`, `_parse_work`, FR-01, FR-03, FR-14, D-004):** conferir descarte de itens sem título, seleção do primeiro tipo de `publicationTypes`, aceitação de `total` numérico ou em string de dígitos (`"15117"`), parada nos 1.000 resultados antes de requisitar offset >= 1000 (provado no teste com descarte), e preservação dos trabalhos obtidos em páginas anteriores em caso de falha.
