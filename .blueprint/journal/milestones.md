@@ -16,3 +16,4 @@ Uma linha por marco, o mais novo por último.
 | 2026-11-02 | Plano e repositório prontos | Seis fases, 16 tarefas com spec, arquivo de entrada para os agentes e memória do Lore nomeada; falta começar a codar |
 | 2026-11-03 | Fase 1 · Esqueleto entregue para teste | O pacote instala, o servidor MCP responde por stdio com `list_sources` e o armazenamento grava buscas, listas, log e cache; falta o Erick testar e marcar como pronta |
 | 2026-11-03 | Fase 2 · Fatia completa entregue para teste | Uma busca no OpenAlex vira lista sem duplicatas, entra no log e no cache, e a lista exporta em RIS; falta o Erick fazer a busca real e abrir o RIS no VOSviewer |
+| 2026-11-03 | Fase 3 · Mais fontes entregue para teste | Uma busca consulta OpenAlex, Crossref e Semantic Scholar em paralelo e devolve uma lista sem duplicatas, com o estado de cada fonte e as divergências no log; falta o Erick testar com as chaves reais |
