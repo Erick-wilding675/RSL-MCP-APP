@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import multiprocessing
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -10,120 +12,120 @@ from typing import Any
 import pytest
 
 from rslapp.store import Store, compute_cache_key
+from rslapp.store._atomic import atomic_write_exclusive, strip_url_credentials
 
 
-def _sample_search_s0007() -> tuple[dict[str, Any], dict[str, Any]]:
-    """Devolve os dicionários de busca e lista correspondentes ao exemplo s-0007 da spec."""
-    search_data: dict[str, Any] = {
-        "id": "s-0007",
-        "created_at": "2026-11-02T16:41:00Z",
-        "kind": "terms",
-        "request_summary": "Artigos sobre interpretabilidade de modelos de aprendizado de máquina",
-        "list_id": "l-0007",
-        "repeated_from": None,
-        "origin": None,
-        "sources": [
-            {
-                "name": "openalex",
-                "query": "machine learning interpretability",
-                "status": "ok",
-                "reason": None,
-                "found": 412,
-                "fetched": 100,
-                "from_cache": False,
-                "fetched_at": None,
-            },
-            {
-                "name": "semantic_scholar",
-                "query": "machine learning interpretability",
-                "status": "rate_limited",
-                "reason": "HTTP 429 depois de 3 tentativas",
-                "found": None,
-                "fetched": None,
-                "from_cache": False,
-                "fetched_at": None,
-            },
-            {
-                "name": "crossref",
-                "query": "machine learning interpretability",
-                "status": "ok",
-                "reason": None,
-                "found": 230,
-                "fetched": 100,
-                "from_cache": True,
-                "fetched_at": "2026-11-01T09:15:00Z",
-            },
-        ],
+def _src(
+    name: str = "openalex", query: str = "machine learning interpretability",
+    status: str = "ok", reason: str | None = None, found: int | None = 10,
+    fetched: int | None = 10, from_cache: bool = False, fetched_at: str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    return {
+        "name": name, "query": query, "status": status, "reason": reason,
+        "found": found, "fetched": fetched, "from_cache": from_cache,
+        "fetched_at": fetched_at, **extra,
     }
-    list_data: dict[str, Any] = {
-        "id": "l-0007",
-        "search_id": "s-0007",
-        "created_at": "2026-11-02T16:41:00Z",
-        "status": "incomplete",
-        "total": 187,
-        "works": [{"doi": "10.1234/ex1", "title": "Interpretability in ML"}],
+
+
+def _search(
+    kind: str = "terms",
+    request_summary: str = "Artigos sobre interpretabilidade de modelos de aprendizado de máquina",
+    sources: list[dict[str, Any]] | None = None, created_at: str = "2026-11-02T16:41:00Z",
+    repeated_from: str | None = None, origin: dict[str, Any] | None = None, **extra: Any,
+) -> dict[str, Any]:
+    return {
+        "created_at": created_at, "kind": kind, "request_summary": request_summary,
+        "repeated_from": repeated_from, "origin": origin,
+        "sources": [_src()] if sources is None else sources, **extra,
     }
-    return search_data, list_data
 
 
-# FR-05, FR-09, FR-12, FR-13, D-007: Gravar lista, busca e log e lê-las de volta iguais
-def test_fr05_fr09_fr12_fr13_d007_gravar_e_ler_lista_busca_e_log_iguais(tmp_path: Path) -> None:
+def _list(
+    status: str = "complete", total: int = 1, works: list[dict[str, Any]] | None = None,
+    created_at: str = "2026-11-02T16:41:00Z", **extra: Any,
+) -> dict[str, Any]:
+    default_works = [{"doi": "10.1234/ex1", "title": "Revisão sistemática de ML"}]
+    return {
+        "created_at": created_at, "status": status, "total": total,
+        "works": default_works if works is None else works, **extra,
+    }
+
+
+def _mp_worker(args: tuple[str, int, int]) -> list[tuple[str, str]]:
+    data_dir, worker_id, count = args
+    st = Store(data_dir)
+    out: list[tuple[str, str]] = []
+    for i in range(count):
+        s, lst = st.record_search(
+            _search(request_summary=f"Proc {worker_id}-{i}", sources=[_src(query=f"q={worker_id}.{i}")]),
+            _list(total=1),
+        )
+        out.append((s["id"], lst["id"]))
+    return out
+
+
+# FR-05, FR-09, FR-12, FR-13, D-007: Gravar lista, busca e log e lê-las de volta iguais à entrada
+def test_fr05_fr09_fr12_fr13_d007_gravar_e_ler_lista_busca_e_log_iguais_a_entrada(
+    tmp_path: Path,
+) -> None:
     store = Store(tmp_path / "data", cache_days=7)
-    search_in, list_in = _sample_search_s0007()
-    search_in.pop("id")
-    search_in.pop("list_id")
-    list_in.pop("id")
-    list_in.pop("search_id")
+    work_item = {
+        "doi": "10.1234/ex1",
+        "title": "Does machine learning work? A systematic review",
+        "abstract": "Estudo sobre revisão sistemática com limiar key=0.5 e acentuação.",
+        "key": "W-001",
+        "custom_meta": {"score": 0.95, "tags": ["ml", "x=1?y=2"]},
+    }
+    search_in = _search(
+        request_summary="Does machine learning work? Revisão com key=0.5 e token=abc",
+        sources=[_src(query="title:Does machine learning work? key=0.5", extra_src_flag=True)],
+        extra_search_field=42,
+    )
+    list_in = _list(status="incomplete", total=187, works=[work_item], extra_list_field="ok")
 
     saved_search, saved_list = store.record_search(search_in, list_in)
+    expected_search = {**search_in, "id": "s-0001", "list_id": "l-0001"}
+    expected_list = {**list_in, "id": "l-0001", "search_id": "s-0001"}
+    assert saved_search == expected_search
+    assert saved_list == expected_list
+    assert store.get_search("s-0001") == expected_search
+    assert store.get_list("l-0001") == expected_list
 
-    assert saved_search["id"] == "s-0001"
-    assert saved_search["list_id"] == "l-0001"
-    assert saved_list["id"] == "l-0001"
-    assert saved_list["search_id"] == "s-0001"
-
-    assert set(saved_search.keys()) == {
-        "id",
-        "created_at",
-        "kind",
-        "request_summary",
-        "list_id",
-        "repeated_from",
-        "origin",
-        "sources",
-    }
-    assert set(saved_list.keys()) == {
-        "id",
-        "search_id",
-        "created_at",
-        "status",
-        "total",
-        "works",
-    }
-
-    read_back_list = store.get_list("l-0001")
-    read_back_search = store.get_search("s-0001")
-    assert read_back_list == saved_list
-    assert read_back_search == saved_search
-
-    # D-007: Confirma UTF-8 sem escape ASCII e fim de linha \n
-    for path in (
-        store.lists_dir / "l-0001.json",
-        store.searches_dir / "s-0001.json",
-        store.log_path,
+    cache_file = store.set_cache(
+        "openalex", {"q": "interpretação"}, {"nota": "coração"}, fetched_at="2026-11-02T10:00:00Z"
+    )
+    for path, word in (
+        (store.lists_dir / "l-0001.json", "revisão"),
+        (store.searches_dir / "s-0001.json", "Revisão"),
+        (store.log_path, "Revisão"),
+        (cache_file, "coração"),
     ):
         raw_bytes = path.read_bytes()
         assert b"\r\n" not in raw_bytes
-        assert "máquina".encode() in raw_bytes or path == store.lists_dir / "l-0001.json"
+        assert word.encode("utf-8") in raw_bytes
 
 
-# FR-13, FR-05, NFR-06: Formato exato do log.md conforme a especificação
-def test_fr13_fr05_nfr06_formato_log_md_exato_da_spec(tmp_path: Path) -> None:
+# FR-13, FR-05, NFR-06: Formato exato do log.md, reason em ok, singular, UTC, quebras de linha e validação
+def test_fr13_fr05_nfr06_formato_log_md_regras_e_validacao_previa(tmp_path: Path) -> None:
     store = Store(tmp_path / "data")
-    search_data, list_data = _sample_search_s0007()
+    store.lists_dir.mkdir(parents=True, exist_ok=True)
+    (store.lists_dir / "l-0006.json").write_text('{"id":"l-0006"}\n', encoding="utf-8")
 
-    store.record_search(search_data, list_data)
-
+    s7 = _search(
+        sources=[
+            _src("openalex", found=412, fetched=100),
+            _src(
+                "semantic_scholar", status="rate_limited",
+                reason="HTTP 429 depois de 3 tentativas", found=None, fetched=None,
+            ),
+            _src(
+                "crossref", found=230, fetched=100,
+                from_cache=True, fetched_at="2026-10-31T22:30:00-03:00",
+            ),
+        ]
+    )
+    store.record_search(s7, _list(status="incomplete", total=187))
     expected = (
         "## s-0007 · 2026-11-02 16:41 UTC · busca por termos\n"
         "Pedido: Artigos sobre interpretabilidade de modelos de aprendizado de máquina\n"
@@ -134,496 +136,254 @@ def test_fr13_fr05_nfr06_formato_log_md_exato_da_spec(tmp_path: Path) -> None:
     )
     assert store.read_log() == expected
 
+    clean_store = Store(tmp_path / "clean")
+    for bad_s, bad_l in (
+        (_search(kind="bogus"), _list()),
+        (_search(kind="related", origin=None), _list()),
+        (_search(), _list(status="bogus")),
+        (_search(sources=[{"name": "openalex"}]), _list()),
+    ):
+        with pytest.raises(ValueError):
+            clean_store.record_search(bad_s, bad_l)
+    assert not clean_store.lists_dir.exists() or list(clean_store.lists_dir.iterdir()) == []
 
-# FR-05, FR-13, D-007: Ordem de gravação (lista -> busca -> log) e reconstrução byte a byte de log.md
+
+# FR-05, FR-13, D-007: Ordem lista->busca->log, refazer log byte a byte, lista ausente e quebras
 def test_fr05_fr13_d007_ordem_gravacao_e_refazer_log_byte_a_byte(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = Store(tmp_path / "data")
-    published_order: list[str] = []
+    order: list[str] = []
+    real_link, real_replace = os.link, os.replace
+    monkeypatch.setattr(os, "link", lambda s, d: (order.append(f"link:{Path(d).name}"), real_link(s, d))[1])
+    monkeypatch.setattr(os, "replace", lambda s, d: (order.append(f"replace:{Path(d).name}"), real_replace(s, d))[1])
+
+    store.record_search(
+        _search(
+            kind="work", request_summary="Linha 1\n## s-0099 forjado",
+            sources=[_src(query="q1\nq2", reason="teto de 1000\natingido", found=1, fetched=1)],
+        ),
+        _list(status="complete", total=1),
+    )
+    assert order == ["link:l-0001.json", "link:s-0001.json", "replace:log.md"]
+
+    store.record_search(_search(kind="repeat", repeated_from="s-0001"), _list(status="complete", total=2))
+    store.record_search(
+        _search(kind="related", origin={"work": "10.1/a", "direction": "citations"}),
+        _list(total=0, status="incomplete"),
+    )
+    store.record_search(
+        _search(kind="related", origin={"work": "10.1/a", "direction": "references"}),
+        _list(total=3, status="complete"),
+    )
+
+    orig_bytes, orig_text = store.log_path.read_bytes(), store.read_log()
+    assert "\n## s-0099" not in orig_text
+    assert "Lista: l-0001 · completa · 1 artigo\n" in orig_text
+    assert "teto de 1000 atingido" in orig_text
+    assert "Repetida de: s-0001" in orig_text
+    assert "Artigo de origem: 10.1/a · direção: citações" in orig_text
+    assert "Artigo de origem: 10.1/a · direção: referências" in orig_text
+
+    store.log_path.unlink()
+    assert store.rebuild_log() == orig_text
+    assert store.log_path.read_bytes() == orig_bytes
+
+    (store.lists_dir / "l-0001.json").unlink()
+    assert "Lista: l-0001 · arquivo ausente\n" in store.rebuild_log()
+
+
+# D-007: Interrupção em fsync, link da busca e replace; fallback Windows os.rename e erro POSIX
+def test_d007_interrupcoes_record_search_fallback_link_e_retry_replace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = Store(tmp_path / "data")
+    store.record_search(_search(), _list())
+    cache_file = store.set_cache("openalex", {"q": "1"}, {"v": 1}, fetched_at="2026-11-02T10:00:00Z")
+    init_cache = cache_file.read_bytes()
+
+    monkeypatch.setattr(os, "fsync", lambda _fd: (_ for _ in ()).throw(OSError("fsync falhou")))
+    with pytest.raises(OSError, match="fsync"):
+        store.record_search(_search(), _list())
+    with pytest.raises(OSError, match="fsync"):
+        store.set_cache("openalex", {"q": "1"}, {"v": 2})
+    monkeypatch.undo()
+    assert not (store.lists_dir / "l-0002.json").exists()
+    assert cache_file.read_bytes() == init_cache
 
     real_link = os.link
-    real_replace = os.replace
 
-    def spy_link(src: str | Path, dst: str | Path) -> None:
-        published_order.append(f"link:{Path(dst).name}")
+    def fail_on_search_link(src: str | Path, dst: str | Path) -> None:
+        if Path(dst).name == "s-0002.json":
+            raise OSError("falha simulada no link da busca")
         real_link(src, dst)
 
-    def spy_replace(src: str | Path, dst: str | Path) -> None:
-        published_order.append(f"replace:{Path(dst).name}")
-        real_replace(src, dst)
-
-    monkeypatch.setattr(os, "link", spy_link)
-    monkeypatch.setattr(os, "replace", spy_replace)
-
-    s1, l1 = _sample_search_s0007()
-    s1.pop("id")
-    s1.pop("list_id")
-    l1.pop("id")
-    l1.pop("search_id")
-    store.record_search(s1, l1)
-
-    assert published_order == [
-        "link:l-0001.json",
-        "link:s-0001.json",
-        "replace:log.md",
-    ]
-
-    # Grava também busca de artigo, repetição, referências e citações
-    extra_searches = [
-        (
-            {
-                "created_at": "2026-11-02T17:00:00Z",
-                "kind": "work",
-                "request_summary": "Busca pelo artigo base",
-                "sources": [
-                    {
-                        "name": "openalex",
-                        "query": "10.1234/base",
-                        "status": "ok",
-                        "reason": None,
-                        "found": 1,
-                        "fetched": 1,
-                        "from_cache": False,
-                        "fetched_at": None,
-                    }
-                ],
-            },
-            {"created_at": "2026-11-02T17:00:00Z", "status": "complete", "total": 1, "works": []},
-        ),
-        (
-            {
-                "created_at": "2026-11-02T17:10:00Z",
-                "kind": "repeat",
-                "request_summary": "Repetição da busca inicial",
-                "repeated_from": "s-0001",
-                "sources": [
-                    {
-                        "name": "openalex",
-                        "query": "machine learning interpretability",
-                        "status": "ok",
-                        "reason": None,
-                        "found": 412,
-                        "fetched": 100,
-                        "from_cache": True,
-                        "fetched_at": "2026-11-02T16:41:00Z",
-                    }
-                ],
-            },
-            {"created_at": "2026-11-02T17:10:00Z", "status": "complete", "total": 100, "works": []},
-        ),
-        (
-            {
-                "created_at": "2026-11-02T17:20:00Z",
-                "kind": "related",
-                "request_summary": "Citações do artigo base",
-                "origin": {"work": "10.1234/base", "direction": "citations"},
-                "sources": [
-                    {
-                        "name": "openalex",
-                        "query": "cites:W123",
-                        "status": "ok",
-                        "reason": None,
-                        "found": 15,
-                        "fetched": 15,
-                        "from_cache": False,
-                        "fetched_at": None,
-                    }
-                ],
-            },
-            {"created_at": "2026-11-02T17:20:00Z", "status": "complete", "total": 15, "works": []},
-        ),
-        (
-            {
-                "created_at": "2026-11-02T17:30:00Z",
-                "kind": "related",
-                "request_summary": "Referências do artigo base",
-                "origin": {"work": "10.1234/base", "direction": "references"},
-                "sources": [
-                    {
-                        "name": "crossref",
-                        "query": "refs:10.1234/base",
-                        "status": "not_supported",
-                        "reason": "Fonte não entrega referências",
-                        "found": None,
-                        "fetched": None,
-                        "from_cache": False,
-                        "fetched_at": None,
-                    }
-                ],
-            },
-            {"created_at": "2026-11-02T17:30:00Z", "status": "incomplete", "total": 0, "works": []},
-        ),
-    ]
-    for s_data, l_data in extra_searches:
-        store.record_search(s_data, l_data)
-
-    original_bytes = store.log_path.read_bytes()
-    original_text = store.read_log()
-    assert "Repetida de: s-0001" in original_text
-    assert "Artigo de origem: 10.1234/base · direção: citações" in original_text
-    assert "Artigo de origem: 10.1234/base · direção: referências" in original_text
-    assert "## s-0002 · 2026-11-02 17:00 UTC · busca de artigo" in original_text
-    assert "## s-0003 · 2026-11-02 17:10 UTC · repetição" in original_text
-    assert "## s-0004 · 2026-11-02 17:20 UTC · citações" in original_text
-    assert "## s-0005 · 2026-11-02 17:30 UTC · referências" in original_text
-
-    # Apaga log.md e reconstrói a partir de searches/
-    store.log_path.unlink()
-    assert not store.log_path.exists()
-
-    rebuilt_text = store.rebuild_log()
-    rebuilt_bytes = store.log_path.read_bytes()
-
-    assert rebuilt_text == original_text
-    assert rebuilt_bytes == original_bytes
-
-
-# D-007: Interrupção simulada em os.fsync, os.link e os.replace não deixa arquivo pela metade nem .tmp
-def test_d007_interrupcao_fsync_link_replace_nao_deixa_temporario_nem_corrompe(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    data_dir = tmp_path / "data"
-    store = Store(data_dir)
-
-    # Grava estado inicial válido para provar que falha posterior preserva o conteúdo anterior
-    s0, l0 = _sample_search_s0007()
-    s0["id"] = "s-0001"
-    s0["list_id"] = "l-0001"
-    l0["id"] = "l-0001"
-    l0["search_id"] = "s-0001"
-    store.record_search(s0, l0)
-    store.set_cache("openalex", {"q": "inicial"}, {"items": [1]}, fetched_at="2026-11-02T10:00:00Z")
-
-    initial_log_bytes = store.log_path.read_bytes()
-    cache_file = store.cache_path("openalex", {"q": "inicial"})
-    initial_cache_bytes = cache_file.read_bytes()
-
-    # 1. Falha em os.fsync
-    def fail_fsync(_fd: int) -> None:
-        raise OSError("falha simulada em os.fsync")
-
-    monkeypatch.setattr(os, "fsync", fail_fsync)
-    with pytest.raises(OSError, match="fsync"):
-        store.save_list({"status": "complete", "total": 0, "works": []})
-    with pytest.raises(OSError, match="fsync"):
-        store.set_cache("openalex", {"q": "inicial"}, {"items": [999]})
+    monkeypatch.setattr(os, "link", fail_on_search_link)
+    monkeypatch.setattr(os, "rename", lambda _s, _d: (_ for _ in ()).throw(OSError("falha simulada no link da busca")))
+    with pytest.raises(OSError, match="link da busca"):
+        store.record_search(_search(), _list())
     monkeypatch.undo()
-
-    assert not (store.lists_dir / "l-0002.json").exists()
-    assert cache_file.read_bytes() == initial_cache_bytes
-    assert list(data_dir.rglob("*.tmp")) == []
-
-    # 2. Falha em os.link
-    def fail_link(_src: str | Path, _dst: str | Path) -> None:
-        raise OSError("falha simulada em os.link")
-
-    monkeypatch.setattr(os, "link", fail_link)
-    with pytest.raises(OSError, match="link"):
-        store.save_list({"status": "complete", "total": 0, "works": []})
-    with pytest.raises(OSError, match="link"):
-        store.save_search({"kind": "terms", "request_summary": "x", "sources": []})
-    monkeypatch.undo()
-
-    assert not (store.lists_dir / "l-0002.json").exists()
-    assert not (store.searches_dir / "s-0002.json").exists()
-    assert list(data_dir.rglob("*.tmp")) == []
-
-    # 3. Falha em os.replace
-    def fail_replace(_src: str | Path, _dst: str | Path) -> None:
-        raise OSError("falha simulada em os.replace")
-
-    monkeypatch.setattr(os, "replace", fail_replace)
-    with pytest.raises(OSError, match="replace"):
-        store.append_log(s0, l0)
-    with pytest.raises(OSError, match="replace"):
-        store.set_cache("openalex", {"q": "inicial"}, {"items": [999]})
-    monkeypatch.undo()
-
-    assert store.log_path.read_bytes() == initial_log_bytes
-    assert cache_file.read_bytes() == initial_cache_bytes
-    assert list(data_dir.rglob("*.tmp")) == []
-
-    # Pasta segue utilizável após todas as falhas
-    saved = store.save_list({"status": "complete", "total": 0, "works": []})
-    assert saved["id"] == "l-0002"
     assert (store.lists_dir / "l-0002.json").exists()
+    assert not (store.searches_dir / "s-0002.json").exists()
+    assert list(store.data_dir.rglob("*.tmp")) == []
 
+    s_next, l_next = store.record_search(_search(), _list())
+    assert (s_next["id"], l_next["id"]) == ("s-0003", "l-0003")
 
-# D-007: No Windows, os.replace tenta novamente em caso de PermissionError transitório
-def test_d007_replace_retenta_permission_error_no_windows(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    store = Store(tmp_path / "data")
-    real_replace = os.replace
-    attempts = {"count": 0}
+    log_before = store.log_path.read_bytes()
+    monkeypatch.setattr(os, "replace", lambda _s, _d: (_ for _ in ()).throw(OSError("replace falhou")))
+    with pytest.raises(OSError, match="replace"):
+        store.set_cache("openalex", {"q": "1"}, {"v": 9})
+    monkeypatch.undo()
+    assert cache_file.read_bytes() == init_cache
+    assert store.log_path.read_bytes() == log_before
+    assert list(store.data_dir.rglob("*.tmp")) == []
 
-    def flaky_replace(src: str | Path, dst: str | Path) -> None:
-        attempts["count"] += 1
-        if attempts["count"] < 3:
-            raise PermissionError("arquivo temporariamente em uso")
-        real_replace(src, dst)
-
-    monkeypatch.setattr(os, "replace", flaky_replace)
+    real_replace, tries = os.replace, {"n": 0}
+    monkeypatch.setattr(
+        os, "replace",
+        lambda s, d: (
+            tries.__setitem__("n", tries["n"] + 1),
+            (_ for _ in ()).throw(PermissionError("em uso")) if tries["n"] < 3 else real_replace(s, d),
+        )[1],
+    )
     store.set_cache("openalex", {"q": "retry"}, {"ok": True})
-    assert attempts["count"] == 3
-    assert store.get_cache("openalex", {"q": "retry"}) is not None
+    monkeypatch.undo()
+    assert tries["n"] == 3
+
+    monkeypatch.setattr(os, "link", lambda _s, _d: (_ for _ in ()).throw(OSError("exFAT")))
+    monkeypatch.setattr(sys, "platform", "win32")
+    exfat_dest = tmp_path / "exfat.json"
+    atomic_write_exclusive(exfat_dest, '{"ok": true}\n')
+    with pytest.raises((FileExistsError, OSError)):
+        atomic_write_exclusive(exfat_dest, '{"ok": false}\n')
+    monkeypatch.setattr(sys, "platform", "linux")
+    with pytest.raises(OSError, match="hard links"):
+        atomic_write_exclusive(tmp_path / "posix_no_link.json", "{}\n")
+    monkeypatch.undo()
 
 
-# FR-09, FR-12, D-007: Lista e busca já gravadas são imutáveis e não podem ser sobrescritas
-def test_fr09_fr12_d007_lista_e_busca_ja_gravadas_nao_podem_ser_alteradas(tmp_path: Path) -> None:
+# FR-09, FR-12, D-007: Imutabilidade e recusa de sobrescrita no helper de publicação exclusiva
+def test_fr09_fr12_d007_imutabilidade_e_recusa_de_sobrescrita(tmp_path: Path) -> None:
     store = Store(tmp_path / "data")
-    s1, l1 = _sample_search_s0007()
-    s1["id"] = "s-0001"
-    s1["list_id"] = "l-0001"
-    l1["id"] = "l-0001"
-    l1["search_id"] = "s-0001"
+    saved_s, saved_l = store.record_search(_search(), _list(total=5))
+    list_path = store.lists_dir / "l-0001.json"
+    orig_bytes = list_path.read_bytes()
 
-    saved_search, saved_list = store.record_search(s1, l1)
-    original_list_bytes = (store.lists_dir / "l-0001.json").read_bytes()
-    original_search_bytes = (store.searches_dir / "s-0001.json").read_bytes()
-
-    # Tentar gravar novamente com mesmo id levanta FileExistsError e preserva o arquivo original
     with pytest.raises(FileExistsError):
-        store.save_list(
-            {
-                "id": "l-0001",
-                "search_id": "s-0001",
-                "status": "complete",
-                "total": 999,
-                "works": [],
-            }
-        )
-    with pytest.raises(FileExistsError):
-        store.save_search(
-            {
-                "id": "s-0001",
-                "list_id": "l-0001",
-                "kind": "terms",
-                "request_summary": "Tentativa de sobrescrita",
-                "sources": [],
-            }
-        )
-    with pytest.raises(FileExistsError):
-        store.record_search(s1, l1)
+        atomic_write_exclusive(list_path, '{"id": "l-0001", "total": 999}\n')
+    assert list_path.read_bytes() == orig_bytes
 
-    assert (store.lists_dir / "l-0001.json").read_bytes() == original_list_bytes
-    assert (store.searches_dir / "s-0001.json").read_bytes() == original_search_bytes
-
-    # Mutar o dicionário devolvido em memória não altera o que está salvo
-    saved_list["total"] = 0
-    saved_list["works"].clear()
-    fetched = store.get_list("l-0001")
-    assert fetched["total"] == 187
-    assert len(fetched["works"]) == 1
-    fetched["total"] = 42
-    assert store.get_list("l-0001")["total"] == 187
-    assert store.get_search("s-0001") == saved_search
+    saved_l["total"] = 0
+    saved_s["request_summary"] = "alterado"
+    assert store.get_list("l-0001")["total"] == 5
+    assert store.get_search("s-0001")["request_summary"].startswith("Artigos")
+    for invalid_id in ("s-0000", "s-00001", "l-0001", "../s-0001"):
+        with pytest.raises(ValueError):
+            store.get_search(invalid_id)
 
 
-# FR-09, D-007: IDs crescem para 5 dígitos após 9999, ordenam numericamente e suportam threads simultâneas
-def test_fr09_d007_ids_cinco_digitos_ordenacao_numerica_e_concorrencia_threads(
+# FR-09, D-007: 5 dígitos, colisão em os.link dentro de record_search, threads e multiprocessing
+def test_fr09_d007_cinco_digitos_colisao_threads_e_multiprocessing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    store = Store(tmp_path / "data")
-    s_base, l_base = _sample_search_s0007()
+    store = Store(tmp_path / "seq")
+    store.lists_dir.mkdir(parents=True, exist_ok=True)
+    (store.lists_dir / "l-0001.json").write_text('{"id":"l-0001"}\n', encoding="utf-8")
+    store.record_search(_search(request_summary="B2"), _list())
+    (store.lists_dir / "l-9998.json").write_text('{"id":"l-9998"}\n', encoding="utf-8")
+    store.record_search(_search(request_summary="B9999"), _list())
 
-    for num in (2, 9999):
-        s_item = dict(
-            s_base, id=f"s-{num:04d}", list_id=f"l-{num:04d}", request_summary=f"Busca {num}"
-        )
-        l_item = dict(l_base, id=f"l-{num:04d}", search_id=f"s-{num:04d}")
-        store.record_search(s_item, l_item)
+    s10k, l10k = store.record_search(_search(request_summary="B10000"), _list())
+    assert (s10k["id"], l10k["id"]) == ("s-10000", "l-10000")
+    assert [s["id"] for s in store.list_searches()] == ["s-0002", "s-9999", "s-10000"]
 
-    # O próximo ID automático após 9999 tem 5 dígitos (10000)
-    s_next = dict(s_base)
-    s_next.pop("id")
-    s_next.pop("list_id")
-    s_next["request_summary"] = "Busca 10000"
-    l_next = dict(l_base)
-    l_next.pop("id")
-    l_next.pop("search_id")
-    saved_s10000, saved_l10000 = store.record_search(s_next, l_next)
-    assert saved_s10000["id"] == "s-10000"
-    assert saved_l10000["id"] == "l-10000"
-
-    # A ordenação de searches/ e de rebuild_log é numérica (2, 9999, 10000), não alfabética
-    searches = store.list_searches()
-    assert [s["id"] for s in searches] == ["s-0002", "s-9999", "s-10000"]
-    rebuilt = store.rebuild_log()
-    assert rebuilt.index("## s-0002") < rebuilt.index("## s-9999") < rebuilt.index("## s-10000")
-
-    # Se outra gravação criar o mesmo arquivo antes de os.link, tenta o próximo número sem sobrescrever
     race_store = Store(tmp_path / "race")
-    real_link = os.link
-    injected = {"done": False}
+    real_link, collided = os.link, {"done": False}
 
     def colliding_link(src: str | Path, dst: str | Path) -> None:
-        dst_path = Path(dst)
-        if not injected["done"] and dst_path.name == "l-0001.json":
-            injected["done"] = True
-            dst_path.write_text('{"id": "l-0001"}\n', encoding="utf-8")
+        dst_p = Path(dst)
+        if not collided["done"] and dst_p.name == "l-0001.json":
+            collided["done"] = True
+            dst_p.write_text('{"id": "l-0001"}\n', encoding="utf-8")
         real_link(src, dst)
 
     monkeypatch.setattr(os, "link", colliding_link)
-    auto_list = race_store.save_list({"status": "complete", "total": 0, "works": []})
+    rs, rl = race_store.record_search(_search(), _list())
     monkeypatch.undo()
-    assert auto_list["id"] == "l-0002"
-    assert (race_store.lists_dir / "l-0001.json").read_text(encoding="utf-8") == '{"id": "l-0001"}\n'
+    assert (rs["id"], rs["list_id"], rl["id"], rl["search_id"]) == ("s-0002", "l-0002", "l-0002", "s-0002")
 
-    # Concorrência com threads em nova pasta
-    concurrent_store = Store(tmp_path / "concurrent")
+    th_store = Store(tmp_path / "threads")
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(lambda i: th_store.record_search(_search(request_summary=f"T{i}"), _list()), range(12)))
+    assert th_store.rebuild_log() == th_store.read_log()
 
-    def worker(idx: int) -> tuple[str, str]:
-        s_in = {
-            "created_at": "2026-11-02T18:00:00Z",
-            "kind": "terms",
-            "request_summary": f"Thread {idx}",
-            "sources": [
-                {
-                    "name": "openalex",
-                    "query": f"topic {idx}",
-                    "status": "ok",
-                    "reason": None,
-                    "found": 10,
-                    "fetched": 10,
-                    "from_cache": False,
-                    "fetched_at": None,
-                }
-            ],
-        }
-        l_in = {"created_at": "2026-11-02T18:00:00Z", "status": "complete", "total": 10, "works": []}
-        s_out, l_out = concurrent_store.record_search(s_in, l_in)
-        return s_out["id"], l_out["id"]
-
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(worker, range(16)))
-
-    search_ids = [r[0] for r in results]
-    list_ids = [r[1] for r in results]
-    assert len(set(search_ids)) == 16
-    assert len(set(list_ids)) == 16
-    assert sorted(search_ids) == [f"s-{i:04d}" for i in range(1, 17)]
-    assert sorted(list_ids) == [f"l-{i:04d}" for i in range(1, 17)]
+    mp_dir = tmp_path / "mp"
+    with multiprocessing.get_context("spawn").Pool(3) as mp_pool:
+        mp_results = mp_pool.map(_mp_worker, [(str(mp_dir), w, 15) for w in range(3)])
+    flat_ids = [pair[0] for sub in mp_results for pair in sub]
+    mp_store = Store(mp_dir)
+    assert sorted(flat_ids) == [f"s-{i:04d}" for i in range(1, 46)]
+    assert [s["id"] for s in mp_store.list_searches()] == [f"s-{i:04d}" for i in range(1, 46)]
+    mp_log_bytes = mp_store.log_path.read_bytes()
+    assert mp_store.log_path.read_text(encoding="utf-8").count("## s-") == 45
+    assert mp_store.rebuild_log().encode("utf-8") == mp_log_bytes
 
 
-# NFR-06, D-007: Cache dentro do prazo devolve resposta com from_cache=True e fetched_at; vencido devolve None
-def test_nfr06_d007_cache_no_prazo_vencido_e_validacao_de_fonte(tmp_path: Path) -> None:
+# NFR-06, D-007: Cache no prazo, vencido e validação de fonte
+def test_nfr06_d007_cache_prazo_expiracao_e_validacao_fonte(tmp_path: Path) -> None:
     store = Store(tmp_path / "data", cache_days=7)
-    query = {"b_param": 2, "a_param": "interpretability"}
-    payload = {"results": [{"id": "W1", "title": "Paper 1"}]}
+    q = {"b": 2, "a": "ml"}
+    assert store.get_cache("openalex", q) is None
+    store.set_cache("openalex", q, {"items": [1]}, fetched_at="2026-11-01T12:00:00Z")
 
-    # Ausente devolve None
-    assert store.get_cache("openalex", query) is None
+    hit = store.get_cache("openalex", {"a": "ml", "b": 2}, now="2026-11-07T12:00:00Z")
+    assert hit == {"response": {"items": [1]}, "from_cache": True, "fetched_at": "2026-11-01T12:00:00Z"}
+    assert store.get_cache("openalex", q, now="2026-11-08T12:00:00Z") is None
 
-    # Grava com fetched_at conhecido
-    cache_path = store.set_cache(
-        "openalex",
-        query,
-        payload,
-        fetched_at="2026-11-01T12:00:00Z",
-    )
-    assert cache_path.exists()
-
-    # Dentro do prazo (6 dias depois)
-    hit = store.get_cache("openalex", {"a_param": "interpretability", "b_param": 2}, now="2026-11-07T12:00:00Z")
-    assert hit is not None
-    assert hit["from_cache"] is True
-    assert hit["fetched_at"] == "2026-11-01T12:00:00Z"
-    assert hit["response"] == payload
-
-    # Exatamente no instante de expiração (7 dias depois) e após (8 dias depois) -> ignorado (None)
-    assert store.get_cache("openalex", query, now="2026-11-08T12:00:00Z") is None
-    assert store.get_cache("openalex", query, now="2026-11-09T12:00:00Z") is None
-
-    # Substituição de cache vencido por entrada nova
-    store.set_cache("openalex", query, {"results": [{"id": "W2"}]}, fetched_at="2026-11-09T12:00:00Z")
-    renewed = store.get_cache("openalex", query, now="2026-11-10T12:00:00Z")
-    assert renewed is not None
-    assert renewed["response"] == {"results": [{"id": "W2"}]}
-    assert renewed["fetched_at"] == "2026-11-09T12:00:00Z"
-
-    # Nome de fonte inválido levanta ValueError para nunca sair da pasta de dados
-    for bad_source in ("", "../openalex", "OpenAlex", "open-alex", "a/b", r"a\b", "openalex!"):
-        with pytest.raises(ValueError, match="fonte"):
-            store.set_cache(bad_source, query, payload)
-        with pytest.raises(ValueError, match="fonte"):
-            store.get_cache(bad_source, query)
+    for bad in ("", "../x", "OpenAlex", "a-b", "a/b", r"a\b"):
+        with pytest.raises(ValueError):
+            store.set_cache(bad, q, {})
 
 
-# NFR-03: Chaves de API nunca aparecem em nenhum arquivo gravado nem no nome/chave do cache
-def test_nfr03_chave_api_nao_aparece_em_nenhum_arquivo_nem_na_chave_do_cache(
-    tmp_path: Path,
-) -> None:
-    data_dir = tmp_path / "data"
-    store = Store(data_dir)
+# NFR-03: Credencial tratada nos 3 pontos (consulta do cache, sources[].query/reason e response do cache)
+def test_nfr03_credenciais_nos_tres_pontos_sem_alterar_textos_de_consulta(tmp_path: Path) -> None:
+    store = Store(tmp_path / "data")
+    secrets = ["fake-key-123", "fake-apikey-456", "fake-tok-789", "fake-auth-012"]
 
-    secrets = [
-        "fake-key-123-api_key",
-        "fake-key-456-apikey",
-        "fake-key-789-dash",
-        "fake-key-012-plain",
-        "fake-token-345-secret",
-        "Bearer fake-auth-678-header",
-    ]
+    q1 = {"search": "key=0.5", "api_key": secrets[0], "nested": {"Token": secrets[2], "k": 1}}
+    q2 = {"nested": {"k": 1}, "search": "key=0.5", "Authorization": secrets[3]}
+    assert compute_cache_key(q1)[0] == compute_cache_key(q2)[0]
+    assert compute_cache_key({"search": "key=0.5"})[0] != compute_cache_key({"search": "key=0.9"})[0]
 
-    query_with_creds = {
-        "search": "machine learning",
-        "per_page": 50,
-        "api_key": secrets[0],
-        "APIKEY": secrets[1],
-        "Api-Key": secrets[2],
-        "KEY": secrets[3],
-        "Token": secrets[4],
-        "Authorization": secrets[5],
-        "nested": {
-            "api_key": secrets[0],
-            "filter": "type:article",
-        },
+    resp = {
+        "next_url": f"https://api.openalex.org/works?cursor=*&api_key={secrets[0]}&per_page=25",
+        "items": [{"self": f"http://example.org/p?apikey={secrets[1]}", "note": "key=0.5 intacto"}],
     }
-    query_with_other_creds = {
-        "per_page": 50,
-        "search": "machine learning",
-        "api_key": "other-fake-key-999",
-        "nested": {"filter": "type:article"},
-    }
-    clean_query = {
-        "search": "machine learning",
-        "per_page": 50,
-        "nested": {"filter": "type:article"},
-    }
+    c_path = store.set_cache("openalex", q1, resp, fetched_at="2026-11-02T10:00:00Z")
+    assert c_path.exists()
+    cached = store.get_cache("openalex", q2, now="2026-11-03T10:00:00Z")
+    assert cached is not None
+    assert cached["response"]["next_url"] == "https://api.openalex.org/works?cursor=*&per_page=25"
+    assert cached["response"]["items"][0] == {"self": "http://example.org/p", "note": "key=0.5 intacto"}
 
-    # Mesma consulta com chaves diferentes (ou sem chave) gera o mesmo SHA-256 e cai no mesmo cache
-    digest_creds, _ = compute_cache_key(query_with_creds)
-    digest_other, _ = compute_cache_key(query_with_other_creds)
-    digest_clean, _ = compute_cache_key(clean_query)
-    assert digest_creds == digest_other == digest_clean
+    raw_q = f"GET https://api.openalex.org/works?search=a+b&api_key={secrets[0]}&key=0.5"
+    assert strip_url_credentials(raw_q) == "GET https://api.openalex.org/works?search=a+b"
+    assert strip_url_credentials("texto sem url? key=0.5 & token=1") == "texto sem url? key=0.5 & token=1"
 
-    cache_file = store.set_cache(
-        "openalex",
-        query_with_creds,
-        {"ok": True},
-        fetched_at="2026-11-02T10:00:00Z",
+    store.record_search(
+        _search(
+            sources=[
+                _src(
+                    query=f"https://api.openalex.org/works?search=ml&api_key={secrets[0]}&apikey={secrets[1]}",
+                    reason=f"Falha em https://api.openalex.org/works?token={secrets[2]}&page=1 após 3x",
+                )
+            ]
+        ),
+        _list(works=[{"doi": "10.1/1", "title": "Artigo key=0.5", "key": "k1"}]),
     )
-    hit = store.get_cache("openalex", query_with_other_creds, now="2026-11-03T10:00:00Z")
-    assert hit is not None
-    assert hit["from_cache"] is True
-
-    # Grava também busca, lista e log contendo parâmetros de credencial acidentais em URLs/dicts
-    s_in, l_in = _sample_search_s0007()
-    s_in["sources"][0]["query"] = (
-        f"https://api.openalex.org/works?search=ml&api_key={secrets[0]}&apikey={secrets[1]}"
-    )
-    l_in["works"] = [{"doi": "10.1000/1", "title": "Artigo", "api_key": secrets[0]}]
-    store.record_search(s_in, l_in)
-
-    all_files = [p for p in data_dir.rglob("*") if p.is_file()]
-    assert len(all_files) >= 4
-    assert cache_file in all_files
-
-    for file_path in all_files:
-        content = file_path.read_text(encoding="utf-8")
-        for secret in secrets:
-            assert secret not in file_path.name
-            assert secret not in content
-        assert "fake-auth-678-header" not in content
+    for p in [f for f in store.data_dir.rglob("*") if f.is_file()]:
+        text = p.read_text(encoding="utf-8")
+        for sec in secrets:
+            assert sec not in p.name
+            assert sec not in text
