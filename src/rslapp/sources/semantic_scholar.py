@@ -657,3 +657,145 @@ class SemanticScholarSource(Source):
             fetched=len(works),
             works=works,
         )
+
+    # FR-02, D-002, NFR-03, NFR-04: Consulta trabalho direto por DOI na Semantic Scholar
+    async def find_by_doi(self, doi: str) -> SourceResult:
+        """Consulta um artigo pelo DOI na Semantic Scholar."""
+        clean_doi = _normalize_doi(doi) or doi.strip()
+        quoted_doi = urllib.parse.quote(clean_doi, safe="")
+        query_text = f"paper=DOI:{clean_doi}"
+
+        raw_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
+        if api_key and not _is_valid_api_key(api_key):
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="SEMANTIC_SCHOLAR_API_KEY tem caracteres inválidos",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        headers = {"User-Agent": _user_agent()}
+        if api_key:
+            headers["x-api-key"] = api_key
+
+        paper_url = f"https://api.semanticscholar.org/graph/v1/paper/DOI:{quoted_doi}"
+        params = {"fields": SELECT_FIELDS}
+
+        try:
+            async with self._get_client() as client:
+                max_retries = len(RETRY_DELAYS)
+                err_status, err_reason = "failed", "falha inesperada ao consultar a Semantic Scholar"
+                for attempt in range(max_retries + 1):
+                    async with rate_limited_call(self._clock, self._sleep):
+                        try:
+                            response = await client.get(
+                                paper_url,
+                                params=params,
+                                headers=headers,
+                                timeout=DEFAULT_TIMEOUT,
+                            )
+                        except httpx.TimeoutException:
+                            err_status, err_reason = _retry_failure("failed", "tempo limite esgotado")
+                        except httpx.HTTPError:
+                            err_status, err_reason = _retry_failure("failed", "erro de rede")
+                        except Exception:  # noqa: BLE001
+                            return SourceResult(
+                                name=self.name,
+                                status="failed",
+                                reason="falha inesperada ao consultar a Semantic Scholar",
+                                query=query_text,
+                                found=None,
+                                fetched=0,
+                                works=[],
+                            )
+                        else:
+                            status_code = response.status_code
+                            if status_code == 200:
+                                try:
+                                    data = response.json()
+                                except ValueError:
+                                    return SourceResult(
+                                        name=self.name,
+                                        status="failed",
+                                        reason="resposta JSON inválida da Semantic Scholar",
+                                        query=query_text,
+                                        found=None,
+                                        fetched=0,
+                                        works=[],
+                                    )
+                                if not isinstance(data, dict):
+                                    return SourceResult(
+                                        name=self.name,
+                                        status="failed",
+                                        reason="resposta JSON inválida da Semantic Scholar",
+                                        query=query_text,
+                                        found=None,
+                                        fetched=0,
+                                        works=[],
+                                    )
+                                work = _parse_work(data)
+                                works = [work] if work is not None else []
+                                found_cnt = len(works)
+                                return SourceResult(
+                                    name=self.name,
+                                    status="ok",
+                                    reason=None,
+                                    query=query_text,
+                                    found=found_cnt,
+                                    fetched=found_cnt,
+                                    works=works,
+                                )
+
+                            if status_code == 404:
+                                return SourceResult(
+                                    name=self.name,
+                                    status="ok",
+                                    reason=None,
+                                    query=query_text,
+                                    found=0,
+                                    fetched=0,
+                                    works=[],
+                                )
+                            msg = _extract_error_message(response, api_key=api_key)
+                            if status_code == 429:
+                                err_status, err_reason = _retry_failure("rate_limited", msg)
+                            elif 500 <= status_code < 600:
+                                err_status, err_reason = _retry_failure("failed", msg)
+                            else:
+                                return SourceResult(
+                                    name=self.name,
+                                    status="failed",
+                                    reason=msg,
+                                    query=query_text,
+                                    found=None,
+                                    fetched=0,
+                                    works=[],
+                                )
+
+                    if attempt < max_retries:
+                        slp = self._sleep or _module_sleep
+                        await slp(RETRY_DELAYS[attempt])
+
+                return SourceResult(
+                    name=self.name,
+                    status=err_status,
+                    reason=err_reason,
+                    query=query_text,
+                    found=None,
+                    fetched=0,
+                    works=[],
+                )
+        except Exception:  # noqa: BLE001
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="falha inesperada ao consultar a Semantic Scholar",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
