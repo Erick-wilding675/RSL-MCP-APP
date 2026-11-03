@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-import unicodedata
+import asyncio
 from collections.abc import Sequence
 from typing import Any
 
+from rslapp.core.dedup import (
+    deduplicate_works,
+    deduplicate_works_with_merge,
+    normalize_title,
+)
 from rslapp.core.errors import RSLError
 from rslapp.core.models import SourceResult, Work
 from rslapp.sources.base import Source
@@ -16,58 +21,15 @@ DEFAULT_MAX_RESULTS = 100
 MIN_MAX_RESULTS = 1
 MAX_MAX_RESULTS = 1_000
 
-
-def _normalize_doi(raw: str | None) -> str | None:
-    if not isinstance(raw, str):
-        return None
-    val = raw.strip().lower()
-    return val if val else None
-
-
-# FR-04: Normalização de título (minúsculas, sem acento, só letras e números, espaços simples)
-def normalize_title(title: str) -> str:
-    """Normaliza um título para chave de deduplicação quando não há DOI."""
-    decomposed = unicodedata.normalize("NFKD", title.lower())
-    without_accents = "".join(
-        ch for ch in decomposed if not unicodedata.combining(ch)
-    )
-    alnum_and_spaces = "".join(
-        ch for ch in without_accents if ch.isalnum() or ch.isspace()
-    )
-    return " ".join(alnum_and_spaces.split())
-
-
-def _dedup_key(work: Work) -> str:
-    norm_doi = _normalize_doi(work.doi)
-    if norm_doi:
-        return f"doi:{norm_doi}"
-    return f"title:{normalize_title(work.title)}"
-
-
-# FR-04: Deduplicação dentro da lista por DOI minúsculo ou título normalizado; preserva o primeiro
-def deduplicate_works(works: Sequence[Work]) -> list[Work]:
-    """Remove duplicatas mantendo o primeiro registro e agregando source_ids e citations."""
-    by_key: dict[str, Work] = {}
-    deduped: list[Work] = []
-
-    for work in works:
-        clone = Work.from_dict(work.to_dict())
-        clone.doi = _normalize_doi(clone.doi)
-        key = _dedup_key(clone)
-
-        if key not in by_key:
-            by_key[key] = clone
-            deduped.append(clone)
-        else:
-            kept = by_key[key]
-            for src_name, src_id in clone.source_ids.items():
-                if src_name not in kept.source_ids:
-                    kept.source_ids[src_name] = src_id
-            for src_name, count in clone.citations.items():
-                if src_name not in kept.citations:
-                    kept.citations[src_name] = count
-
-    return deduped
+__all__ = [
+    "DEFAULT_MAX_RESULTS",
+    "MAX_MAX_RESULTS",
+    "MIN_MAX_RESULTS",
+    "PAGE_SIZE",
+    "deduplicate_works",
+    "normalize_title",
+    "run_search",
+]
 
 
 def _summarize_work(work: Work) -> dict[str, Any]:
@@ -117,7 +79,7 @@ def _select_sources(
     return selected
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, NFR-06, D-002, D-003: Orquestração da busca por termos
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003: Orquestração da busca por termos
 async def run_search(
     store: Store,
     sources: Sequence[Source],
@@ -127,7 +89,7 @@ async def run_search(
     max_results: int = DEFAULT_MAX_RESULTS,
     source_names: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Executa uma busca nas fontes, deduplica resultados, grava lista/busca/log e devolve resumo."""
+    """Executa busca nas fontes em paralelo, deduplica, grava lista/busca/log e devolve resumo."""
     if not isinstance(query, str) or not query.strip():
         raise RSLError("invalid_input", "a consulta (query) não pode ser vazia")
     clean_query = query.strip()
@@ -149,23 +111,25 @@ async def run_search(
     selected_sources = _select_sources(sources, source_names)
 
     # NFR-06: Consulta o cache antes de chamar cada fonte e só grava no cache resultados ok
-    source_entries: list[dict[str, Any]] = []
-    raw_works: list[Work] = []
-
-    for source in selected_sources:
+    async def _fetch_from_source(source: Source) -> tuple[SourceResult, bool, str | None]:
         c_query = source.cache_query(clean_query, max_results)
         cached = store.get_cache(source.name, c_query)
         if cached is not None:
-            result = SourceResult.from_dict(cached["response"])
-            from_cache = True
-            fetched_at: str | None = cached.get("fetched_at")
-        else:
-            result = await source.search(clean_query, max_results)
-            from_cache = False
-            fetched_at = None
-            if result.status == "ok":
-                store.set_cache(source.name, c_query, result.to_dict())
+            return SourceResult.from_dict(cached["response"]), True, cached.get("fetched_at")
+        result = await source.search(clean_query, max_results)
+        if result.status == "ok":
+            store.set_cache(source.name, c_query, result.to_dict())
+        return result, False, None
 
+    # FR-08: Consulta às fontes executada concorrentemente via asyncio.gather
+    fetch_outcomes = await asyncio.gather(
+        *[_fetch_from_source(src) for src in selected_sources]
+    )
+
+    source_entries: list[dict[str, Any]] = []
+    raw_works: list[Work] = []
+
+    for result, from_cache, fetched_at in fetch_outcomes:
         raw_works.extend(result.works)
         source_entries.append(
             {
@@ -187,8 +151,9 @@ async def run_search(
             "nenhuma fonte pode responder; configure OPENALEX_API_KEY",
         )
 
-    # FR-04: Deduplicação por DOI minúsculo ou título normalizado
-    deduped_works = deduplicate_works(raw_works)
+    # FR-04, FR-14: Deduplicação e junção entre fontes com prevalência e contagem de divergências
+    dedup_result = deduplicate_works_with_merge(raw_works)
+    deduped_works = dedup_result.works
     total = len(deduped_works)
 
     # FR-08: Lista incompleta quando alguma fonte consultada não terminou em ok
@@ -204,6 +169,12 @@ async def run_search(
         "request_summary": request_summary,
         "repeated_from": None,
         "origin": None,
+        "params": {
+            "query": clean_query,
+            "max_results": max_results,
+            "sources": [src.name for src in selected_sources],
+        },
+        "merge": dedup_result.merge,
         "sources": source_entries,
     }
     list_data: dict[str, Any] = {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -550,3 +551,145 @@ async def test_fr09_duas_buscas_seguidas_geram_listas_separadas(tmp_path: Path) 
     assert r2["search_id"] == "s-0002"
     assert [w["doi"] for w in store.get_list("l-0001")["works"]] == ["10.1234/t1"]
     assert [w["doi"] for w in store.get_list("l-0002")["works"]] == ["10.1234/t2"]
+
+
+# FR-08: As fontes são chamadas em paralelo (uma fonte lenta não bloqueia o início da outra)
+@pytest.mark.anyio
+async def test_fr08_fontes_chamadas_em_paralelo_sem_bloqueio_mutuo(tmp_path: Path) -> None:
+    store = Store(tmp_path / "data")
+    other_started = asyncio.Event()
+
+    class SlowSource:
+        name = "slow_source"
+        needs_key = False
+
+        def cache_query(self, query: str, max_results: int) -> dict[str, Any]:
+            return {"q": query}
+
+        async def search(self, query: str, max_results: int) -> SourceResult:
+            # Espera a outra fonte iniciar sua execução
+            await asyncio.wait_for(other_started.wait(), timeout=2.0)
+            return SourceResult(
+                name=self.name,
+                status="ok",
+                query=f"query={query}",
+                found=1,
+                fetched=1,
+                works=[_sample_work(title="Slow Work", doi="10.1/slow")],
+            )
+
+    class FastSource:
+        name = "fast_source"
+        needs_key = False
+
+        def cache_query(self, query: str, max_results: int) -> dict[str, Any]:
+            return {"q": query}
+
+        async def search(self, query: str, max_results: int) -> SourceResult:
+            # Notifica que já começou a rodar em paralelo
+            other_started.set()
+            return SourceResult(
+                name=self.name,
+                status="ok",
+                query=f"query={query}",
+                found=1,
+                fetched=1,
+                works=[_sample_work(title="Fast Work", doi="10.1/fast")],
+            )
+
+    slow = SlowSource()
+    fast = FastSource()
+
+    # Passa slow primeiro. Se fosse síncrono/sequencial, travaria no wait_for antes de fast rodar.
+    res = await run_search(store, [slow, fast], query="concorrente")
+    assert res["status"] == "complete"
+    assert res["total"] == 2
+    assert {w["doi"] for w in res["works"]} == {"10.1/slow", "10.1/fast"}
+
+
+# FR-05, FR-08, NFR-06: A busca grava params e merge em searches/
+@pytest.mark.anyio
+async def test_fr05_fr08_nfr06_busca_grava_params_e_merge_em_searches(tmp_path: Path) -> None:
+    store = Store(tmp_path / "data")
+    w1 = _sample_work(title="Paper Shared", doi="10.1000/same", year=2023, oa_id="W1")
+    w2 = _sample_work(title="Paper Shared", doi="10.1000/same", year=2024, oa_id="CR1")
+    w2.source_ids = {"crossref": "CR1"}
+    w2.citations = {"crossref": 5}
+
+    src1 = FakeSource(
+        name="openalex",
+        results=SourceResult(
+            name="openalex", status="ok", query="q=x", found=1, fetched=1, works=[w1]
+        ),
+    )
+    src2 = FakeSource(
+        name="crossref",
+        needs_key=False,
+        results=SourceResult(
+            name="crossref", status="ok", query="q=x", found=1, fetched=1, works=[w2]
+        ),
+    )
+
+    res = await run_search(
+        store,
+        [src1, src2],
+        query="teste params",
+        request_summary="Resumo de teste de params",
+        max_results=50,
+        source_names=["crossref", "openalex"],
+    )
+
+    saved_search = store.get_search(res["search_id"])
+    assert saved_search["params"] == {
+        "query": "teste params",
+        "max_results": 50,
+        "sources": ["crossref", "openalex"],
+    }
+    assert saved_search["merge"] == {
+        "merged": 1,
+        "divergences": {"year": 1},
+    }
+    log_content = store.read_log()
+    assert "Junção: 1 artigo em mais de uma fonte · divergências: ano 1" in log_content
+
+
+# FR-08: Fonte em falha deixa lista incompleta com fonte e motivo, e outras seguem
+@pytest.mark.anyio
+async def test_fr08_uma_fonte_falha_deixa_incompleta_e_outra_segue(tmp_path: Path) -> None:
+    store = Store(tmp_path / "data")
+    src_fail = FakeSource(
+        name="openalex",
+        results=SourceResult(
+            name="openalex",
+            status="failed",
+            reason="Timeout de 30s excedido",
+            query="q=fail",
+            found=None,
+            fetched=0,
+            works=[],
+        ),
+    )
+    src_ok = FakeSource(
+        name="crossref",
+        needs_key=False,
+        results=SourceResult(
+            name="crossref",
+            status="ok",
+            query="q=ok",
+            found=10,
+            fetched=1,
+            works=[_sample_work(title="Artigo Sucesso", doi="10.1000/ok")],
+        ),
+    )
+
+    res = await run_search(store, [src_fail, src_ok], query="teste falha parcial")
+    assert res["status"] == "incomplete"
+    assert res["total"] == 1
+    assert len(res["works"]) == 1
+    assert res["works"][0]["doi"] == "10.1000/ok"
+
+    log_content = store.read_log()
+    assert "Lista: l-0001 · incompleta · 1 artigo" in log_content
+    assert "- openalex · failed · Timeout de 30s excedido" in log_content
+    assert "- crossref · ok · encontrados 10, trazidos 1" in log_content
+
