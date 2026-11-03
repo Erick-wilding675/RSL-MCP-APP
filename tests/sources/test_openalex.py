@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -209,7 +210,10 @@ async def test_fr01_fr03_fr14_d004_d010_mapeamento_completo_url_e_forma_curta(
     assert a2.ids == {"openalex": "A5099999999"}
     assert a2.position == "last"
     assert a2.is_corresponding is False
-    assert a2.affiliations[0].ids == {"openalex": "I136199984", "ror": "042nb2s44"}
+    assert a2.affiliations[0].ids == {
+        "openalex": "I136199984",
+        "ror": "https://ror.org/042nb2s44",
+    }
 
     w2 = result.works[1]
     assert w2.doi == "10.1145/333444.555666"
@@ -293,14 +297,29 @@ async def test_fr03_fr14_descarta_sem_titulo_e_aceita_nulos_em_qualquer_nivel(
     assert result.works[1].venue is None
 
 
-# FR-01, NFR-05: Paginação pede segunda página acima de 100 e para em max_results, fim ou 10.000
+# FR-01, NFR-05: Paginação, per_page menor, descartes sem título, meta.count fixo e teto 10.000
 @pytest.mark.anyio
-async def test_fr01_nfr05_paginacao_max_results_fim_e_limite_10000(
+async def test_fr01_nfr05_paginacao_max_results_fim_descartes_e_limite_10000(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123")
 
-    # 1. Para em max_results (150 -> páginas 1 e 2)
+    # 1. max_results=10 pede per_page=10 na URL
+    seen_per_page: list[str] = []
+
+    def handler_small(request: httpx.Request) -> httpx.Response:
+        seen_per_page.append(request.url.params["per_page"])
+        items = [_make_raw_work(i) for i in range(10)]
+        return httpx.Response(200, json={"meta": {"count": 50}, "results": items})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_small)) as client:
+        res_small = await OpenAlexSource(client=client).search("small", max_results=10)
+
+    assert seen_per_page == ["10"]
+    assert res_small.fetched == 10
+    assert res_small.query == "search=small · per_page=10 · páginas 1-1"
+
+    # 2. Para em max_results (150 -> páginas 1 e 2) e preserva found da primeira página
     pages_called: list[int] = []
 
     def handler_max(request: httpx.Request) -> httpx.Response:
@@ -308,7 +327,8 @@ async def test_fr01_nfr05_paginacao_max_results_fim_e_limite_10000(
         pages_called.append(page)
         start = (page - 1) * 100
         items = [_make_raw_work(start + i) for i in range(100)]
-        return httpx.Response(200, json={"meta": {"count": 500}, "results": items})
+        meta_count = 500 if page == 1 else 999
+        return httpx.Response(200, json={"meta": {"count": meta_count}, "results": items})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_max)) as client:
         res_max = await OpenAlexSource(client=client).search("paging", max_results=150)
@@ -319,7 +339,27 @@ async def test_fr01_nfr05_paginacao_max_results_fim_e_limite_10000(
     assert len(res_max.works) == 150
     assert res_max.query == "search=paging · per_page=100 · páginas 1-2"
 
-    # 2. Para no fim do resultado antes de max_results
+    # 3. max_results=100 com 5 sem título na página 1 pede a página 2 para completar 100
+    pages_discard: list[int] = []
+
+    def handler_discard(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["page"])
+        pages_discard.append(page)
+        start = (page - 1) * 100
+        items = [
+            _make_raw_work(start + i, title="" if (page == 1 and i < 5) else None)
+            for i in range(100)
+        ]
+        return httpx.Response(200, json={"meta": {"count": 200}, "results": items})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_discard)) as client:
+        res_discard = await OpenAlexSource(client=client).search("discard", max_results=100)
+
+    assert pages_discard == [1, 2]
+    assert res_discard.fetched == 100
+    assert len(res_discard.works) == 100
+
+    # 4. Para no fim do resultado antes de max_results
     pages_end: list[int] = []
 
     def handler_end(request: httpx.Request) -> httpx.Response:
@@ -336,7 +376,7 @@ async def test_fr01_nfr05_paginacao_max_results_fim_e_limite_10000(
     assert pages_end == [1, 2]
     assert res_end.fetched == 120
 
-    # 3. Para nos 10.000 resultados mesmo se max_results for maior
+    # 5. Para nos 10.000 resultados mesmo se max_results for maior
     pages_10k: list[int] = []
 
     def handler_10k(request: httpx.Request) -> httpx.Response:
@@ -354,7 +394,7 @@ async def test_fr01_nfr05_paginacao_max_results_fim_e_limite_10000(
     assert res_10k.fetched == 10000
     assert res_10k.query == "search=ten_k · per_page=100 · páginas 1-100"
 
-    # 4. Se a segunda página falha, preserva os trabalhos já trazidos na primeira
+    # 6. Se a segunda página falha, preserva os trabalhos já trazidos na primeira
     def handler_partial(request: httpx.Request) -> httpx.Response:
         page = int(request.url.params["page"])
         if page == 1:
@@ -377,94 +417,118 @@ async def test_fr01_nfr05_paginacao_max_results_fim_e_limite_10000(
     assert len(res_partial.works) == 100
 
 
-# NFR-01, NFR-04, NFR-05: Novas tentativas [1, 2, 4] em 429 e 5xx; sem repetir cota ou ativação
+# NFR-01, NFR-04, NFR-05: Novas tentativas [1, 2, 4] em 429, 5xx, timeout e erro de rede
 @pytest.mark.anyio
-async def test_nfr01_nfr04_nfr05_retries_429_5xx_e_erros_sem_repeticao(
+@pytest.mark.parametrize(
+    ("action", "expected_status", "expected_reason"),
+    [
+        (
+            lambda req: httpx.Response(429, json={"error": "rate_limit_exceeded"}),
+            "rate_limited",
+            "HTTP 429 depois de 3 tentativas",
+        ),
+        (
+            lambda req: httpx.Response(503, text="Service Unavailable"),
+            "failed",
+            "HTTP 503 depois de 3 tentativas",
+        ),
+        (
+            lambda req: (_ for _ in ()).throw(
+                httpx.ReadTimeout("detalhe timeout Bearer fake-key-123", request=req)
+            ),
+            "failed",
+            "tempo limite esgotado depois de 3 tentativas",
+        ),
+        (
+            lambda req: (_ for _ in ()).throw(
+                httpx.ConnectError("detalhe rede Bearer fake-key-123", request=req)
+            ),
+            "failed",
+            "erro de rede depois de 3 tentativas",
+        ),
+    ],
+)
+async def test_nfr01_nfr04_nfr05_retries_429_5xx_timeout_e_rede(
     monkeypatch: pytest.MonkeyPatch,
+    action: Callable[[httpx.Request], httpx.Response],
+    expected_status: str,
+    expected_reason: str,
 ) -> None:
     monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123")
+    sleeps: list[float] = []
+    calls = 0
 
-    # 1. 429 transitório tenta 3 vezes com espera [1, 2, 4] e devolve rate_limited
-    sleeps_429: list[float] = []
-    calls_429 = 0
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
 
-    async def fake_sleep_429(seconds: float) -> None:
-        sleeps_429.append(seconds)
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return action(request)
 
-    def handler_429(request: httpx.Request) -> httpx.Response:
-        nonlocal calls_429
-        calls_429 += 1
-        return httpx.Response(429, json={"error": "rate_limit_exceeded"})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        res = await OpenAlexSource(client=client, sleep=fake_sleep).search("q")
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_429)) as client:
-        res_429 = await OpenAlexSource(client=client, sleep=fake_sleep_429).search("q")
+    assert calls == 4
+    assert sleeps == [1, 2, 4]
+    assert res.status == expected_status
+    assert res.reason == expected_reason
+    assert "fake-key-123" not in (res.reason or "")
+    assert "detalhe" not in (res.reason or "")
 
-    assert calls_429 == 4
-    assert sleeps_429 == [1, 2, 4]
-    assert res_429.status == "rate_limited"
-    assert res_429.reason == "HTTP 429 depois de 3 tentativas"
 
-    # 2. 503 tenta 3 vezes com espera [1, 2, 4] e devolve failed
-    sleeps_503: list[float] = []
-    calls_503 = 0
+# NFR-01, NFR-04, NFR-05: Erros sem repetição (cota diária, chave não ativada, JSON inválido)
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("response", "expected_status", "expected_reason"),
+    [
+        (
+            httpx.Response(429, json={"error": "not_enough_credits"}),
+            "rate_limited",
+            "créditos diários do OpenAlex esgotados",
+        ),
+        (
+            httpx.Response(403, json={"error": "key_not_activated"}),
+            "failed",
+            "a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
+        ),
+        (
+            httpx.Response(200, text="<html>not json</html>"),
+            "failed",
+            "resposta JSON inválida do OpenAlex",
+        ),
+        (
+            httpx.Response(200, json=[{"id": "W1"}]),
+            "failed",
+            "resposta JSON inválida do OpenAlex",
+        ),
+    ],
+)
+async def test_nfr01_nfr04_nfr05_erros_sem_repeticao_e_json_invalido(
+    monkeypatch: pytest.MonkeyPatch,
+    response: httpx.Response,
+    expected_status: str,
+    expected_reason: str,
+) -> None:
+    monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123")
+    sleeps: list[float] = []
+    calls = 0
 
-    async def fake_sleep_503(seconds: float) -> None:
-        sleeps_503.append(seconds)
+    async def fake_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
 
-    def handler_503(request: httpx.Request) -> httpx.Response:
-        nonlocal calls_503
-        calls_503 += 1
-        return httpx.Response(503, text="Service Unavailable")
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return response
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_503)) as client:
-        res_503 = await OpenAlexSource(client=client, sleep=fake_sleep_503).search("q")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        res = await OpenAlexSource(client=client, sleep=fake_sleep).search("q")
 
-    assert calls_503 == 4
-    assert sleeps_503 == [1, 2, 4]
-    assert res_503.status == "failed"
-    assert res_503.reason == "HTTP 503 depois de 3 tentativas"
-
-    # 3. 429 com not_enough_credits não repete
-    sleeps_credits: list[float] = []
-    calls_credits = 0
-
-    async def fake_sleep_credits(seconds: float) -> None:
-        sleeps_credits.append(seconds)
-
-    def handler_credits(request: httpx.Request) -> httpx.Response:
-        nonlocal calls_credits
-        calls_credits += 1
-        return httpx.Response(429, json={"error": "not_enough_credits"})
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_credits)) as client:
-        res_credits = await OpenAlexSource(
-            client=client, sleep=fake_sleep_credits
-        ).search("q")
-
-    assert calls_credits == 1
-    assert sleeps_credits == []
-    assert res_credits.status == "rate_limited"
-    assert res_credits.reason == "créditos diários do OpenAlex esgotados"
-
-    # 4. 403 com key_not_activated não repete
-    sleeps_403: list[float] = []
-    calls_403 = 0
-
-    async def fake_sleep_403(seconds: float) -> None:
-        sleeps_403.append(seconds)
-
-    def handler_403(request: httpx.Request) -> httpx.Response:
-        nonlocal calls_403
-        calls_403 += 1
-        return httpx.Response(403, json={"error": "key_not_activated"})
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_403)) as client:
-        res_403 = await OpenAlexSource(client=client, sleep=fake_sleep_403).search("q")
-
-    assert calls_403 == 1
-    assert sleeps_403 == []
-    assert res_403.status == "failed"
-    assert res_403.reason == "a chave do OpenAlex ainda não foi ativada pelo link do e-mail"
+    assert calls == 1
+    assert sleeps == []
+    assert res.status == expected_status
+    assert res.reason == expected_reason
 
 
 # FR-07, NFR-03: Sem OPENALEX_API_KEY devolve missing_key sem chamar a API
@@ -491,7 +555,7 @@ async def test_fr07_nfr03_sem_chave_devolve_missing_key_sem_chamar_api(
     assert res_blank.status == "missing_key"
 
 
-# NFR-03: A chave vai apenas no cabeçalho Authorization e nunca vaza em URL, query, reason, repr ou logs
+# NFR-03: Chave no cabeçalho, validação contra caracteres inválidos e proteção contra exceções
 @pytest.mark.anyio
 async def test_nfr03_chave_vai_no_cabecalho_e_nao_vaza_em_url_query_reason_repr_ou_caplog(
     monkeypatch: pytest.MonkeyPatch,
@@ -505,6 +569,8 @@ async def test_nfr03_chave_vai_no_cabecalho_e_nao_vaza_em_url_query_reason_repr_
         seen_requests.append(request)
         if request.url.params.get("search") == "erro":
             return httpx.Response(401, json={"error": "unauthorized"})
+        if request.url.params.get("search") == "excecao":
+            raise RuntimeError(f"boom Bearer {secret_key}")
         return httpx.Response(
             200,
             json={"meta": {"count": 1}, "results": [_make_raw_work(1)]},
@@ -515,14 +581,28 @@ async def test_nfr03_chave_vai_no_cabecalho_e_nao_vaza_em_url_query_reason_repr_
             source = OpenAlexSource(client=client)
             res_ok = await source.search("seguranca", max_results=10)
             res_err = await source.search("erro", max_results=10)
+            res_exc = await source.search("excecao", max_results=10)
             cache_q = source.cache_query("seguranca", max_results=10)
             source_repr = repr(source)
 
-    assert len(seen_requests) == 2
+            for bad_key in ("chave-çé-123", "chave-\u200b-123", "chave com espaco"):
+                monkeypatch.setenv("OPENALEX_API_KEY", bad_key)
+                res_bad = await source.search("seguranca", max_results=10)
+                assert res_bad.status == "failed"
+                assert res_bad.reason == "OPENALEX_API_KEY tem caracteres inválidos"
+                assert bad_key not in (res_bad.reason or "")
+                assert bad_key not in res_bad.query
+                assert bad_key not in caplog.text
+
+    assert len(seen_requests) == 3
     for req in seen_requests:
         assert req.headers["Authorization"] == f"Bearer {secret_key}"
         assert secret_key not in str(req.url)
         assert "api_key" not in str(req.url).lower()
+
+    assert res_exc.status == "failed"
+    assert res_exc.reason == "falha inesperada ao consultar o OpenAlex"
+    assert "boom" not in (res_exc.reason or "")
 
     for surface in (
         res_ok.query,
@@ -531,6 +611,9 @@ async def test_nfr03_chave_vai_no_cabecalho_e_nao_vaza_em_url_query_reason_repr_
         res_err.query,
         str(res_err.reason),
         str(res_err.to_dict()),
+        res_exc.query,
+        str(res_exc.reason),
+        str(res_exc.to_dict()),
         str(cache_q),
         source_repr,
         caplog.text,

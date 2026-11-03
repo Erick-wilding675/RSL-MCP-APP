@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 ErrorCode = Literal[
     "no_source_available",
@@ -14,17 +14,7 @@ ErrorCode = Literal[
     "export_folder_not_writable",
 ]
 
-ERROR_CODES: frozenset[str] = frozenset(
-    {
-        "no_source_available",
-        "invalid_input",
-        "list_not_found",
-        "search_not_found",
-        "work_not_found",
-        "format_not_available",
-        "export_folder_not_writable",
-    }
-)
+ERROR_CODES: frozenset[str] = frozenset(get_args(ErrorCode))
 
 
 # D-002: Códigos de erro estáveis do contrato, sem dependência do protocolo MCP no miolo

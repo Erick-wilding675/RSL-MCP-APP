@@ -36,26 +36,30 @@ def _user_agent() -> str:
     return f"rslapp/{version}"
 
 
-def _short_openalex_id(raw: Any) -> str | None:
+def _is_valid_api_key(key: str) -> bool:
+    return bool(key) and key.isascii() and key.isprintable() and not any(c.isspace() for c in key)
+
+
+def _strip_url_prefixes(raw: Any, prefixes: tuple[str, ...]) -> str | None:
     if not isinstance(raw, str):
         return None
     val = raw.strip().rstrip("/")
-    if not val:
-        return None
     lower = val.lower()
-    for prefix in ("https://openalex.org/", "http://openalex.org/"):
+    for prefix in prefixes:
         if lower.startswith(prefix):
             val = val[len(prefix) :].strip().rstrip("/")
-            break
+            lower = val.lower()
     return val if val else None
+
+
+def _short_openalex_id(raw: Any) -> str | None:
+    return _strip_url_prefixes(raw, ("https://openalex.org/", "http://openalex.org/"))
 
 
 def _normalize_doi(raw: Any) -> str | None:
     if not isinstance(raw, str):
         return None
     val = raw.strip()
-    if not val:
-        return None
     lower = val.lower()
     for prefix in (
         "https://doi.org/",
@@ -71,17 +75,13 @@ def _normalize_doi(raw: Any) -> str | None:
 
 
 def _normalize_orcid(raw: Any) -> str | None:
-    if not isinstance(raw, str):
-        return None
-    val = raw.strip().rstrip("/")
-    if not val:
-        return None
-    lower = val.lower()
-    for prefix in ("https://orcid.org/", "http://orcid.org/"):
-        if lower.startswith(prefix):
-            val = val[len(prefix) :].strip().rstrip("/")
-            break
+    val = _strip_url_prefixes(raw, ("https://orcid.org/", "http://orcid.org/"))
     return val.upper() if val else None
+
+
+def _normalize_ror(raw: Any) -> str | None:
+    val = _strip_url_prefixes(raw, ("https://ror.org/", "http://ror.org/"))
+    return f"https://ror.org/{val}" if val else None
 
 
 # FR-03: Remonta o texto do resumo a partir do abstract_inverted_index do OpenAlex
@@ -120,7 +120,6 @@ def _parse_author(raw_authorship: Any) -> Author | None:
 
     raw_pos = raw_authorship.get("author_position")
     position = raw_pos.strip() if isinstance(raw_pos, str) and raw_pos.strip() else None
-
     raw_corr = raw_authorship.get("is_corresponding")
     is_corresponding = raw_corr if isinstance(raw_corr, bool) else None
 
@@ -140,9 +139,9 @@ def _parse_author(raw_authorship: Any) -> Author | None:
             oa_inst_id = _short_openalex_id(inst.get("id"))
             if oa_inst_id:
                 inst_ids["openalex"] = oa_inst_id
-            raw_ror = inst.get("ror")
-            if isinstance(raw_ror, str) and raw_ror.strip():
-                inst_ids["ror"] = raw_ror.strip()
+            ror = _normalize_ror(inst.get("ror"))
+            if ror:
+                inst_ids["ror"] = ror
             raw_cc = inst.get("country_code")
             country_code = raw_cc.strip() if isinstance(raw_cc, str) and raw_cc.strip() else None
             affiliations.append(
@@ -229,7 +228,6 @@ def _parse_work(raw_work: Any) -> Work | None:
 
     raw_year = raw_work.get("publication_year")
     year = raw_year if isinstance(raw_year, int) and not isinstance(raw_year, bool) else None
-
     raw_type = raw_work.get("type")
     work_type = raw_type.strip() if isinstance(raw_type, str) and raw_type.strip() else None
 
@@ -267,6 +265,10 @@ def _extract_error_tag(response: httpx.Response) -> str:
 
 def _format_query_text(query: str, per_page: int, last_page: int) -> str:
     return f"search={query} · per_page={per_page} · páginas 1-{last_page}"
+
+
+def _retry_failure(status: str, prefix: str) -> tuple[str, str]:
+    return status, f"{prefix} depois de {len(RETRY_DELAYS)} tentativas"
 
 
 # FR-01, FR-03, FR-14, NFR-01, NFR-03, NFR-04, NFR-05, D-004, D-010: Conector OpenAlex
@@ -315,6 +317,7 @@ class OpenAlexSource(Source):
         headers: dict[str, str],
     ) -> tuple[dict[str, Any] | None, str | None, str | None]:
         max_retries = len(RETRY_DELAYS)
+        err_status, err_reason = "failed", "falha inesperada ao consultar o OpenAlex"
         for attempt in range(max_retries + 1):
             try:
                 response = await client.get(
@@ -324,69 +327,43 @@ class OpenAlexSource(Source):
                     timeout=DEFAULT_TIMEOUT,
                 )
             except httpx.TimeoutException:
-                if attempt < max_retries:
-                    await self._sleep(RETRY_DELAYS[attempt])
-                    continue
-                return (
-                    None,
-                    "failed",
-                    f"tempo limite esgotado depois de {max_retries} tentativas",
-                )
+                err_status, err_reason = _retry_failure("failed", "tempo limite esgotado")
             except httpx.HTTPError:
-                if attempt < max_retries:
-                    await self._sleep(RETRY_DELAYS[attempt])
-                    continue
-                return (
-                    None,
-                    "failed",
-                    f"erro de rede depois de {max_retries} tentativas",
-                )
+                err_status, err_reason = _retry_failure("failed", "erro de rede")
+            except Exception:  # noqa: BLE001
+                return None, "failed", "falha inesperada ao consultar o OpenAlex"
+            else:
+                status_code = response.status_code
+                if status_code == 200:
+                    try:
+                        data = response.json()
+                    except ValueError:
+                        return None, "failed", "resposta JSON inválida do OpenAlex"
+                    if not isinstance(data, dict):
+                        return None, "failed", "resposta JSON inválida do OpenAlex"
+                    return data, None, None
 
-            status_code = response.status_code
-            if status_code == 200:
-                try:
-                    data = response.json()
-                except ValueError:
-                    return None, "failed", "resposta JSON inválida do OpenAlex"
-                if not isinstance(data, dict):
-                    return None, "failed", "resposta JSON inválida do OpenAlex"
-                return data, None, None
+                error_tag = _extract_error_tag(response)
+                # NFR-01, NFR-05: Cota diária esgotada não faz novas tentativas
+                if status_code == 429 and error_tag == "not_enough_credits":
+                    return None, "rate_limited", "créditos diários do OpenAlex esgotados"
+                if status_code == 403 and error_tag == "key_not_activated":
+                    return (
+                        None,
+                        "failed",
+                        "a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
+                    )
+                if status_code == 429:
+                    err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
+                elif 500 <= status_code < 600:
+                    err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
+                else:
+                    return None, "failed", f"HTTP {status_code}"
 
-            error_tag = _extract_error_tag(response)
-            # NFR-01, NFR-05: Cota diária esgotada não faz novas tentativas
-            if status_code == 429 and error_tag == "not_enough_credits":
-                return None, "rate_limited", "créditos diários do OpenAlex esgotados"
+            if attempt < max_retries:
+                await self._sleep(RETRY_DELAYS[attempt])
 
-            if status_code == 403 and error_tag == "key_not_activated":
-                return (
-                    None,
-                    "failed",
-                    "a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
-                )
-
-            if status_code == 429:
-                if attempt < max_retries:
-                    await self._sleep(RETRY_DELAYS[attempt])
-                    continue
-                return (
-                    None,
-                    "rate_limited",
-                    f"HTTP 429 depois de {max_retries} tentativas",
-                )
-
-            if 500 <= status_code < 600:
-                if attempt < max_retries:
-                    await self._sleep(RETRY_DELAYS[attempt])
-                    continue
-                return (
-                    None,
-                    "failed",
-                    f"HTTP {status_code} depois de {max_retries} tentativas",
-                )
-
-            return None, "failed", f"HTTP {status_code}"
-
-        return None, "failed", "falha inesperada ao consultar o OpenAlex"
+        return None, err_status, err_reason
 
     # FR-01, NFR-03, NFR-04, NFR-05: Busca paginada com chave via cabeçalho Authorization: Bearer
     async def search(self, query: str, max_results: int = 100) -> SourceResult:
@@ -396,12 +373,22 @@ class OpenAlexSource(Source):
 
         # NFR-03: Lê a chave diretamente do ambiente a cada chamada, sem guardá-la em atributo
         raw_key = os.environ.get("OPENALEX_API_KEY")
-        api_key = raw_key.strip() if raw_key else ""
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
         if not api_key:
             return SourceResult(
                 name=self.name,
                 status="missing_key",
                 reason="variável OPENALEX_API_KEY não configurada",
+                query=_format_query_text(clean_query, per_page, 1),
+                found=None,
+                fetched=0,
+                works=[],
+            )
+        if not _is_valid_api_key(api_key):
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="OPENALEX_API_KEY tem caracteres inválidos",
                 query=_format_query_text(clean_query, per_page, 1),
                 found=None,
                 fetched=0,
@@ -417,60 +404,69 @@ class OpenAlexSource(Source):
         found: int | None = None
         page = 1
 
-        async with self._get_client() as client:
-            while True:
-                params = {
-                    "search": clean_query,
-                    "per_page": str(per_page),
-                    "page": str(page),
-                    "select": SELECT_FIELDS,
-                }
-                data, err_status, err_reason = await self._request_page(
-                    client, params, headers
-                )
-                if err_status is not None:
-                    return SourceResult(
-                        name=self.name,
-                        status=err_status,
-                        reason=err_reason,
-                        query=_format_query_text(clean_query, per_page, page),
-                        found=found,
-                        fetched=len(works),
-                        works=works,
+        try:
+            async with self._get_client() as client:
+                while True:
+                    params = {
+                        "search": clean_query,
+                        "per_page": str(per_page),
+                        "page": str(page),
+                        "select": SELECT_FIELDS,
+                    }
+                    data, err_status, err_reason = await self._request_page(
+                        client, params, headers
                     )
+                    if err_status is not None:
+                        return SourceResult(
+                            name=self.name,
+                            status=err_status,
+                            reason=err_reason,
+                            query=_format_query_text(clean_query, per_page, page),
+                            found=found,
+                            fetched=len(works),
+                            works=works,
+                        )
 
-                assert data is not None
-                if page == 1:
-                    meta = data.get("meta")
-                    if isinstance(meta, dict):
-                        raw_count = meta.get("count")
-                        if isinstance(raw_count, int) and not isinstance(raw_count, bool):
-                            found = raw_count
+                    assert data is not None
+                    if page == 1:
+                        meta = data.get("meta")
+                        if isinstance(meta, dict):
+                            raw_count = meta.get("count")
+                            if isinstance(raw_count, int) and not isinstance(raw_count, bool):
+                                found = raw_count
 
-                raw_results = data.get("results")
-                if not isinstance(raw_results, list) or not raw_results:
-                    break
+                    raw_results = data.get("results")
+                    if not isinstance(raw_results, list) or not raw_results:
+                        break
 
-                for raw_item in raw_results:
-                    parsed = _parse_work(raw_item)
-                    if parsed is not None:
-                        works.append(parsed)
-                        if len(works) >= effective_max:
-                            break
+                    for raw_item in raw_results:
+                        parsed = _parse_work(raw_item)
+                        if parsed is not None:
+                            works.append(parsed)
+                            if len(works) >= effective_max:
+                                break
 
-                # Para quando atinge max_results, o limite de 10.000 ou o fim dos resultados
-                if len(works) >= effective_max:
-                    break
-                if page * per_page >= effective_max:
-                    break
-                if len(raw_results) < per_page:
-                    break
-                if found is not None and page * per_page >= found:
-                    break
-                if (page + 1) * per_page > MAX_RESULTS_LIMIT:
-                    break
+                    # Para quando atinge max_results, o limite de 10.000 ou o fim dos resultados
+                    if len(works) >= effective_max:
+                        break
+                    if len(raw_results) < per_page:
+                        break
+                    if found is not None and page * per_page >= found:
+                        break
+                    if (page + 1) * per_page > MAX_RESULTS_LIMIT:
+                        break
 
-                page += 1
+                    page += 1
+        except Exception:  # noqa: BLE001
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="falha inesperada ao consultar o OpenAlex",
+                query=_format_query_text(clean_query, per_page, page),
+                found=found,
+                fetched=len(works),
+                works=works,
+            )
 
         return SourceResult(
             name=self.name,
