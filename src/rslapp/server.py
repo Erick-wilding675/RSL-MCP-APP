@@ -10,6 +10,7 @@ from typing_extensions import TypedDict
 
 from rslapp import config
 from rslapp.core.errors import RSLError
+from rslapp.core.related import run_related
 from rslapp.core.search import run_search
 from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
@@ -95,6 +96,34 @@ async def search_works(
             store,
             _build_sources(),
             query=query,
+            request_summary=request_summary,
+            max_results=max_results,
+            source_names=sources,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
+# FR-15, FR-08, FR-14, UC-04, D-002, D-005, D-010: Consulta referências ou citações de um artigo
+@mcp.tool()
+async def get_related_works(
+    doi: str | None = None,
+    work_id: str | None = None,
+    direction: str = "",
+    request_summary: str = "",
+    sources: list[str] | None = None,
+    max_results: int = 1000,
+) -> dict[str, Any]:
+    """Busca referências ou citações de um artigo acadêmico nas fontes, deduplica e grava lista própria."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return await run_related(
+            store,
+            _build_sources(),
+            direction=direction,
+            doi=doi,
+            work_id=work_id,
             request_summary=request_summary,
             max_results=max_results,
             source_names=sources,
