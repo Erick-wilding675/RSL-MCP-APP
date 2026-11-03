@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import httpx
@@ -23,7 +24,7 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(autouse=True)
-def clean_semantic_scholar_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def clean_semantic_scholar_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY", raising=False)
     simulated_time = 0.0
 
@@ -35,6 +36,8 @@ def clean_semantic_scholar_env(monkeypatch: pytest.MonkeyPatch) -> None:
         simulated_time += seconds
 
     reset_rate_limiter(clock=fast_clock, sleep=fast_sleep)
+    yield
+    reset_rate_limiter()
 
 
 def _make_raw_work(idx: int, title: str | None = None) -> dict[str, Any]:
@@ -65,7 +68,7 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_e_subcampos(
     captured_requests: list[httpx.Request] = []
 
     payload = {
-        "total": 2,
+        "total": "15117",
         "offset": 0,
         "data": [
             {
@@ -76,7 +79,7 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_e_subcampos(
                 "journal": {"name": "Nature Machine Intelligence"},
                 "venue": "Nature MI Conference",
                 "year": 2023,
-                "publicationTypes": ["JournalArticle"],
+                "publicationTypes": ["JournalArticle", "Review"],
                 "referenceCount": 35,
                 "citationCount": 110,
                 "authors": [
@@ -126,7 +129,8 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_e_subcampos(
     assert result.name == "semantic_scholar"
     assert result.status == "ok"
     assert result.reason is None
-    assert result.found == 2
+    # total em string com dígitos ("15117") é convertido para inteiro
+    assert result.found == 15117
     assert result.fetched == 2
     assert len(result.works) == 2
 
@@ -134,6 +138,7 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_e_subcampos(
     assert w1.title == "Deep Graph Attention Networks"
     assert w1.doi == "10.1038/nature9999"
     assert w1.year == 2023
+    # Seleciona o primeiro de publicationTypes ["JournalArticle", "Review"]
     assert w1.type == "JournalArticle"
     assert w1.venue == "Nature Machine Intelligence"
     assert w1.abstract == "We study graph attention in neural architectures."
@@ -312,29 +317,37 @@ async def test_fr01_nfr04_paginacao_offset_max_results_next_e_limite_1000() -> N
     assert seen_next_offsets == ["0"]
     assert res_no_next.fetched == 25
 
-    # 5. Teto de 1.000 resultados mesmo se max_results for maior
+    # 5. Teto de 1.000 resultados: max_results=1000 com descarte de 1 item sem título por página,
+    # next = offset+100 sempre, e 400 se offset >= 1000; para no offset 900 com status "ok"
     offsets_1000: list[int] = []
 
     def handler_1000(request: httpx.Request) -> httpx.Response:
         off = int(request.url.params["offset"])
         offsets_1000.append(off)
-        resp: dict[str, Any] = {
-            "total": 5000,
-            "offset": off,
-            "data": [_make_raw_work(off + i) for i in range(100)],
-        }
-        if off < 900:
-            resp["next"] = off + 100
-        else:
-            resp["next"] = 1000
-        return httpx.Response(200, json=resp)
+        if off >= 1000:
+            return httpx.Response(400, json={"error": "Offset exceeds limit"})
+        items = [
+            _make_raw_work(off + i, title="" if i == 0 else None)
+            for i in range(100)
+        ]
+        return httpx.Response(
+            200,
+            json={
+                "total": 5000,
+                "offset": off,
+                "next": off + 100,
+                "data": items,
+            },
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_1000)) as client:
-        res_1000 = await SemanticScholarSource(client=client).search("limit_1000", max_results=1500)
+        res_1000 = await SemanticScholarSource(client=client).search("limit_1000", max_results=1000)
 
+    assert res_1000.status == "ok"
     assert len(offsets_1000) == 10
     assert offsets_1000[0] == 0 and offsets_1000[-1] == 900
-    assert res_1000.fetched == 1000
+    assert res_1000.fetched == 990
+    assert "offset=900" in res_1000.query
 
     # 6. Preservação parcial: falha na página 2 preserva itens da página 1
     def handler_partial(request: httpx.Request) -> httpx.Response:
@@ -361,31 +374,28 @@ async def test_fr01_nfr04_paginacao_offset_max_results_next_e_limite_1000() -> N
     assert len(res_partial.works) == 100
 
 
-# FR-08, NFR-04: Ritmo com trava no módulo, >= 1s entre inícios (com e sem chave, com fake clock)
+# FR-08, NFR-04: Ritmo com trava no módulo, >= 1s entre inícios (asyncio.gather, com e sem chave)
 @pytest.mark.anyio
 async def test_fr08_nfr04_ritmo_trava_modulo_e_intervalo_1s_com_e_sem_chave(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     current_time = 100.0
-    sleeps: list[float] = []
+    call_start_times: list[float] = []
 
     def fake_clock() -> float:
         return current_time
 
     async def fake_sleep(seconds: float) -> None:
         nonlocal current_time
-        sleeps.append(seconds)
         current_time += seconds
+        await asyncio.sleep(0)
 
     reset_rate_limiter(clock=fake_clock, sleep=fake_sleep)
 
-    call_start_times: list[float] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx.Request) -> httpx.Response:
         nonlocal current_time
         call_start_times.append(current_time)
-        # Simula duração da requisição de 0.2s
-        current_time += 0.2
+        await asyncio.sleep(0)
         return httpx.Response(
             200,
             json={"total": 1, "offset": 0, "data": [_make_raw_work(1)]},
@@ -394,19 +404,27 @@ async def test_fr08_nfr04_ritmo_trava_modulo_e_intervalo_1s_com_e_sem_chave(
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         source = SemanticScholarSource(client=client, sleep=fake_sleep, clock=fake_clock)
 
-        # Chamada 1 sem chave
-        await source.search("call1", max_results=10)
-        # Chamada 2 sem chave
-        await source.search("call2", max_results=10)
+        # 3 buscas concorrentes com asyncio.gather (sem chave)
+        await asyncio.gather(
+            source.search("call1", max_results=10),
+            source.search("call2", max_results=10),
+            source.search("call3", max_results=10),
+        )
 
-        # Chamada 3 com chave
+        # 4ª busca com chave
         monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "fake-key")
-        await source.search("call3", max_results=10)
+        await source.search("call4", max_results=10)
 
-    assert len(call_start_times) == 3
+    assert len(call_start_times) == 4
     # Pelo menos 1 segundo entre o início de cada chamada
+    diffs = [
+        call_start_times[i + 1] - call_start_times[i]
+        for i in range(len(call_start_times) - 1)
+    ]
+    assert all(d >= 1.0 for d in diffs)
     assert call_start_times[1] - call_start_times[0] >= 1.0
     assert call_start_times[2] - call_start_times[1] >= 1.0
+    assert call_start_times[3] - call_start_times[2] >= 1.0
 
 
 # NFR-01, NFR-04: Retentativas [1, 2, 4] em 429, 5xx, timeout e rede; 429 sem chave vira rate_limited
@@ -471,10 +489,8 @@ async def test_nfr01_nfr04_retries_429_5xx_timeout_e_rede(
         res = await source.search("query")
 
     assert calls == 4
-    # Inclui as esperas de retentativas [1, 2, 4]
-    assert 1 in sleeps
-    assert 2 in sleeps
-    assert 4 in sleeps
+    # Sequência exata das esperas de retentativas [1, 2, 4]
+    assert sleeps == [1, 2, 4]
     assert res.status == expected_status
     assert res.reason == expected_reason
     assert "fake-key" not in (res.reason or "")
