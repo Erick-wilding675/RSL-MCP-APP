@@ -955,28 +955,23 @@ class OpenAlexSource(Source):
         quoted_doi = urllib.parse.quote(clean_doi, safe="")
         query_text = f"doi:{clean_doi}"
 
+        def _fail(status: str, reason: str | None) -> SourceResult:
+            return SourceResult(
+                name=self.name,
+                status=status,
+                reason=reason,
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
         raw_key = os.environ.get("OPENALEX_API_KEY")
         api_key = raw_key.strip(" \t\r\n") if raw_key else ""
         if not api_key:
-            return SourceResult(
-                name=self.name,
-                status="missing_key",
-                reason="variável OPENALEX_API_KEY não configurada",
-                query=query_text,
-                found=None,
-                fetched=0,
-                works=[],
-            )
+            return _fail("missing_key", "variável OPENALEX_API_KEY não configurada")
         if not _is_valid_api_key(api_key):
-            return SourceResult(
-                name=self.name,
-                status="failed",
-                reason="OPENALEX_API_KEY tem caracteres inválidos",
-                query=query_text,
-                found=None,
-                fetched=0,
-                works=[],
-            )
+            return _fail("failed", "OPENALEX_API_KEY tem caracteres inválidos")
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -1003,40 +998,16 @@ class OpenAlexSource(Source):
                     except httpx.HTTPError:
                         err_status, err_reason = _retry_failure("failed", "erro de rede")
                     except Exception:  # noqa: BLE001
-                        return SourceResult(
-                            name=self.name,
-                            status="failed",
-                            reason="falha inesperada ao consultar o OpenAlex",
-                            query=query_text,
-                            found=None,
-                            fetched=0,
-                            works=[],
-                        )
+                        return _fail("failed", "falha inesperada ao consultar o OpenAlex")
                     else:
                         status_code = response.status_code
                         if status_code == 200:
                             try:
                                 data = response.json()
                             except ValueError:
-                                return SourceResult(
-                                    name=self.name,
-                                    status="failed",
-                                    reason="resposta JSON inválida do OpenAlex",
-                                    query=query_text,
-                                    found=None,
-                                    fetched=0,
-                                    works=[],
-                                )
+                                return _fail("failed", "resposta JSON inválida do OpenAlex")
                             if not isinstance(data, dict):
-                                return SourceResult(
-                                    name=self.name,
-                                    status="failed",
-                                    reason="resposta JSON inválida do OpenAlex",
-                                    query=query_text,
-                                    found=None,
-                                    fetched=0,
-                                    works=[],
-                                )
+                                return _fail("failed", "resposta JSON inválida do OpenAlex")
                             work = _parse_work(data)
                             works = [work] if work is not None else []
                             found_cnt = len(works)
@@ -1062,59 +1033,22 @@ class OpenAlexSource(Source):
                                 works=[],
                             )
                         if status_code == 429 and error_tag == "not_enough_credits":
-                            return SourceResult(
-                                name=self.name,
-                                status="rate_limited",
-                                reason="créditos diários do OpenAlex esgotados",
-                                query=query_text,
-                                found=None,
-                                fetched=0,
-                                works=[],
-                            )
+                            return _fail("rate_limited", "créditos diários do OpenAlex esgotados")
                         if status_code == 403 and error_tag == "key_not_activated":
-                            return SourceResult(
-                                name=self.name,
-                                status="failed",
-                                reason="a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
-                                query=query_text,
-                                found=None,
-                                fetched=0,
-                                works=[],
+                            return _fail(
+                                "failed",
+                                "a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
                             )
                         if status_code == 429:
                             err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
                         elif 500 <= status_code < 600:
                             err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
                         else:
-                            return SourceResult(
-                                name=self.name,
-                                status="failed",
-                                reason=f"HTTP {status_code}",
-                                query=query_text,
-                                found=None,
-                                fetched=0,
-                                works=[],
-                            )
+                            return _fail("failed", f"HTTP {status_code}")
 
                     if attempt < max_retries:
                         await self._sleep(RETRY_DELAYS[attempt])
 
-                return SourceResult(
-                    name=self.name,
-                    status=err_status,
-                    reason=err_reason,
-                    query=query_text,
-                    found=None,
-                    fetched=0,
-                    works=[],
-                )
+                return _fail(err_status, err_reason)
         except Exception:  # noqa: BLE001
-            return SourceResult(
-                name=self.name,
-                status="failed",
-                reason="falha inesperada ao consultar o OpenAlex",
-                query=query_text,
-                found=None,
-                fetched=0,
-                works=[],
-            )
+            return _fail("failed", "falha inesperada ao consultar o OpenAlex")

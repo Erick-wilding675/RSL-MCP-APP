@@ -665,18 +665,21 @@ class SemanticScholarSource(Source):
         quoted_doi = urllib.parse.quote(clean_doi, safe="")
         query_text = f"paper=DOI:{clean_doi}"
 
-        raw_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
-        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
-        if api_key and not _is_valid_api_key(api_key):
+        def _fail(status: str, reason: str | None) -> SourceResult:
             return SourceResult(
                 name=self.name,
-                status="failed",
-                reason="SEMANTIC_SCHOLAR_API_KEY tem caracteres inválidos",
+                status=status,
+                reason=reason,
                 query=query_text,
                 found=None,
                 fetched=0,
                 works=[],
             )
+
+        raw_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
+        if api_key and not _is_valid_api_key(api_key):
+            return _fail("failed", "SEMANTIC_SCHOLAR_API_KEY tem caracteres inválidos")
 
         headers = {"User-Agent": _user_agent()}
         if api_key:
@@ -703,40 +706,16 @@ class SemanticScholarSource(Source):
                         except httpx.HTTPError:
                             err_status, err_reason = _retry_failure("failed", "erro de rede")
                         except Exception:  # noqa: BLE001
-                            return SourceResult(
-                                name=self.name,
-                                status="failed",
-                                reason="falha inesperada ao consultar a Semantic Scholar",
-                                query=query_text,
-                                found=None,
-                                fetched=0,
-                                works=[],
-                            )
+                            return _fail("failed", "falha inesperada ao consultar a Semantic Scholar")
                         else:
                             status_code = response.status_code
                             if status_code == 200:
                                 try:
                                     data = response.json()
                                 except ValueError:
-                                    return SourceResult(
-                                        name=self.name,
-                                        status="failed",
-                                        reason="resposta JSON inválida da Semantic Scholar",
-                                        query=query_text,
-                                        found=None,
-                                        fetched=0,
-                                        works=[],
-                                    )
+                                    return _fail("failed", "resposta JSON inválida da Semantic Scholar")
                                 if not isinstance(data, dict):
-                                    return SourceResult(
-                                        name=self.name,
-                                        status="failed",
-                                        reason="resposta JSON inválida da Semantic Scholar",
-                                        query=query_text,
-                                        found=None,
-                                        fetched=0,
-                                        works=[],
-                                    )
+                                    return _fail("failed", "resposta JSON inválida da Semantic Scholar")
                                 work = _parse_work(data)
                                 works = [work] if work is not None else []
                                 found_cnt = len(works)
@@ -766,36 +745,12 @@ class SemanticScholarSource(Source):
                             elif 500 <= status_code < 600:
                                 err_status, err_reason = _retry_failure("failed", msg)
                             else:
-                                return SourceResult(
-                                    name=self.name,
-                                    status="failed",
-                                    reason=msg,
-                                    query=query_text,
-                                    found=None,
-                                    fetched=0,
-                                    works=[],
-                                )
+                                return _fail("failed", msg)
 
                     if attempt < max_retries:
                         slp = self._sleep or _module_sleep
                         await slp(RETRY_DELAYS[attempt])
 
-                return SourceResult(
-                    name=self.name,
-                    status=err_status,
-                    reason=err_reason,
-                    query=query_text,
-                    found=None,
-                    fetched=0,
-                    works=[],
-                )
+                return _fail(err_status, err_reason)
         except Exception:  # noqa: BLE001
-            return SourceResult(
-                name=self.name,
-                status="failed",
-                reason="falha inesperada ao consultar a Semantic Scholar",
-                query=query_text,
-                found=None,
-                fetched=0,
-                works=[],
-            )
+            return _fail("failed", "falha inesperada ao consultar a Semantic Scholar")

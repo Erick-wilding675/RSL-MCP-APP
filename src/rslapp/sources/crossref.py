@@ -441,6 +441,17 @@ class CrossrefSource(Source):
         quoted_doi = urllib.parse.quote(clean_doi, safe="")
         query_text = f"doi:{clean_doi}"
 
+        def _fail(status: str, reason: str | None) -> SourceResult:
+            return SourceResult(
+                name=self.name,
+                status=status,
+                reason=reason,
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
         raw_email = os.environ.get("RSL_CONTACT_EMAIL")
         contact_email = raw_email.strip() if raw_email and raw_email.strip() else None
 
@@ -449,7 +460,7 @@ class CrossrefSource(Source):
         }
 
         url = f"{CROSSREF_WORKS_URL}/{quoted_doi}"
-        params: dict[str, str] = {"select": SELECT_FIELDS}
+        params: dict[str, str] = {}
         if contact_email:
             params["mailto"] = contact_email
 
@@ -470,40 +481,16 @@ class CrossrefSource(Source):
                     except httpx.HTTPError:
                         err_status, err_reason = _retry_failure("failed", "erro de rede")
                     except Exception:  # noqa: BLE001
-                        return SourceResult(
-                            name=self.name,
-                            status="failed",
-                            reason="falha inesperada ao consultar a Crossref",
-                            query=query_text,
-                            found=None,
-                            fetched=0,
-                            works=[],
-                        )
+                        return _fail("failed", "falha inesperada ao consultar a Crossref")
                     else:
                         status_code = response.status_code
                         if status_code == 200:
                             try:
                                 data = response.json()
                             except ValueError:
-                                return SourceResult(
-                                    name=self.name,
-                                    status="failed",
-                                    reason="resposta JSON inválida da Crossref",
-                                    query=query_text,
-                                    found=None,
-                                    fetched=0,
-                                    works=[],
-                                )
+                                return _fail("failed", "resposta JSON inválida da Crossref")
                             if not isinstance(data, dict) or not isinstance(data.get("message"), dict):
-                                return SourceResult(
-                                    name=self.name,
-                                    status="failed",
-                                    reason="resposta JSON inválida da Crossref",
-                                    query=query_text,
-                                    found=None,
-                                    fetched=0,
-                                    works=[],
-                                )
+                                return _fail("failed", "resposta JSON inválida da Crossref")
                             work = _parse_work(data["message"])
                             works = [work] if work is not None else []
                             found_cnt = len(works)
@@ -532,35 +519,11 @@ class CrossrefSource(Source):
                         elif 500 <= status_code < 600:
                             err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
                         else:
-                            return SourceResult(
-                                name=self.name,
-                                status="failed",
-                                reason=f"HTTP {status_code}",
-                                query=query_text,
-                                found=None,
-                                fetched=0,
-                                works=[],
-                            )
+                            return _fail("failed", f"HTTP {status_code}")
 
                     if attempt < max_retries:
                         await self._sleep(RETRY_DELAYS[attempt])
 
-                return SourceResult(
-                    name=self.name,
-                    status=err_status,
-                    reason=err_reason,
-                    query=query_text,
-                    found=None,
-                    fetched=0,
-                    works=[],
-                )
+                return _fail(err_status, err_reason)
         except Exception:  # noqa: BLE001
-            return SourceResult(
-                name=self.name,
-                status="failed",
-                reason="falha inesperada ao consultar a Crossref",
-                query=query_text,
-                found=None,
-                fetched=0,
-                works=[],
-            )
+            return _fail("failed", "falha inesperada ao consultar a Crossref")
