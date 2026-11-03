@@ -1,6 +1,6 @@
 # Pacote e configuração
 
-**Fase:** 1 · Esqueleto · **Situação:** não iniciada
+**Fase:** 1 · Esqueleto · **Situação:** para testar
 
 ## O que faz
 
@@ -12,11 +12,11 @@ Não tem servidor MCP, fontes nem armazenamento. As chaves só são lidas, nunca
 
 ## Pronto quando
 
-- [ ] `pip install -e .` e `pytest` rodam sem erro num ambiente limpo
-- [ ] `ruff check` passa
-- [ ] `config.load()` devolve as pastas e quais chaves estão configuradas (sim ou não), sem expor o valor de nenhuma chave
-- [ ] Teste: sem nenhuma variável, os padrões são usados; com `RSL_DATA_DIR` definido, a pasta muda
-- [ ] Teste: o texto devolvido por `repr` e por `str` da configuração não contém o valor de nenhuma chave
+- [x] `pip install -e .` e `pytest` rodam sem erro num ambiente limpo
+- [x] `ruff check` passa
+- [x] `config.load()` devolve as pastas e quais chaves estão configuradas (sim ou não), sem expor o valor de nenhuma chave
+- [x] Teste: sem nenhuma variável, os padrões são usados; com `RSL_DATA_DIR` definido, a pasta muda
+- [x] Teste: o texto devolvido por `repr` e por `str` da configuração não contém o valor de nenhuma chave
 
 ## Vem de
 
@@ -35,10 +35,11 @@ Nenhuma.
   - `tests/test_config.py`: 18 testes unitários isolados com `monkeypatch` cobrindo padrões, expansão de `~`, derivação de `export_dir` a partir de `data_dir`, validação de `RSL_CACHE_DAYS`, independência de cada chave de API, imutabilidade, verificação exata de `dataclasses.fields(Config)` e não exposição de chaves e e-mail em `repr`/`str`/`vars`/`asdict` nem em exceções de `RSL_CACHE_DAYS`.
 - **O que foi assumido:**
   - `RSL_CONTACT_EMAIL` vazio ou apenas com espaços resulta em `contact_email=None`.
+- **O que foi verificado pelo gerente:**
+  - `pip install -e ".[dev]"` num ambiente limpo em Python 3.12, nesta pasta: 18 testes passam, `ruff check` passa e `import rslapp` funciona fora do `pytest`.
+  - Nesta pasta com acento (`Síntese Labs`), a instalação editável não importa `rslapp` em Python 3.10 e 3.11. Funciona em 3.12, 3.13 e 3.14. A instalação normal funciona em todas, e é ela que o `uvx` entrega ao usuário. Por isso os gates usam `--no-editable --reinstall-package rslapp`.
 - **O que não deu para verificar:**
-  - Nesta pasta com acento (`Síntese Labs`), a instalação editável não importa `rslapp` fora do `pytest` em Python 3.10 e 3.11, enquanto a instalação normal (`--no-editable --reinstall-package rslapp`) funciona.
   - A execução do comando `rslapp` de ponta a ponta depende de `rslapp.server:main`, que pertence à tarefa 01-02 (o registro do entrypoint no pacote instalado já foi verificado via `importlib.metadata.entry_points`).
-  - O item "`pip install -e .` num ambiente limpo" fica para a conferência do gerente.
 
 ## Como testar
 
