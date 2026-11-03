@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+import io
+import json
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +13,7 @@ from mcp import Client
 from mcp.server.mcpserver.exceptions import ToolError
 
 from rslapp import server
-from rslapp.core.models import Author, Work
+from rslapp.core.models import Affiliation, Author, Work
 from rslapp.store import Store
 
 ENV_VARS = (
@@ -54,8 +57,9 @@ def _extract_tool_error_payload(call_result: Any) -> str:
     return raw.removeprefix("Error executing tool export_list: ")
 
 
-def _create_sample_list(data_dir: Path) -> str:
+def _create_sample_list(data_dir: Path, *, with_openalex: bool = True) -> str:
     store = Store(data_dir)
+    source_ids = {"openalex": "W12345"} if with_openalex else {"crossref": "10.1234/rsp.2024.1"}
     work = Work(
         title="Revisão Sistemática com Aprendizado Profundo",
         doi="10.1234/rsp.2024.1",
@@ -65,9 +69,17 @@ def _create_sample_list(data_dir: Path) -> str:
         abstract="Síntese metodológica de modelos interpretáveis aplicados à saúde.",
         keywords=["revisão sistemática", "aprendizado profundo"],
         authors=[
-            Author(name="José da Silva", orcid="0000-0001-2345-6789"),
+            Author(
+                name="José da Silva",
+                orcid="0000-0001-2345-6789",
+                affiliations=[Affiliation(name="Universidade de São Paulo")],
+            ),
             Author(name="Ada Lovelace"),
         ],
+        references=["W9999", "10.1000/ref1"],
+        references_count=2,
+        citations={"openalex": 15, "crossref": 10},
+        source_ids=source_ids,
     )
     _search, saved_list = store.record_search(
         {
@@ -132,6 +144,168 @@ async def test_fr06_fr12_uc01_d002_export_list_ris_sucesso(
         assert "ER  - " == lines[10]
 
 
+# FR-06, FR-12, D-002: export_list para CSV gera colunas Scopus com BOM e substitui arquivo
+@pytest.mark.anyio
+async def test_fr06_fr12_d002_export_list_csv_sucesso(
+    isolated_env: tuple[Path, Path],
+) -> None:
+    data_dir, export_dir = isolated_env
+    list_id = _create_sample_list(data_dir)
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("export_list", {"list_id": list_id, "format": "csv"})
+        assert res.is_error is False
+
+        data = _extract_result_dict(res)
+        expected_path = str(export_dir / f"{list_id}.csv")
+        assert data["path"] == expected_path
+        assert data["format"] == "csv"
+        assert data["count"] == 1
+
+        dest_file = Path(data["path"])
+        assert dest_file.exists()
+        raw_bytes = dest_file.read_bytes()
+        assert raw_bytes.startswith(b"\xef\xbb\xbf")
+
+        content = dest_file.read_text(encoding="utf-8-sig")
+        reader = csv.DictReader(io.StringIO(content))
+        row = next(reader)
+        assert row["Authors"] == "José da Silva; Ada Lovelace"
+        assert row["Title"] == "Revisão Sistemática com Aprendizado Profundo"
+        assert row["Year"] == "2024"
+        assert row["Source title"] == "Revista de Informática Aplicada"
+        assert row["DOI"] == "10.1234/rsp.2024.1"
+        assert row["Cited by"] == "15"
+        assert row["Affiliations"] == "Universidade de São Paulo"
+        assert row["Source"] == "RSL.app"
+        assert row["OpenAlex ID"] == "W12345"
+        assert row["Citations OpenAlex"] == "15"
+        assert row["Citations Crossref"] == "10"
+
+
+# FR-06, FR-12, D-002: export_list para JSON guarda a lista salva completa e format_version: 1
+@pytest.mark.anyio
+async def test_fr06_fr12_d002_export_list_json_sucesso(
+    isolated_env: tuple[Path, Path],
+) -> None:
+    data_dir, export_dir = isolated_env
+    list_id = _create_sample_list(data_dir)
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("export_list", {"list_id": list_id, "format": "json"})
+        assert res.is_error is False
+
+        data = _extract_result_dict(res)
+        expected_path = str(export_dir / f"{list_id}.json")
+        assert data["path"] == expected_path
+        assert data["format"] == "json"
+        assert data["count"] == 1
+
+        dest_file = Path(data["path"])
+        assert dest_file.exists()
+        content = json.loads(dest_file.read_text(encoding="utf-8"))
+        assert content["id"] == list_id
+        assert content["format_version"] == 1
+        assert "exported_at" in content
+        assert len(content["works"]) == 1
+        assert content["works"][0]["title"] == "Revisão Sistemática com Aprendizado Profundo"
+
+
+# FR-06, FR-12, D-002: export_list para dois gera arquivo com DOIs e contagem correspondente
+@pytest.mark.anyio
+async def test_fr06_fr12_d002_export_list_dois_sucesso(
+    isolated_env: tuple[Path, Path],
+) -> None:
+    data_dir, export_dir = isolated_env
+    list_id = _create_sample_list(data_dir)
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("export_list", {"list_id": list_id, "format": "dois"})
+        assert res.is_error is False
+
+        data = _extract_result_dict(res)
+        expected_path = str(export_dir / f"{list_id}.dois.txt")
+        assert data["path"] == expected_path
+        assert data["format"] == "dois"
+        assert data["count"] == 1
+
+        dest_file = Path(data["path"])
+        assert dest_file.exists()
+        assert dest_file.read_text(encoding="utf-8") == "10.1234/rsp.2024.1\n"
+
+
+# FR-06, FR-12, D-002: export_list para openalex_url gera URL no retorno e arquivo com contagem
+@pytest.mark.anyio
+async def test_fr06_fr12_d002_export_list_openalex_url_sucesso(
+    isolated_env: tuple[Path, Path],
+) -> None:
+    data_dir, export_dir = isolated_env
+    list_id = _create_sample_list(data_dir, with_openalex=True)
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("export_list", {"list_id": list_id, "format": "openalex_url"})
+        assert res.is_error is False
+
+        data = _extract_result_dict(res)
+        expected_path = str(export_dir / f"{list_id}.openalex.txt")
+        assert data["path"] == expected_path
+        assert data["format"] == "openalex_url"
+        assert data["count"] == 1
+        assert data["url"] == "https://api.openalex.org/works?filter=openalex:W12345"
+
+        dest_file = Path(data["path"])
+        assert dest_file.exists()
+        assert dest_file.read_text(encoding="utf-8") == "https://api.openalex.org/works?filter=openalex:W12345\n"
+
+
+# FR-06, D-002: openalex_url numa lista que não veio do OpenAlex devolve format_not_available
+@pytest.mark.anyio
+async def test_fr06_d002_export_list_openalex_url_sem_openalex_retorna_format_not_available(
+    isolated_env: tuple[Path, Path],
+) -> None:
+    data_dir, _ = isolated_env
+    list_id = _create_sample_list(data_dir, with_openalex=False)
+
+    with pytest.raises(ToolError) as exc_info:
+        server.export_list(list_id=list_id, format="openalex_url")
+    assert str(exc_info.value).startswith("format_not_available:")
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("export_list", {"list_id": list_id, "format": "openalex_url"})
+        assert res.is_error is True
+        err_msg = _extract_tool_error_payload(res)
+        assert err_msg.startswith("format_not_available:")
+
+
+# FR-06, FR-12, D-002: Cada formato gera o arquivo esperado para a mesma lista de exemplo
+@pytest.mark.anyio
+async def test_fr06_fr12_d002_todos_formatos_mesma_lista(
+    isolated_env: tuple[Path, Path],
+) -> None:
+    data_dir, export_dir = isolated_env
+    list_id = _create_sample_list(data_dir, with_openalex=True)
+
+    formats = ["ris", "csv", "json", "dois", "openalex_url"]
+    expected_extensions = {
+        "ris": "ris",
+        "csv": "csv",
+        "json": "json",
+        "dois": "dois.txt",
+        "openalex_url": "openalex.txt",
+    }
+
+    async with Client(server.mcp) as client:
+        for fmt in formats:
+            res = await client.call_tool("export_list", {"list_id": list_id, "format": fmt})
+            assert res.is_error is False
+            data = _extract_result_dict(res)
+            expected_ext = expected_extensions[fmt]
+            assert data["path"] == str(export_dir / f"{list_id}.{expected_ext}")
+            assert data["format"] == fmt
+            assert Path(data["path"]).exists()
+            assert Path(data["path"]).stat().st_size > 0
+
+
 # FR-06: Exportar novamente a mesma lista substitui o arquivo no disco
 @pytest.mark.anyio
 async def test_fr06_exportar_novamente_substitui_arquivo(
@@ -172,7 +346,7 @@ async def test_d002_fr12_export_list_lista_inexistente_volta_list_not_found(
 
 # D-002, FR-06: Formato desconhecido ou não suportado devolve erro invalid_input
 @pytest.mark.anyio
-@pytest.mark.parametrize("bad_format", ["csv", "json", "dois", "unknown", ""])
+@pytest.mark.parametrize("bad_format", ["xml", "bibtex", "unknown", ""])
 async def test_d002_fr06_export_list_formato_invalido_volta_invalid_input(
     isolated_env: tuple[Path, Path],
     bad_format: str,
