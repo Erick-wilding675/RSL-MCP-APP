@@ -1,6 +1,6 @@
 # Exportação em RIS
 
-**Fase:** 2 · Fatia completa · **Situação:** não iniciada
+**Fase:** 2 · Fatia completa · **Situação:** para testar
 
 ## O que faz
 
@@ -22,8 +22,8 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste: uma lista de exemplo vira um arquivo RIS válido, com um registro por artigo e todos os autores
-- [ ] Teste: uma lista inexistente devolve `list_not_found`; uma pasta sem permissão devolve `export_folder_not_writable`; um formato desconhecido devolve `invalid_input`
+- [x] Teste: uma lista de exemplo vira um arquivo RIS válido, com um registro por artigo e todos os autores
+- [x] Teste: uma lista inexistente devolve `list_not_found`; uma pasta sem permissão devolve `export_folder_not_writable`; um formato desconhecido devolve `invalid_input`
 - [ ] Teste manual do Erick: uma busca real de tema pequeno, exportada em RIS, abre no VOSviewer 1.6.21 sem edição manual (primeiro critério de aceite do projeto); o resultado vai para a seção Resultado da entrega e para o T-008
 - [ ] O RIS não tem campo padrão para ORCID nem referências; anotar na entrega o que foi para campos livres ou ficou de fora
 
@@ -66,3 +66,5 @@ Tarefa 02-02 integrada. O teste no VOSviewer é feito pelo Erick.
    1. **Formatação RIS, codificação UTF-8 e quebras `\r\n` (`src/rslapp/exporters/ris.py` — `RISExporter.render`, FR-06, D-004):** conferir que cada linha termina estritamente em `\r\n`, que os registros iniciam em `TY  - ` e encerram em `ER  - \r\n`, que autores preservam a ordem original sem inversões artificiais, que acentuação internacional é gravada intacta em UTF-8 e que campos vazios não geram tags.
    2. **Gravação atômica, substituição e tratamento de permissão (`src/rslapp/exporters/base.py` — `save_export_file`, FR-06, D-007):** verificar que o arquivo de exportação é gravado em `<RSL_EXPORT_DIR>/<list_id>.ris` via `atomic_write_replace`, que reexportar a mesma lista substitui o arquivo sem erro de colisão, e que falhas de escrita/permissão de diretório levantam `RSLError("export_folder_not_writable", ...)`.
    3. **Tratamento de erros e contrato MCP (`src/rslapp/server.py` — `export_list`, D-002, FR-12):** verificar que listas inexistentes ou identificadores malformados voltam com erro iniciado por `list_not_found:`, formatos diferentes de `"ris"` voltam com `invalid_input:`, e falhas de pasta de exportação voltam com `export_folder_not_writable:`.
+
+**Acompanhamentos da revisão (não bloqueiam):** faltam testes de quebra de linha no título e no resumo; o DOI não normaliza espaço interno; `get_exporter` aceita `"RIS"` e `" ris "`; `run_export` ficou em `exporters/` (a arquitetura o põe no miolo); uma lista vazia grava um `.ris` de 0 bytes.
