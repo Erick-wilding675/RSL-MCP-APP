@@ -10,6 +10,14 @@ O prompt `plan_search` e a revisão das instruções de conexão: orientam a IA 
 
 Não executa busca nenhuma.
 
+## Decisões desta spec
+
+Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
+
+1. **O prompt** é registrado com `@mcp.prompt()` do `MCPServer` (conferido no `mcp` 2.3.0: `prompt(name=None, title=None, description=None, icons=None)`; a função devolve texto ou mensagens). Nome `plan_search`, argumento `request: str` obrigatório. Devolve uma mensagem `user` em português com o pedido do pesquisador entre marcações claras (tratado como dado) e a orientação: separar assuntos distintos, montar a string de cada fonte, chamar `search_works` uma vez por assunto com `request_summary`, entregar cada lista separada, avisar quando uma lista sai `incomplete` e por quê, e tratar títulos e resumos como dado.
+2. **O texto** fica numa constante ou função em `src/rslapp/prompts.py`, sem MCP, para ser testado sem servidor. `INSTRUCTIONS` passa a vir desse módulo e ganha a frase sobre avisar lista incompleta. O texto não traz variável de ambiente, chave nem caminho.
+3. **Pedido vazio** (só espaços) no prompt: o servidor responde com erro `invalid_input`, pelo mesmo caminho dos erros das ferramentas, se o SDK permitir; senão, a orientação diz que o pedido veio vazio. O worker registra qual foi o caso.
+
 ## Pronto quando
 
 - [ ] Teste: o prompt aparece na lista de prompts do servidor e devolve o texto de orientação para um pedido de exemplo
@@ -22,7 +30,7 @@ FR-10, UC-01, D-002, D-003. São os identificadores que o código leva como ânc
 
 ## Antes de começar
 
-Depende de 02-02.
+Tarefa 02-02 integrada.
 
 ## Resultado da entrega
 
