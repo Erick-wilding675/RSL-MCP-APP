@@ -1,6 +1,6 @@
 # CSV, JSON, lista de DOIs e URL do OpenAlex
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** não iniciada
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
 
 ## O que faz
 
@@ -23,9 +23,9 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer. O que abre no VOSvi
 
 ## Pronto quando
 
-- [ ] Teste: cada formato gera o arquivo esperado para a mesma lista de exemplo
-- [ ] Teste: `openalex_url` numa lista que não veio do OpenAlex devolve `format_not_available`
-- [ ] Teste: o JSON guarda tudo o que a lista guarda; o CSV, as colunas combinadas
+- [x] Teste: cada formato gera o arquivo esperado para a mesma lista de exemplo
+- [x] Teste: `openalex_url` numa lista que não veio do OpenAlex devolve `format_not_available`
+- [x] Teste: o JSON guarda tudo o que a lista guarda; o CSV, as colunas combinadas
 - [ ] Teste manual do Erick: o CSV e a lista de DOIs abrem no VOSviewer; a URL do OpenAlex funciona (T-008)
 
 ## Vem de
@@ -66,3 +66,5 @@ Tarefas 02-03 e 04-01 integradas.
    - `src/rslapp/exporters/csv.py` e `tests/exporters/test_csv.py`: verificar a gravação do BOM UTF-8 (`\xef\xbb\xbf`), a troca de referências do OpenAlex para DOI e a preservação de quebras de linha e aspas no resumo ao reler via módulo `csv`.
    - `src/rslapp/exporters/openalex_url.py` e `tests/exporters/test_openalex_url.py`: conferir que nenhuma URL contém credenciais/chaves, que o agrupamento respeita o limite de 100 IDs por filtro, e que listas sem trabalhos do OpenAlex levantam `format_not_available`.
    - `src/rslapp/exporters/__init__.py`: conferir a execução da resolução de referências dentro de `run_export` e o repasse de `warnings` e `url` sem quebrar o transporte síncrono do servidor MCP.
+
+**Acompanhamentos da revisão (não bloqueiam):** o CSV não protege contra injeção de fórmula (título ou resumo começando com `=`, `+`, `-` ou `@` vira fórmula no Excel); decidir junto com o T-008, porque prefixar com `'` pode atrapalhar o VOSviewer. `_run_sync` engole `RuntimeError` vindo de dentro da troca de referências. Faltam testes de campos do nível de cima no JSON e de duas URLs gravadas uma por linha. Um teste do CSV mexe em `os.environ` direto em vez de `monkeypatch`.
