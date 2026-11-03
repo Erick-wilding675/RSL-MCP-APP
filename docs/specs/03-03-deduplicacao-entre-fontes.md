@@ -46,22 +46,26 @@ Depende de 02-02, 03-01 e 03-02.
 ## Resultado da entrega
 
 - **O que mudou:**
-  - Criado o módulo puro `src/rslapp/core/dedup.py` implementando:
+  - Implementado em `src/rslapp/core/dedup.py`:
     - Normalização de DOI (minúsculas, remoção de prefixos `https://doi.org/`, `http://doi.org/`, `https://dx.doi.org/`, `http://dx.doi.org/`, `doi:` e barras finais).
-    - Normalização de título (remoção de acentos e pontuação, minúsculas, espaços simples) com garantia de que título vazio não junta trabalhos sem DOI.
-    - Agrupamento determinístico por mesmo DOI, ou por (título normalizado não vazio + mesmo ano) quando ao menos um dos trabalhos não tiver DOI. Título igual com anos divergentes ou ausentes não se juntam; DOIs diferentes nunca se juntam (**FR-04**).
+    - Normalização de título (remoção de acentos e pontuação, minúsculas, espaços simples) com garantia de que título vazio nunca junta trabalhos sem DOI.
+    - Junção transitiva e agrupamento determinístico: todo registro que entra num grupo (inclusive por DOI) alimenta os índices de DOI e título normalizado + ano com os seus dados, e anos ausentes são completados por membros do mesmo grupo com ano definido. Registros sem DOI encontram o grupo por qualquer membro, independente da ordem de processamento das fontes (**FR-04**).
+    - Regra estrita de DOIs: dois DOIs diferentes nunca se juntam mesmo se título e ano coincidirem. Se um registro casa com dois grupos distintos (um pelo DOI e outro pelo título), ele permanece no grupo do DOI (**FR-04**).
     - Prevalência de campos na ordem OpenAlex, Crossref, Semantic Scholar. Campos simples recebem o primeiro valor não vazio; `authors` e `keywords` vêm inteiros da primeira fonte não vazia (**FR-04**).
     - União de `references` sem repetição preservando a ordem e ids da primeira fonte; agregação de `citations` e `source_ids` sem somar valores de citações (**FR-14**).
     - Contagem de artigos juntados de mais de uma fonte e rastreamento de divergências nos campos `title` (comparado normalizado), `year`, `doi` e `venue` (**FR-04**).
   - Atualizado `src/rslapp/core/search.py`:
-    - Consulta às fontes executada de forma concorrente via `asyncio.gather` sem bloqueio mútuo (**FR-08**).
+    - Consulta às fontes executada concorrentemente via `asyncio.gather` sem bloqueio mútuo (**FR-08**).
     - Gravação em `searches/s-NNNN.json` dos parâmetros `params` (`query`, `max_results`, `sources`) e das estatísticas de junção em `merge` (**FR-05**, **NFR-06**).
   - Atualizado `src/rslapp/store/log.py`:
     - Formatação da linha `Junção: <N> artigos em mais de uma fonte · divergências: ...` (ou `· sem divergências`) logo após a linha da lista, reproduzível de modo exato por `Store.rebuild_log()` (**FR-04**, **FR-13**, **D-007**).
   - Atualizado `src/rslapp/server.py`:
-    - `_build_sources()` instancia os conectores das três fontes: `[OpenAlexSource(), CrossrefSource(), SemanticScholarSource()]` (**FR-01**, **D-002**).
+    - `_build_sources()` instancia incondicionalmente os conectores das três fontes: `[OpenAlexSource(), CrossrefSource(), SemanticScholarSource()]` sem inspeção de stack frames de teste (**FR-01**, **D-002**).
     - Docstring de `list_sources` informa que a chave da Semantic Scholar é opcional e evita recusas por limite de taxa (**FR-07**, **D-002**).
-  - Cobertura completa de testes automatizados adicionada em `tests/core/test_dedup.py`, `tests/store/test_log_merge.py`, `tests/test_server_three_sources.py` e expandida em `tests/core/test_search.py`.
+  - Atualizado `tests/test_server_search_works.py` para refletir as três fontes padrão instanciadas por `_build_sources()` conforme a Decisão 7.
+  - Cobertura completa de testes automatizados adicionada em `tests/core/test_dedup.py` (incluindo permutações das ordens de fontes para junção transitiva e prevalência, ano ausente e desempate no grupo do DOI), `tests/store/test_log_merge.py`, `tests/test_server_three_sources.py` e expandida em `tests/core/test_search.py`.
+- **Por que a entrega passou de 400 linhas:**
+  - A tarefa introduziu o módulo central de deduplicação e fusão de metadados (`src/rslapp/core/dedup.py`, ~320 linhas) com suporte completo a junção transitiva, resolução de conflitos de DOI e divergências por campo, além de integração assíncrona concorrente em `search.py`, reconstrução de log em `log.py`, e extensa suíte de testes com permutações exaustivas e mocks em 4 arquivos de teste distintos para blindar o comportamento contra mutações e regressões.
 - **Requisitos atendidos:** FR-01, FR-04, FR-05, FR-07, FR-08, FR-12, FR-13, FR-14, NFR-03, NFR-06, D-002, D-007.
 - **O que foi assumido:**
   - O campo `merge` no `searches/s-NNNN.json` omite chaves de divergências cujo contador seja 0, conforme o exemplo da spec.
@@ -73,9 +77,9 @@ Depende de 02-02, 03-01 e 03-02.
 
 1. **Executar a suíte de testes de deduplicação e servidor:**
    ```powershell
-   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/core/test_dedup.py tests/store/test_log_merge.py tests/test_server_three_sources.py tests/core/test_search.py -v
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/core/test_dedup.py tests/store/test_log_merge.py tests/test_server_three_sources.py tests/core/test_search.py tests/test_server_search_works.py -v
    ```
-   Deve exibir 32 testes passando (11 em dedup, 7 em log_merge, 4 em server_three_sources, 10 em search).
+   Deve exibir 35 testes passando (14 em dedup, 7 em log_merge, 4 em server_three_sources, 10 em search).
 
 2. **Executar a checagem de estilo e os portões completos:**
    ```powershell
@@ -83,9 +87,10 @@ Depende de 02-02, 03-01 e 03-02.
    uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
    uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
    ```
-   Deve passar sem avisos do ruff e com 144 testes aprovados no Python 3.10 e 3.14.
+   Deve passar sem avisos do ruff e com 147 testes aprovados no Python 3.10 e 3.14.
 
 3. **Onde olhar primeiro (pontos de maior risco):**
-   - `src/rslapp/core/dedup.py` (`deduplicate_works_with_merge`): verificar que dois registros com DOIs distintos nunca se juntam mesmo se tiverem mesmo título e ano, que sem DOI a junção exige tanto título normalizado não vazio quanto ano não nulo idêntico, e que a prevalência obedece estritamente OpenAlex > Crossref > Semantic Scholar.
+   - `src/rslapp/core/dedup.py` (`deduplicate_works_with_merge`): verificar a junção transitiva independente da ordem das fontes (testes com permutações), garantia de que dois registros com DOIs distintos nunca se juntam mesmo com mesmo título e ano, que no empate duplo (DOI e título) o registro permanece no grupo do DOI, e que a prevalência obedece estritamente OpenAlex > Crossref > Semantic Scholar.
+   - `src/rslapp/server.py` (`_build_sources`): verificar a instanciação incondicional das três fontes acadêmicas sem manipulação de stack frames.
    - `src/rslapp/core/search.py` (`run_search`): verificar que `asyncio.gather` dispara as consultas às fontes simultaneamente, e que `searches/` armazena `params` e `merge`.
    - `src/rslapp/store/log.py` (`_format_merge_line` e `format_log_entry`): conferir que a reconstrução do log via `rebuild_log()` reproduz fielmente a linha de junção salva no JSON da busca.
