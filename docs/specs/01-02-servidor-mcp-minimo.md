@@ -86,8 +86,29 @@ T-009 (documentação da v2 do SDK).
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - `src/rslapp/server.py`: servidor MCP mínimo com `MCPServer("rslapp", instructions=INSTRUCTIONS)` do SDK oficial `mcp>=2,<3` (**D-006**, **NFR-02**), constante `INSTRUCTIONS` em português orientando a IA a planejar e dividir assuntos em buscas separadas e a tratar títulos, resumos e metadados como dados (**D-002**, **NFR-03**), tipo `SourceInfo` (`typing_extensions.TypedDict` para compatibilidade com Pydantic no Python 3.10), ferramenta `list_sources()` que chama `config.load()` dinamicamente e devolve o estado das três fontes (`openalex`, `crossref`, `semantic_scholar`) sem expor chaves (**FR-07**, **NFR-03**, **D-002**), e função de entrada `main()` que executa `mcp.run()` via transporte stdio (**D-006**, **NFR-02**).
+  - `tests/test_server.py`: 5 testes cobrindo handshake real por stdio em subprocesso com o comando instalado `rslapp` (`StdioServerParameters`), verificação de `client.instructions` e `list_tools`, chamada de `list_sources` com e sem chaves em subprocesso e em memória (`Client(mcp)`), releitura dinâmica do ambiente a cada chamada e ausência de escrita em `stdout` e de exposição de valores de chaves ou e-mail nas respostas e instruções (**FR-07**, **NFR-02**, **NFR-03**, **D-002**, **D-006**).
+- **O que foi assumido:**
+  - Valores do campo `status` em `list_sources`: assumiu-se `"ok"` quando a fonte está pronta para uso e `"missing_key"` quando `needs_key` é `True` e `configured` é `False` (estados previstos em `docs/interface-contract.md`, já que a spec não detalhava os literais de `status`).
+  - Para `semantic_scholar`, `needs_key` é `False`, `configured` é `True` e `status` é `"ok"` mesmo sem `SEMANTIC_SCHOLAR_API_KEY`, pois a chave é opcional.
+- **O que não deu para verificar:**
+  - Teste manual interativo na interface gráfica do MCP Inspector (o handshake e as chamadas MCP por stdio foram verificados de ponta a ponta em subprocesso real usando `mcp.Client` com `StdioServerParameters(command=shutil.which("rslapp"))`).
 
 ## Como testar
 
-A escrever na entrega.
+1. **Comandos para rodar:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev python -c "from rslapp.server import list_sources; print(list_sources())"
+   ```
+2. **O que deve aparecer:**
+   - `All checks passed!` no `ruff check .`
+   - `23 passed` nas duas execuções do `pytest` (Python 3.10 e Python 3.14).
+   - No comando manual (sem chaves no ambiente): `[{'name': 'openalex', 'configured': False, 'needs_key': True, 'status': 'missing_key'}, {'name': 'crossref', 'configured': True, 'needs_key': False, 'status': 'ok'}, {'name': 'semantic_scholar', 'configured': True, 'needs_key': False, 'status': 'ok'}]`.
+3. **Onde olhar primeiro (pontos de risco, do mais crítico ao menos crítico):**
+   1. **Não exposição de chaves nas respostas e instruções do MCP (`src/rslapp/server.py` — `INSTRUCTIONS` e `list_sources()`, NFR-03):** confirmar que `INSTRUCTIONS` é uma constante estática sem interpolação de variáveis de ambiente e que `list_sources()` repassa apenas os booleanos `configured` e `needs_key` e o estado (`"ok"` ou `"missing_key"`), nunca o valor de `OPENALEX_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY` ou `RSL_CONTACT_EMAIL`.
+   2. **Pureza do canal stdio e leitura dinâmica de configuração (`src/rslapp/server.py` — `list_sources()` e `main()`, D-006, FR-07, NFR-02):** verificar que nada escreve em `stdout` na importação nem na execução da ferramenta (para não corromper o protocolo JSON-RPC por stdio) e que `config.load()` é chamado dentro de `list_sources()` a cada invocação.
+   3. **Compatibilidade do schema de saída com Python 3.10 (`src/rslapp/server.py` — `SourceInfo`, D-006):** conferir o uso de `typing_extensions.TypedDict` em `SourceInfo`, exigido pelo Pydantic 2 em Python `< 3.12` ao gerar o schema da ferramenta no `MCPServer`.
