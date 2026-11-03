@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-03T03:40:00Z
+updated: 2026-11-03T12:40:00Z
 updated_by: Claude Code
 ---
 
@@ -178,4 +178,6 @@ Achados na fase 1, para o Claude desktop rever as specs antes de a fase 2 começ
 
 ## Next question
 
-Fase 1 entregue para teste (1.1, 1.2 e 1.3 em "para testar", run `b20261102-221933` do Playmaker). O Erick testa e marca como prontas, e decide o push dos commits locais. Antes da fase 2: a chave do OpenAlex ativada e a revisão das specs 02-01 e 02-02 com os pontos acima. As fases 2 a 6 estão retidas no quadro até o Erick liberar.
+Fase 1 entregue para teste (1.1, 1.2 e 1.3 em "para testar", run `b20261102-221933` do Playmaker). Os commits da fase 1 foram enviados ao GitHub em 2026-11-03. O Erick testa e marca como prontas. Antes da fase 2: a chave do OpenAlex guardada no Lore secrets (`OPENALEX_API_KEY`, ambiente `prod`; a `SEMANTIC_SCHOLAR_API_KEY` é opcional) e a revisão das specs 02-01 e 02-02 com os pontos acima. As fases 2 a 6 estão retidas no quadro até o Erick liberar.
+
+Em 2026-11-03 a pasta saiu do OneDrive para `C:\Users\hulkd\_Sintese-Labs-Projetos\RSL.app` (árvores do Playmaker em `..\RSL.app-playmaker`). Os três gates passaram no lugar novo. O caminho novo não tem acento, então o motivo do `--no-editable` nos gates pode não valer mais; os gates continuam iguais até alguém medir.
