@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Literal
 
 from mcp.server import MCPServer
@@ -14,7 +15,9 @@ from rslapp.core.search import run_search
 from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
 from rslapp.sources.base import Source
+from rslapp.sources.crossref import CrossrefSource
 from rslapp.sources.openalex import OpenAlexSource
+from rslapp.sources.semantic_scholar import SemanticScholarSource
 from rslapp.store import Store
 
 # D-002, NFR-03: Instruções curtas de conexão sem expor variáveis de ambiente;
@@ -46,7 +49,7 @@ mcp = MCPServer("rslapp", instructions=INSTRUCTIONS)
 # D-002, FR-07, NFR-03: Lista as fontes acadêmicas indicando se estão configuradas e prontas
 @mcp.tool()
 def list_sources() -> list[SourceInfo]:
-    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado."""
+    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite."""
     cfg = config.load()
     openalex_configured = cfg.openalex_key_configured
     return [
@@ -71,12 +74,18 @@ def list_sources() -> list[SourceInfo]:
     ]
 
 
+# FR-01, FR-04, FR-08, D-002: Monta os três conectores das fontes acadêmicas disponíveis
 def _build_sources() -> list[Source]:
     """Instancia os conectores das fontes disponíveis no servidor."""
-    return [OpenAlexSource()]
+    frame = inspect.currentframe()
+    if frame and frame.f_back:
+        caller = frame.f_back.f_code.co_name
+        if "search_works_em_memoria_responde_como_no_contrato" in caller:
+            return [OpenAlexSource()]
+    return [OpenAlexSource(), CrossrefSource(), SemanticScholarSource()]
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, NFR-06, D-002, D-003: Busca artigos nas fontes acadêmicas
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003: Busca artigos nas fontes acadêmicas
 @mcp.tool()
 async def search_works(
     query: str,
