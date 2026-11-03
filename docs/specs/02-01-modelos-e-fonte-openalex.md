@@ -1,6 +1,6 @@
 # Modelos e fonte OpenAlex
 
-**Fase:** 2 · Fatia completa · **Situação:** não iniciada
+**Fase:** 2 · Fatia completa · **Situação:** para testar
 
 ## O que faz
 
@@ -71,13 +71,13 @@ Um trabalho sem título (`display_name` nulo ou só espaços) é descartado e n�
 ## Pronto quando
 
 - [x] Antes de escrever, conferir o T-001 para o OpenAlex (feito acima pelo Claude Code)
-- [ ] Teste com respostas simuladas: título, DOI, ano, tipo, periódico, resumo (remontado do índice invertido), palavras-chave, autores na ordem com ORCID e afiliações com ROR, ids das referências e contagem de citações são mapeados; DOI, ORCID e ids aceitam forma de URL e forma curta
-- [ ] Teste: trabalho sem título é descartado; campos ausentes ou nulos em qualquer nível ficam vazios, sem exceção
-- [ ] Teste: paginação pede a segunda página quando `max_results` passa de 100, e para em `max_results`, no fim do resultado ou nos 10.000
-- [ ] Teste: 429 e 5xx provocam novas tentativas com espera de 1, 2 e 4 s; esgotadas, a fonte devolve `rate_limited` ou `failed` com o motivo, sem exceção para o miolo; `not_enough_credits` e `key_not_activated` não repetem
-- [ ] Teste: sem `OPENALEX_API_KEY`, devolve `missing_key` sem chamar a API
-- [ ] Teste: a chave vai no cabeçalho e não aparece na URL, no `query`, no `reason`, no `repr` do conector nem nos logs (`caplog`)
-- [ ] Teste: `from_dict(to_dict())` devolve o mesmo modelo
+- [x] Teste com respostas simuladas: título, DOI, ano, tipo, periódico, resumo (remontado do índice invertido), palavras-chave, autores na ordem com ORCID e afiliações com ROR, ids das referências e contagem de citações são mapeados; DOI, ORCID e ids aceitam forma de URL e forma curta
+- [x] Teste: trabalho sem título é descartado; campos ausentes ou nulos em qualquer nível ficam vazios, sem exceção
+- [x] Teste: paginação pede a segunda página quando `max_results` passa de 100, e para em `max_results`, no fim do resultado ou nos 10.000
+- [x] Teste: 429 e 5xx provocam novas tentativas com espera de 1, 2 e 4 s; esgotadas, a fonte devolve `rate_limited` ou `failed` com o motivo, sem exceção para o miolo; `not_enough_credits` e `key_not_activated` não repetem
+- [x] Teste: sem `OPENALEX_API_KEY`, devolve `missing_key` sem chamar a API
+- [x] Teste: a chave vai no cabeçalho e não aparece na URL, no `query`, no `reason`, no `repr` do conector nem nos logs (`caplog`)
+- [x] Teste: `from_dict(to_dict())` devolve o mesmo modelo
 - [ ] Chamada real, uma vez, com a chave do Erick: uma busca de 100 trabalhos funciona; o custo medido é anotado no T-002. **É do Erick** (a chave está no Lore secrets; ver "Como testar")
 
 ## Vem de
