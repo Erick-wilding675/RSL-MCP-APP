@@ -2,7 +2,7 @@
 
 **Projeto:** RSL.app · **Versão:** 0.2 · **Data:** 2026-11-02
 
-> **Em resumo:** Dez itens a conferir que a pesquisa e as decisões deixaram em aberto. Um foi descartado e nenhum foi verificado ainda.
+> **Em resumo:** Dez itens a conferir que a pesquisa e as decisões deixaram em aberto. Um foi descartado e um foi verificado (T-009).
 > Eles pesam antes de codar os conectores e antes de decidir como exportar para o VOSviewer.
 
 ## A verificar
@@ -17,5 +17,5 @@
 | T-006 | Tamanho das respostas das ferramentas e paginação, para não encher o contexto da IA | D-002 | Rodar `search_works` com 100 e 500 artigos e medir o tamanho da resposta resumida e da completa | a fazer |
 | T-007 | O que a LGPD exige de uma ferramenta local que guarda nome e ORCID públicos de autores | D-004, data-classification.md | O Erick consulta fonte jurídica ou um profissional; o agente não dá parecer jurídico | a fazer |
 | T-008 | O que o VOSviewer lê de referências e citações em RIS, CSV e JSON, e se mapas de citação funcionam sem edição | D-005 | Exportar uma lista de teste e abrir no VOSviewer 1.6.21 | a fazer |
-| T-009 | Nome da classe e exemplo de servidor stdio na documentação da versão 2 do SDK oficial do MCP | research.md | Abrir a documentação v2 em py.sdk.modelcontextprotocol.io e conferir antes de escrever o spec | a fazer |
+| T-009 | Nome da classe e exemplo de servidor stdio na documentação da versão 2 do SDK oficial do MCP | research.md | Abrir a documentação v2 em py.sdk.modelcontextprotocol.io e conferir antes de escrever o spec | verificado em 2026-11-02 no `mcp` 2.3.0: a classe é `MCPServer`, com `from mcp.server import MCPServer`, e `mcp.run()` sem argumento usa stdio. `mcp.server.fastmcp` não existe mais. Exemplo rodado por stdio com cliente em subprocesso; detalhes na spec 01-02 |
 | T-010 | Como o academic-research-mcp e o paper-search-mcp montam as consultas ao OpenAlex e à Semantic Scholar, e o que dá para reaproveitar na licença MIT | research.md | Ler o código dos dois no GitHub antes de escrever os conectores | a fazer |
