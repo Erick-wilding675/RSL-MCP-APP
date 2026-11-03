@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from rslapp.sources.base import Source
-from rslapp.sources.crossref import SELECT_FIELDS, CrossrefSource
+from rslapp.sources.crossref import CrossrefSource
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
         "status": "ok",
         "message-type": "work-list",
         "message": {
-            "total-results": 5,
+            "total-results": 6,
             "items-per-page": 100,
             "next-cursor": "cur-next",
             "items": [
@@ -137,6 +137,16 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
                     "title": ["Artigo com Issued Null e Campos Vazios"],
                     "issued": {"date-parts": [[None]]},
                 },
+                {
+                    "DOI": "10.1000/ENTITIES-AND-JATS",
+                    "title": ["Artigo com Entidades HTML e JATS"],
+                    "abstract": "<jats:p>p &lt; 0.05 &amp; x</jats:p>",
+                },
+                {
+                    "DOI": "10.1000/PLAIN-TEXT-INEQUALITIES",
+                    "title": ["Artigo com Texto Puro e Desigualdades"],
+                    "abstract": "effect p<0.05 when n>30 observed",
+                },
             ],
         },
     }
@@ -156,7 +166,10 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
     req = captured_requests[0]
     assert req.url.params["query"] == "graph networks"
     assert req.url.params["rows"] == "100"
-    assert req.url.params["select"] == SELECT_FIELDS
+    assert (
+        req.url.params["select"]
+        == "DOI,title,author,issued,container-title,abstract,reference,references-count,is-referenced-by-count,type"
+    )
     assert req.url.params["cursor"] == "*"
     assert "mailto" not in req.url.params
     assert req.headers["User-Agent"].startswith("rslapp/")
@@ -164,9 +177,9 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
     assert result.name == "crossref"
     assert result.status == "ok"
     assert result.reason is None
-    assert result.found == 5
-    assert result.fetched == 2
-    assert len(result.works) == 2
+    assert result.found == 6
+    assert result.fetched == 4
+    assert len(result.works) == 4
 
     w1 = result.works[0]
     assert w1.title == "Systematic Reviews with Graph Networks"
@@ -223,6 +236,14 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
     assert w2.references_count is None
     assert w2.citations == {}
     assert w2.source_ids == {}
+
+    w3 = result.works[2]
+    assert w3.title == "Artigo com Entidades HTML e JATS"
+    assert w3.abstract == "p < 0.05 & x"
+
+    w4 = result.works[3]
+    assert w4.title == "Artigo com Texto Puro e Desigualdades"
+    assert w4.abstract == "effect p<0.05 when n>30 observed"
 
 
 # FR-01, NFR-04: Paginação por cursor (next-cursor, max_results, descartes e página menor que rows)
@@ -551,3 +572,26 @@ async def test_nfr04_rsl_contact_email_vai_em_mailto_e_nao_vaza_em_query_reason_
     for log_msg in rslapp_logs:
         assert email not in log_msg
         assert "mailto" not in log_msg.lower()
+
+
+# FR-03: Limpeza de resumo JATS/XML, entidades HTML e preservação de texto puro com < e >
+@pytest.mark.parametrize(
+    ("raw_abstract", "expected"),
+    [
+        ("<jats:p>p &lt; 0.05 &amp; x</jats:p>", "p < 0.05 & x"),
+        ("effect p<0.05 when n>30 observed", "effect p<0.05 when n>30 observed"),
+        (
+            "<jats:title>Abstract</jats:title><jats:p>p &lt; 0.01 &amp; q &gt; 2</jats:p>",
+            "Abstract p < 0.01 & q > 2",
+        ),
+        (None, None),
+        ("", None),
+        ("   ", None),
+    ],
+)
+def test_fr03_clean_abstract_entidades_e_comparacoes(
+    raw_abstract: Any, expected: str | None
+) -> None:
+    from rslapp.sources.crossref import _clean_abstract
+
+    assert _clean_abstract(raw_abstract) == expected
