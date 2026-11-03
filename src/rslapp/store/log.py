@@ -10,10 +10,49 @@ from rslapp.store.cache import parse_utc_timestamp
 _KIND_LABELS = {"terms": "busca por termos", "work": "busca de artigo", "repeat": "repetição"}
 _DIRECTION_LABELS = {"references": "referências", "citations": "citações"}
 _LIST_STATUS_LABELS = {"complete": "completa", "incomplete": "incompleta"}
+_DIVERGENCE_LABELS = {
+    "year": "ano",
+    "title": "título",
+    "doi": "doi",
+    "venue": "veículo",
+}
 
 
 def _one_line(text: str) -> str:
     return text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+
+
+# FR-04, FR-13: Formatação da linha de junção e divergências no log.md
+def _format_merge_line(merge: Any) -> str:
+    if type(merge) is not dict:
+        raise ValueError("Campo 'merge' deve ser um dicionário")
+    merged = merge.get("merged", 0)
+    if type(merged) is not int or merged < 0:
+        raise ValueError(f"Total de 'merged' inválido: {merged!r}")
+    unit = "artigo" if merged == 1 else "artigos"
+
+    raw_divs = merge.get("divergences")
+    if raw_divs is None:
+        raw_divs = {}
+    elif type(raw_divs) is not dict:
+        raise ValueError("Campo 'divergences' deve ser um dicionário")
+
+    ordered_keys = [k for k in ("year", "title", "doi", "venue") if k in raw_divs]
+    extra_keys = [k for k in raw_divs if k not in ordered_keys]
+
+    div_parts: list[str] = []
+    for k in ordered_keys + extra_keys:
+        cnt = raw_divs[k]
+        if type(cnt) is int and cnt > 0:
+            label = _DIVERGENCE_LABELS.get(k, str(k))
+            div_parts.append(f"{label} {cnt}")
+
+    if div_parts:
+        div_str = f"divergências: {', '.join(div_parts)}"
+    else:
+        div_str = "sem divergências"
+
+    return f"Junção: {merged} {unit} em mais de uma fonte · {div_str}"
 
 
 def _format_source_line(src: Any) -> str:
@@ -38,7 +77,7 @@ def _format_source_line(src: Any) -> str:
     return "- " + " · ".join(parts)
 
 
-# FR-05, FR-13, NFR-03, NFR-06: Geração determinística de uma entrada de log.md em português
+# FR-04, FR-05, FR-13, NFR-03, NFR-06, D-007: Geração determinística de uma entrada de log.md em português
 def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | None = None) -> str:
     kind, origin = search_data.get("kind"), search_data.get("origin")
     if origin is not None and (
@@ -85,5 +124,7 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
             f"Artigo de origem: {_one_line(str(origin['work']))} · direção: {_DIRECTION_LABELS[origin['direction']]}"
         )
     lines.append(list_line)
+    if search_data.get("merge") is not None:
+        lines.append(_format_merge_line(search_data["merge"]))
     lines.extend(_format_source_line(src) for src in sources)
     return "\n".join(lines)
