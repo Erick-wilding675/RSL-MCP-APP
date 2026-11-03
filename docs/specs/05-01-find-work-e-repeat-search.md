@@ -10,6 +10,17 @@ As ferramentas `find_work` (por título ou DOI, devolve os candidatos numa lista
 
 Não altera nenhuma busca ou lista já gravada.
 
+## Decisões desta spec
+
+Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
+
+1. **`find_work(title=None, doi=None, request_summary="", sources=None, max_results=10)`:** exatamente um de `title` ou `doi`, senão `invalid_input`; `max_results` de 1 a 100.
+2. **Por DOI:** cada fonte ganha `find_by_doi(doi) -> SourceResult`, com uma leitura direta: OpenAlex `GET /works/doi:<doi>` (grátis), Crossref `GET /works/<doi>`, Semantic Scholar `GET /paper/DOI:<doi>` com os mesmos `fields` da busca. Um 404 é `ok` com zero trabalhos. Mesmo mapeamento, chave, novas tentativas e ritmo de cada conector.
+3. **Por título:** reaproveita o `search` de cada fonte com o título como consulta e `max_results` pequeno (padrão 10). Os candidatos são juntados pela regra da 03-03.
+4. **Gravação:** `kind: "work"` e `params: {"doi" ou "title", "max_results", "sources"}`. Sem resultado, a lista sai vazia e registrada.
+5. **`repeat_search(search_id)`:** lê a busca original; se ela não tem `params` (busca gravada antes da 03-03), `invalid_input` com "busca sem parâmetros gravados"; inexistente, `search_not_found`. Roda de novo pelo mesmo caminho do tipo original (`terms` pela busca, `work` pelo `find_work`, `related` pelo `get_related_works`), com os mesmos `params` e as mesmas fontes, e grava busca e lista novas com `kind: "repeat"`, `repeated_from: <id original>`, `params` e `origin` copiados. A original não é tocada.
+6. **Onde fica:** `core/find.py` e `core/repeat.py` (sem MCP); as ferramentas em `server.py`.
+
 ## Pronto quando
 
 - [ ] Teste: `find_work` por DOI exato devolve o artigo; por título parecido devolve candidatos; sem resultado devolve lista vazia registrada
@@ -23,7 +34,7 @@ FR-02, FR-11, UC-02, UC-03, D-002. São os identificadores que o código leva co
 
 ## Antes de começar
 
-Depende de 03-03.
+Tarefas 03-03 e 04-02 integradas.
 
 ## Resultado da entrega
 
