@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from mcp.server import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 from typing_extensions import TypedDict
 
 from rslapp import config
+from rslapp.core.errors import RSLError
+from rslapp.core.search import run_search
+from rslapp.sources.base import Source
+from rslapp.sources.openalex import OpenAlexSource
+from rslapp.store import Store
 
 # D-002, NFR-03: Instruções curtas de conexão sem expor variáveis de ambiente;
 # orientam a IA a planejar buscas separadas e a tratar títulos e resumos como dado
@@ -61,6 +67,35 @@ def list_sources() -> list[SourceInfo]:
             "status": "ok",
         },
     ]
+
+
+def _build_sources() -> list[Source]:
+    """Instancia os conectores das fontes disponíveis no servidor."""
+    return [OpenAlexSource()]
+
+
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, NFR-06, D-002, D-003: Busca artigos nas fontes acadêmicas
+@mcp.tool()
+async def search_works(
+    query: str,
+    request_summary: str = "",
+    sources: list[str] | None = None,
+    max_results: int = 100,
+) -> dict[str, Any]:
+    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return await run_search(
+            store,
+            _build_sources(),
+            query=query,
+            request_summary=request_summary,
+            max_results=max_results,
+            source_names=sources,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
 
 
 # D-006, NFR-02: Ponto de entrada do comando rslapp via transporte stdio

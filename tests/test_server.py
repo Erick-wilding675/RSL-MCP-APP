@@ -77,7 +77,7 @@ async def test_d002_d006_fr07_nfr02_handshake_stdio_e_list_sources_sem_chaves(
 
         tools_result = await client.list_tools()
         tool_names = [t.name for t in tools_result.tools]
-        assert tool_names == ["list_sources"]
+        assert "list_sources" in tool_names
 
         call_result = await client.call_tool("list_sources", {})
         assert call_result.is_error is False
