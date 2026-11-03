@@ -50,8 +50,22 @@ Tarefa 02-01 integrada. Roda em paralelo com a 02-02 e a 03-02.
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:** Implementação do conector `CrossrefSource` em `src/rslapp/sources/crossref.py` e sua suíte completa de testes unitários com `httpx.MockTransport` em `tests/sources/test_crossref.py`. O conector consome a API REST da Crossref (`https://api.crossref.org/works`) sequencialmente com paginação por cursor (`cursor=*` e `next-cursor`), projeta apenas os campos selecionados (`SELECT_FIELDS`), converte os itens recebidos para instâncias de `Work` (com autores, afiliações, ORCID curto, ROR, DOIs de referências, contagens e citações) e descarta itens sem título válido. Respeita o parâmetro de ambiente `RSL_CONTACT_EMAIL` injetando-o no parâmetro `mailto` da URL sem expor o e-mail em `query`, `reason` nem `cache_query`, e aplica retentativas com recuo exponencial (1s, 2s, 4s) em 429, 5xx, timeouts e falhas de rede.
+- **Requisitos atendidos:** FR-01, FR-03, FR-14, NFR-04, D-004.
+- **O que foi assumido:** A busca é estritamente sequencial (uma página por vez, sem concorrência), respeitando o limite da fila pública/educada observado no T-001. A Crossref não utiliza chave de API (`needs_key = False`), dispensando validação de chave de acesso. Quando `issued.date-parts` vem como `[[null]]` ou sem valor numérico, o ano fica como `None`. Resumos com marcação JATS XML têm suas tags e blocos convertidos em texto puro com espaços simples normalizados.
+- **O que não deu para verificar:** Não foi realizada chamada real pela rede à API da Crossref, pois os testes automatizados rodam isolados com `httpx.MockTransport` conforme as regras do projeto.
 
 ## Como testar
 
-A escrever na entrega.
+- **Comandos:**
+  - `uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .`
+  - `uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q`
+  - `uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q`
+- **O que deve aparecer:**
+  - Ruff: `All checks passed!`
+  - Pytest (Python 3.10): `59 passed in ...`
+  - Pytest (Python 3.14): `59 passed in ...`
+- **Onde olhar primeiro (pontos de maior risco):**
+  1. `tests/sources/test_crossref.py::test_nfr04_rsl_contact_email_vai_em_mailto_e_nao_vaza_em_query_reason_ou_cache`: confere se o e-mail de contato via `RSL_CONTACT_EMAIL` é injetado no parâmetro `mailto` na URL e nunca vaza nas propriedades de `SourceResult` (`query`, `reason`, `to_dict()`), na chave do cache nem no `User-Agent`.
+  2. `tests/sources/test_crossref.py::test_nfr04_retries_429_5xx_timeout_e_rede` e `test_nfr04_erros_sem_repeticao_4xx_e_json_invalido`: confere se 429, 5xx, timeouts e erros de rede executam 3 novas tentativas com pausas de [1, 2, 4] s e mensagens fixas, enquanto 4xx (como 400 e 403) e respostas JSON inválidas falham imediatamente sem retry.
+  3. `tests/sources/test_crossref.py::test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor`: confere a paginação sequencial por cursor (`next-cursor`), garantindo que itens sem título descartados não impeçam a busca de atingir `max_results`, que o cursor pare quando a página vier menor que `rows`, e que o total `found` seja capturado da primeira página.
