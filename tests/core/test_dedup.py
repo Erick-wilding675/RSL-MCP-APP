@@ -472,3 +472,16 @@ def test_fr04_registro_casa_dois_grupos_doi_e_titulo_fica_no_grupo_doi() -> None
 
     assert "crossref" in g_title.source_ids
     assert "semantic_scholar" not in g_title.source_ids
+
+
+# FR-04: ano ausente nunca é emprestado de outro membro do grupo; o resultado não depende da ordem
+def test_fr04_ano_ausente_nao_e_emprestado_do_grupo_em_nenhuma_ordem() -> None:
+    work_p = _make_work("openalex", title="Tee", doi="10.1/p", year=None, source_id="W-P")
+    work_q = _make_work("crossref", title="You", doi="10.1/p", year=2021, source_id="CR-P")
+    work_r = _make_work("semantic_scholar", title="Tee", doi=None, year=2021, source_id="S2-R")
+
+    for perm in itertools.permutations([work_p, work_q, work_r]):
+        res = deduplicate_works_with_merge(list(perm))
+        assert len(res.works) == 2, [w.source_ids for w in res.works]
+        ids = sorted(tuple(sorted(w.source_ids)) for w in res.works)
+        assert ids == [("crossref", "openalex"), ("semantic_scholar",)]

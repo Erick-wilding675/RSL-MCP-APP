@@ -193,27 +193,21 @@ def _reindex_cluster(
     by_doi: dict[str, _WorkCluster],
     by_title_year: dict[tuple[str, int], list[_WorkCluster]],
 ) -> None:
-    cluster_year = next((w.year for w in cluster.works if isinstance(w.year, int)), None)
     for w in cluster.works:
         norm_d = normalize_doi(w.doi)
         if norm_d is not None:
             cluster.dois.add(norm_d)
             by_doi[norm_d] = cluster
 
+        # FR-04: só o título com o ano do próprio registro entra no índice; ano ausente
+        # nunca é emprestado de outro membro (a regra é por par, e assim não depende da ordem)
         norm_t = normalize_title(w.title)
-        if norm_t:
-            if isinstance(w.year, int):
-                ty = (norm_t, w.year)
-                cluster.title_years.add(ty)
-                cands = by_title_year.setdefault(ty, [])
-                if cluster not in cands:
-                    cands.append(cluster)
-            elif cluster_year is not None:
-                ty = (norm_t, cluster_year)
-                cluster.title_years.add(ty)
-                cands = by_title_year.setdefault(ty, [])
-                if cluster not in cands:
-                    cands.append(cluster)
+        if norm_t and isinstance(w.year, int):
+            ty = (norm_t, w.year)
+            cluster.title_years.add(ty)
+            cands = by_title_year.setdefault(ty, [])
+            if cluster not in cands:
+                cands.append(cluster)
 
 
 # FR-04: Fusão de grupo de origem no alvo com migração de referências e índices
