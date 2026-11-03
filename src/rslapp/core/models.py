@@ -135,6 +135,7 @@ class SourceResult:
     found: int | None = None
     fetched: int = 0
     works: list[Work] = field(default_factory=list)
+    not_found: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -145,6 +146,7 @@ class SourceResult:
             "found": self.found,
             "fetched": self.fetched,
             "works": [work.to_dict() for work in self.works],
+            "not_found": self.not_found,
         }
 
     @classmethod
@@ -157,4 +159,19 @@ class SourceResult:
             found=data.get("found"),
             fetched=int(data.get("fetched", 0)),
             works=[Work.from_dict(w) for w in (data.get("works") or [])],
+            not_found=bool(data.get("not_found", False)),
         )
+
+
+# FR-15, D-005, D-010: Resultado da consulta de artigo de origem avulso
+@dataclass
+class OriginWorkResult:
+    """Resultado da consulta de artigo de origem avulso."""
+
+    data: dict[str, Any] | None = None
+    status: str | None = None
+    reason: str | None = None
+    not_found: bool = False
+
+    def __iter__(self) -> Any:
+        return iter((self.data, self.status, self.reason))

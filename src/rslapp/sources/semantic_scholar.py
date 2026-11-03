@@ -6,6 +6,7 @@ import asyncio
 import importlib.metadata
 import os
 import time
+import urllib.parse
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any
@@ -279,7 +280,6 @@ class SemanticScholarSource(Source):
         params: dict[str, str],
         headers: dict[str, str],
         api_key: str = "",
-        url: str = SEMANTIC_SCHOLAR_SEARCH_URL,
     ) -> tuple[dict[str, Any] | None, str | None, str | None]:
         max_retries = len(RETRY_DELAYS)
         err_status, err_reason = "failed", "falha inesperada ao consultar a Semantic Scholar"
@@ -290,7 +290,7 @@ class SemanticScholarSource(Source):
             try:
                 async with rate_limited_call(clock=clock_fn, sleep=sleep_fn):
                     response = await client.get(
-                        url,
+                        SEMANTIC_SCHOLAR_SEARCH_URL,
                         params=params,
                         headers=headers,
                         timeout=DEFAULT_TIMEOUT,
@@ -317,8 +317,6 @@ class SemanticScholarSource(Source):
                     err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
                 elif 500 <= status_code < 600:
                     err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
-                elif status_code == 404:
-                    return None, "failed", "HTTP 404"
                 else:
                     # 400 e outras 4xx falham na hora com o texto do error da API
                     error_msg = _extract_error_message(response, api_key=api_key)
@@ -328,6 +326,64 @@ class SemanticScholarSource(Source):
                 await sleep_fn(RETRY_DELAYS[attempt])
 
         return None, err_status, err_reason
+
+    # FR-15, FR-08, NFR-03, NFR-04: Chamada de página para trabalhos relacionados com tratamento específico de 404
+    async def _request_related_page(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        params: dict[str, str],
+        headers: dict[str, str],
+        api_key: str = "",
+    ) -> tuple[dict[str, Any] | None, str | None, str | None, bool]:
+        max_retries = len(RETRY_DELAYS)
+        err_status, err_reason = "failed", "falha inesperada ao consultar a Semantic Scholar"
+        sleep_fn = self._sleep or _module_sleep
+        clock_fn = self._clock or _module_clock
+
+        for attempt in range(max_retries + 1):
+            try:
+                async with rate_limited_call(clock=clock_fn, sleep=sleep_fn):
+                    response = await client.get(
+                        url,
+                        params=params,
+                        headers=headers,
+                        timeout=DEFAULT_TIMEOUT,
+                    )
+            except httpx.TimeoutException:
+                err_status, err_reason = _retry_failure("failed", "tempo limite esgotado")
+            except httpx.HTTPError:
+                err_status, err_reason = _retry_failure("failed", "erro de rede")
+            except Exception:  # noqa: BLE001
+                return None, "failed", "falha inesperada ao consultar a Semantic Scholar", False
+            else:
+                status_code = response.status_code
+                if status_code == 200:
+                    try:
+                        data = response.json()
+                    except ValueError:
+                        return None, "failed", "resposta JSON inválida da Semantic Scholar", False
+                    if not isinstance(data, dict):
+                        return None, "failed", "resposta JSON inválida da Semantic Scholar", False
+                    return data, None, None, False
+
+                if status_code == 404:
+                    return None, "failed", "HTTP 404", True
+
+                # 429 e 5xx entram na política de novas tentativas
+                if status_code == 429:
+                    err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
+                elif 500 <= status_code < 600:
+                    err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
+                else:
+                    # 400 e outras 4xx falham na hora com o texto do error da API
+                    error_msg = _extract_error_message(response, api_key=api_key)
+                    return None, "failed", error_msg, False
+
+            if attempt < max_retries:
+                await sleep_fn(RETRY_DELAYS[attempt])
+
+        return None, err_status, err_reason, False
 
     # FR-01, FR-08, NFR-03, NFR-04: Busca paginada por offset com chave opcional no cabeçalho x-api-key
     async def search(self, query: str, max_results: int = 100) -> SourceResult:
@@ -454,6 +510,7 @@ class SemanticScholarSource(Source):
             )
 
         clean_doi = _normalize_doi(doi) or doi.strip()
+        quoted_doi = urllib.parse.quote(clean_doi, safe="")
         query_text = f"paper=DOI:{clean_doi}/{direction}"
 
         raw_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
@@ -485,7 +542,7 @@ class SemanticScholarSource(Source):
             )
 
         effective_max = min(max(max_results, 1), 10_000)
-        paper_url = f"https://api.semanticscholar.org/graph/v1/paper/DOI:{clean_doi}/{direction}"
+        paper_url = f"https://api.semanticscholar.org/graph/v1/paper/DOI:{quoted_doi}/{direction}"
 
         works: list[Work] = []
         found: int | None = None
@@ -510,8 +567,8 @@ class SemanticScholarSource(Source):
                         "fields": SELECT_FIELDS,
                     }
 
-                    data, err_status, err_reason = await self._request_page(
-                        client, params, headers, api_key=api_key, url=paper_url
+                    data, err_status, err_reason, is_not_found = await self._request_related_page(
+                        client, paper_url, params, headers, api_key=api_key
                     )
                     if err_status is not None:
                         return SourceResult(
@@ -522,6 +579,7 @@ class SemanticScholarSource(Source):
                             found=found,
                             fetched=len(works),
                             works=works,
+                            not_found=is_not_found,
                         )
 
                     assert data is not None
@@ -587,7 +645,7 @@ class SemanticScholarSource(Source):
         if (found is not None and found > len(works)) or stopped_by_source_limit:
             if stopped_by_source_limit or len(works) >= 10_000:
                 reason = "limite de 10.000 da fonte"
-            elif len(works) >= max_results:
+            elif (found is not None and found > max_results) or len(works) >= max_results or offset >= max_results:
                 reason = f"teto de {_format_number(max_results)} atingido"
 
         return SourceResult(

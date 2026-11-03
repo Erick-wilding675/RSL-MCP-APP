@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import importlib.metadata
 import os
+import urllib.parse
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -12,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from rslapp.core.models import Affiliation, Author, SourceResult, Work
+from rslapp.core.models import Affiliation, Author, OriginWorkResult, SourceResult, Work
 from rslapp.sources.base import Source
 
 OPENALEX_WORKS_URL = "https://api.openalex.org/works"
@@ -39,6 +40,10 @@ def _user_agent() -> str:
 
 def _is_valid_api_key(key: str) -> bool:
     return bool(key) and key.isascii() and key.isprintable() and not any(c.isspace() for c in key)
+
+
+def _is_ascii_digits(s: str) -> bool:
+    return bool(s) and all("0" <= c <= "9" for c in s)
 
 
 def _strip_url_prefixes(raw: Any, prefixes: tuple[str, ...]) -> str | None:
@@ -598,13 +603,19 @@ class OpenAlexSource(Source):
     # FR-15, D-005, D-010: Consulta o artigo de origem avulso no OpenAlex para obter id, doi e referenced_works
     async def get_origin_work(
         self, doi_or_id: str
-    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    ) -> OriginWorkResult:
         raw_key = os.environ.get("OPENALEX_API_KEY")
         api_key = raw_key.strip(" \t\r\n") if raw_key else ""
         if not api_key:
-            return None, "missing_key", "variável OPENALEX_API_KEY não configurada"
+            return OriginWorkResult(
+                status="missing_key",
+                reason="variável OPENALEX_API_KEY não configurada",
+            )
         if not _is_valid_api_key(api_key):
-            return None, "failed", "OPENALEX_API_KEY tem caracteres inválidos"
+            return OriginWorkResult(
+                status="failed",
+                reason="OPENALEX_API_KEY tem caracteres inválidos",
+            )
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -612,20 +623,87 @@ class OpenAlexSource(Source):
         }
 
         short_id = _short_openalex_id(doi_or_id)
-        if short_id and short_id.upper().startswith("W") and short_id[1:].isdigit():
+        if short_id and short_id.upper().startswith("W") and _is_ascii_digits(short_id[1:]):
             target = short_id.upper()
         else:
             norm_doi = _normalize_doi(doi_or_id) or doi_or_id.strip()
-            target = f"doi:{norm_doi}"
+            quoted_doi = urllib.parse.quote(norm_doi, safe="")
+            target = f"doi:{quoted_doi}"
 
         url = f"{OPENALEX_WORKS_URL}/{target}"
         params = {"select": "id,doi,referenced_works,cited_by_count"}
 
         try:
             async with self._get_client() as client:
-                return await self._request_page(client, params, headers, url=url)
+                max_retries = len(RETRY_DELAYS)
+                err_status, err_reason = "failed", "falha inesperada ao consultar o OpenAlex"
+                for attempt in range(max_retries + 1):
+                    try:
+                        response = await client.get(
+                            url,
+                            params=params,
+                            headers=headers,
+                            timeout=DEFAULT_TIMEOUT,
+                        )
+                    except httpx.TimeoutException:
+                        err_status, err_reason = _retry_failure("failed", "tempo limite esgotado")
+                    except httpx.HTTPError:
+                        err_status, err_reason = _retry_failure("failed", "erro de rede")
+                    except Exception:  # noqa: BLE001
+                        return OriginWorkResult(
+                            status="failed",
+                            reason="falha inesperada ao consultar o OpenAlex",
+                        )
+                    else:
+                        status_code = response.status_code
+                        if status_code == 200:
+                            try:
+                                data = response.json()
+                            except ValueError:
+                                return OriginWorkResult(
+                                    status="failed",
+                                    reason="resposta JSON inválida do OpenAlex",
+                                )
+                            if not isinstance(data, dict):
+                                return OriginWorkResult(
+                                    status="failed",
+                                    reason="resposta JSON inválida do OpenAlex",
+                                )
+                            return OriginWorkResult(data=data, status=None, reason=None, not_found=False)
+
+                        error_tag = _extract_error_tag(response)
+                        if status_code == 429 and error_tag == "not_enough_credits":
+                            return OriginWorkResult(
+                                status="rate_limited",
+                                reason="créditos diários do OpenAlex esgotados",
+                            )
+                        if status_code == 403 and error_tag == "key_not_activated":
+                            return OriginWorkResult(
+                                status="failed",
+                                reason="a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
+                            )
+                        if status_code == 404:
+                            return OriginWorkResult(
+                                status="failed",
+                                reason="HTTP 404",
+                                not_found=True,
+                            )
+                        if status_code == 429:
+                            err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
+                        elif 500 <= status_code < 600:
+                            err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
+                        else:
+                            return OriginWorkResult(status="failed", reason=f"HTTP {status_code}")
+
+                    if attempt < max_retries:
+                        await self._sleep(RETRY_DELAYS[attempt])
+
+                return OriginWorkResult(status=err_status, reason=err_reason, not_found=False)
         except Exception:  # noqa: BLE001
-            return None, "failed", "falha inesperada ao consultar o OpenAlex"
+            return OriginWorkResult(
+                status="failed",
+                reason="falha inesperada ao consultar o OpenAlex",
+            )
 
     # FR-15, FR-08, FR-14, D-005, D-010: Consulta referências ou citações no OpenAlex
     async def related(
@@ -671,18 +749,19 @@ class OpenAlexSource(Source):
         try:
             async with self._get_client() as client:
                 if origin_data is None:
-                    data, err_status, err_reason = await self.get_origin_work(clean_id_or_doi)
-                    if err_status is not None:
+                    origin_res = await self.get_origin_work(clean_id_or_doi)
+                    if origin_res.status is not None:
                         return SourceResult(
                             name=self.name,
-                            status=err_status,
-                            reason=err_reason,
+                            status=origin_res.status,
+                            reason=origin_res.reason,
                             query=query_text,
                             found=None,
                             fetched=0,
                             works=[],
+                            not_found=origin_res.not_found,
                         )
-                    origin_data = data
+                    origin_data = origin_res.data
 
                 assert origin_data is not None
                 origin_id = _short_openalex_id(origin_data.get("id"))
@@ -707,6 +786,9 @@ class OpenAlexSource(Source):
 
                     per_page = min(effective_max, MAX_PER_PAGE)
                     page = 1
+                    stopped_by_cap = False
+                    stopped_by_source_limit = False
+
                     while True:
                         params = {
                             "filter": f"cites:{origin_id}",
@@ -745,22 +827,28 @@ class OpenAlexSource(Source):
                             if parsed is not None:
                                 works.append(parsed)
                                 if len(works) >= effective_max:
+                                    stopped_by_cap = True
                                     break
 
-                        if len(works) >= effective_max:
+                        if stopped_by_cap or len(works) >= effective_max:
+                            stopped_by_cap = True
                             break
                         if len(raw_results) < per_page:
                             break
                         if found is not None and page * per_page >= found:
                             break
                         if (page + 1) * per_page > MAX_RESULTS_LIMIT:
+                            stopped_by_source_limit = True
+                            break
+                        if page * per_page >= effective_max:
+                            stopped_by_cap = True
                             break
                         page += 1
 
-                    if found is not None and found > len(works):
-                        if len(works) >= MAX_RESULTS_LIMIT:
+                    if (found is not None and found > len(works)) or stopped_by_cap or stopped_by_source_limit:
+                        if stopped_by_source_limit or (effective_max >= MAX_RESULTS_LIMIT and (found is not None and found > MAX_RESULTS_LIMIT)):
                             reason = "limite de 10.000 da fonte"
-                        elif len(works) >= max_results:
+                        elif stopped_by_cap or (found is not None and found > max_results) or len(works) >= max_results:
                             reason = f"teto de {_format_number(max_results)} atingido"
 
                     return SourceResult(
@@ -778,11 +866,13 @@ class OpenAlexSource(Source):
                     clean_ref_ids: list[str] = []
                     for ref in raw_refs:
                         sid = _short_openalex_id(ref)
-                        if sid and sid.upper().startswith("W") and sid[1:].isdigit():
+                        if sid and sid.upper().startswith("W") and _is_ascii_digits(sid[1:]):
                             clean_ref_ids.append(sid.upper())
 
                     found = len(clean_ref_ids)
                     target_ids = clean_ref_ids[:effective_max]
+                    cut_by_cap = len(clean_ref_ids) > effective_max
+                    stopped_by_cap = False
 
                     batch_size = 100
                     last_batch_num = 0
@@ -816,14 +906,16 @@ class OpenAlexSource(Source):
                                 if parsed is not None:
                                     works.append(parsed)
                                     if len(works) >= effective_max:
+                                        stopped_by_cap = True
                                         break
                         if len(works) >= effective_max:
+                            stopped_by_cap = True
                             break
 
-                    if found > len(works):
-                        if len(works) >= MAX_RESULTS_LIMIT:
+                    if (found > len(works)) or cut_by_cap or stopped_by_cap:
+                        if effective_max >= MAX_RESULTS_LIMIT and found > MAX_RESULTS_LIMIT:
                             reason = "limite de 10.000 da fonte"
-                        elif len(works) >= max_results:
+                        elif cut_by_cap or stopped_by_cap or found > max_results or len(works) >= max_results:
                             reason = f"teto de {_format_number(max_results)} atingido"
 
                     return SourceResult(

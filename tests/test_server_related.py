@@ -10,7 +10,7 @@ from mcp import Client
 from mcp.server.mcpserver.exceptions import ToolError
 
 from rslapp import server
-from rslapp.core.models import Author, SourceResult, Work
+from rslapp.core.models import Author, OriginWorkResult, SourceResult, Work
 
 ENV_VARS = (
     "RSL_DATA_DIR",
@@ -54,8 +54,13 @@ class FakeRelatedServerSource:
 
     async def get_origin_work(
         self, doi_or_id: str
-    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
-        return {"id": "https://openalex.org/W100", "doi": "https://doi.org/10.1234/test"}, None, None
+    ) -> OriginWorkResult:
+        return OriginWorkResult(
+            data={"id": "https://openalex.org/W100", "doi": "https://doi.org/10.1234/test"},
+            status=None,
+            reason=None,
+            not_found=False,
+        )
 
     async def related(
         self,
@@ -162,6 +167,10 @@ def _extract_tool_error_payload(call_result: Any) -> str:
         {"doi": "10.1234/test", "direction": "references", "max_results": 0},
         {"doi": "10.1234/test", "direction": "references", "max_results": 10001},
         {"doi": "10.1234/test", "direction": "references", "sources": ["fonte_desconhecida"]},
+        {"doi": "10.1/../../authors/A1", "direction": "references"},
+        {"doi": "10.1234/test?param=1", "direction": "references"},
+        {"work_id": "W123?x=1", "direction": "references"},
+        {"work_id": "A123", "direction": "references"},
     ],
 )
 async def test_fr15_d002_get_related_works_entradas_invalidas(invalid_args: dict[str, Any]) -> None:

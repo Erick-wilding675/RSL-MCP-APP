@@ -8,7 +8,8 @@ from typing import Any
 
 from rslapp.core.dedup import deduplicate_works_with_merge, normalize_doi
 from rslapp.core.errors import RSLError
-from rslapp.core.models import SourceResult, Work
+from rslapp.core.models import OriginWorkResult, SourceResult, Work
+from rslapp.core.search import _select_sources, _summarize_work
 from rslapp.sources.base import Source
 from rslapp.store import Store
 
@@ -26,16 +27,43 @@ __all__ = [
 ]
 
 
-def _summarize_work(work: Work) -> dict[str, Any]:
-    return {
-        "doi": work.doi,
-        "title": work.title,
-        "authors": [author.name for author in work.authors],
-        "year": work.year,
-        "venue": work.venue,
-        "references_count": work.references_count,
-        "citations": dict(work.citations),
-    }
+def _is_ascii_digits(s: str) -> bool:
+    return bool(s) and all("0" <= c <= "9" for c in s)
+
+
+# FR-15, D-002: Validação estrita de work_id (apenas W[0-9]+ ASCII após remover prefixo)
+def _validate_and_normalize_work_id(raw: Any) -> str:
+    if not isinstance(raw, str) or not raw.strip():
+        raise RSLError("invalid_input", "work_id não pode ser vazio")
+    val = raw.strip()
+    lower = val.lower()
+    for prefix in ("https://openalex.org/", "http://openalex.org/"):
+        if lower.startswith(prefix):
+            val = val[len(prefix) :].strip()
+            break
+    if val.startswith(("W", "w")):
+        val = "W" + val[1:]
+    if not val.startswith("W") or len(val) < 2 or not _is_ascii_digits(val[1:]):
+        raise RSLError("invalid_input", f"work_id inválido: {raw}")
+    return val
+
+
+# FR-15, D-002: Validação estrita de DOI (começa com 10., sem espaço, ?, #, % nem segmentos . ou ..)
+def _validate_and_normalize_doi(raw: Any) -> str:
+    if not isinstance(raw, str) or not raw.strip():
+        raise RSLError("invalid_input", "doi não pode ser vazio")
+    val = raw.strip()
+    norm = normalize_doi(val)
+    if not norm or not norm.startswith("10."):
+        raise RSLError("invalid_input", f"doi deve começar com '10.': {raw}")
+    if any(ch.isspace() for ch in norm):
+        raise RSLError("invalid_input", f"doi não pode conter espaços: {raw}")
+    if any(ch in "?#%" for ch in norm):
+        raise RSLError("invalid_input", f"doi contém caracteres inválidos: {raw}")
+    segments = norm.split("/")
+    if any(seg in (".", "..") for seg in segments):
+        raise RSLError("invalid_input", f"doi contém segmentos inválidos: {raw}")
+    return norm
 
 
 def _short_openalex_id(raw: Any) -> str | None:
@@ -48,41 +76,6 @@ def _short_openalex_id(raw: Any) -> str | None:
             val = val[len(prefix) :].strip().rstrip("/")
             lower = val.lower()
     return val.upper() if val else None
-
-
-def _select_sources(
-    available: Sequence[Source],
-    requested_names: Sequence[str] | None,
-) -> list[Source]:
-    if not available:
-        raise RSLError("invalid_input", "nenhuma fonte disponível para consulta")
-    if requested_names is None:
-        return list(available)
-    if (
-        isinstance(requested_names, (str, bytes))
-        or not isinstance(requested_names, Sequence)
-        or len(requested_names) == 0
-    ):
-        raise RSLError(
-            "invalid_input",
-            "a lista de fontes (sources) não pode ser vazia",
-        )
-
-    by_name = {src.name: src for src in available}
-    selected: list[Source] = []
-    seen: set[str] = set()
-
-    for raw_name in requested_names:
-        if not isinstance(raw_name, str) or not raw_name.strip():
-            raise RSLError("invalid_input", "nome de fonte inválido")
-        name = raw_name.strip()
-        if name not in by_name:
-            raise RSLError("invalid_input", f"fonte desconhecida: {name}")
-        if name not in seen:
-            seen.add(name)
-            selected.append(by_name[name])
-
-    return selected
 
 
 # FR-15, FR-08, FR-14, UC-04, D-005, D-010: Orquestração de referências e citações de um artigo
@@ -108,15 +101,11 @@ async def run_related(
     clean_work_id: str | None = None
 
     if doi is not None:
-        if not isinstance(doi, str) or not doi.strip():
-            raise RSLError("invalid_input", "doi não pode ser vazio")
-        clean_doi = normalize_doi(doi) or doi.strip()
+        clean_doi = _validate_and_normalize_doi(doi)
         origin_work = clean_doi
     else:
         assert work_id is not None
-        if not isinstance(work_id, str) or not work_id.strip():
-            raise RSLError("invalid_input", "work_id não pode ser vazio")
-        clean_work_id = work_id.strip()
+        clean_work_id = _validate_and_normalize_work_id(work_id)
         origin_work = clean_work_id
 
     if not isinstance(request_summary, str):
@@ -159,25 +148,43 @@ async def run_related(
         if openalex_src is None or not hasattr(openalex_src, "get_origin_work"):
             raise RSLError("work_not_found", f"artigo {clean_work_id} não encontrado")
 
-        origin_data, oa_status, _oa_reason = await openalex_src.get_origin_work(clean_work_id)
+        oa_origin_raw = await openalex_src.get_origin_work(clean_work_id)
+        if isinstance(oa_origin_raw, tuple):
+            oa_data, oa_status, oa_reason = oa_origin_raw[:3]
+            oa_not_found = getattr(oa_origin_raw, "not_found", False) or (
+                oa_status == "failed" and oa_reason == "HTTP 404"
+            )
+        elif isinstance(oa_origin_raw, OriginWorkResult):
+            oa_data = oa_origin_raw.data
+            oa_status = oa_origin_raw.status
+            oa_reason = oa_origin_raw.reason
+            oa_not_found = oa_origin_raw.not_found
+        else:
+            oa_data = getattr(oa_origin_raw, "data", None)
+            oa_status = getattr(oa_origin_raw, "status", None)
+            oa_reason = getattr(oa_origin_raw, "reason", None)
+            oa_not_found = bool(getattr(oa_origin_raw, "not_found", False))
+
         if oa_status == "missing_key":
             raise RSLError("no_source_available", "nenhuma fonte pode responder; configure OPENALEX_API_KEY")
-        if oa_status is not None:
+
+        if oa_not_found:
             raise RSLError("work_not_found", f"artigo {clean_work_id} não encontrado")
 
-        assert origin_data is not None
-        resolved_doi = normalize_doi(origin_data.get("doi"))
-        resolved_oa_id = _short_openalex_id(origin_data.get("id")) or clean_work_id
-
-        # Prepara chamadas concorrentes
-        async def _call_oa() -> SourceResult:
-            return await openalex_src.related(
-                resolved_oa_id, direction, max_results, origin_data=origin_data
+        if oa_status is not None:
+            # Outras falhas (500, timeout, rate_limited): grava lista incomplete com motivo da fonte (FR-08)
+            source_results_map["openalex"] = SourceResult(
+                name="openalex",
+                status=oa_status,
+                reason=oa_reason,
+                query=f"work_id={clean_work_id}",
+                found=None,
+                fetched=0,
+                works=[],
+                not_found=False,
             )
-
-        async def _call_s2() -> SourceResult:
-            if s2_src is None or not hasattr(s2_src, "related"):
-                return SourceResult(
+            if s2_src is not None:
+                source_results_map["semantic_scholar"] = SourceResult(
                     name="semantic_scholar",
                     status="not_supported",
                     reason="artigo de origem sem DOI",
@@ -186,90 +193,146 @@ async def run_related(
                     fetched=0,
                     works=[],
                 )
-            if not resolved_doi:
-                return SourceResult(
-                    name=s2_src.name,
-                    status="not_supported",
-                    reason="artigo de origem sem DOI",
-                    query="",
-                    found=None,
-                    fetched=0,
-                    works=[],
+        else:
+            assert oa_data is not None
+            resolved_doi = normalize_doi(oa_data.get("doi"))
+            resolved_oa_id = _short_openalex_id(oa_data.get("id")) or clean_work_id
+
+            # Prepara chamadas concorrentes
+            async def _call_oa() -> SourceResult:
+                return await openalex_src.related(
+                    resolved_oa_id, direction, max_results, origin_data=oa_data
                 )
-            return await s2_src.related(resolved_doi, direction, max_results)
 
-        tasks: list[asyncio.Task[Any]] = []
-        task_names: list[str] = []
-        if openalex_src is not None and "openalex" not in source_results_map:
-            tasks.append(asyncio.create_task(_call_oa()))
-            task_names.append("openalex")
-        if s2_src is not None and "semantic_scholar" not in source_results_map:
-            tasks.append(asyncio.create_task(_call_s2()))
-            task_names.append("semantic_scholar")
+            async def _call_s2() -> SourceResult:
+                if s2_src is None or not hasattr(s2_src, "related"):
+                    return SourceResult(
+                        name="semantic_scholar",
+                        status="not_supported",
+                        reason="artigo de origem sem DOI",
+                        query="",
+                        found=None,
+                        fetched=0,
+                        works=[],
+                    )
+                if not resolved_doi:
+                    return SourceResult(
+                        name=s2_src.name,
+                        status="not_supported",
+                        reason="artigo de origem sem DOI",
+                        query="",
+                        found=None,
+                        fetched=0,
+                        works=[],
+                    )
+                return await s2_src.related(resolved_doi, direction, max_results)
 
-        if tasks:
-            outcomes = await asyncio.gather(*tasks)
-            for name, outcome in zip(task_names, outcomes):
-                source_results_map[name] = outcome
+            tasks: list[asyncio.Task[Any]] = []
+            task_names: list[str] = []
+            if openalex_src is not None and "openalex" not in source_results_map:
+                tasks.append(asyncio.create_task(_call_oa()))
+                task_names.append("openalex")
+            if s2_src is not None and "semantic_scholar" not in source_results_map:
+                tasks.append(asyncio.create_task(_call_s2()))
+                task_names.append("semantic_scholar")
+
+            if tasks:
+                outcomes = await asyncio.gather(*tasks)
+                for name, outcome in zip(task_names, outcomes):
+                    source_results_map[name] = outcome
 
     else:
         # Origem fornecida por DOI
         assert clean_doi is not None
 
-        oa_origin_data: dict[str, Any] | None = None
-        oa_failed_404 = False
-        oa_lookup_status: str | None = None
-        oa_lookup_reason: str | None = None
-
+        oa_origin_raw = None
         if openalex_src is not None and hasattr(openalex_src, "get_origin_work"):
-            data, err_status, err_reason = await openalex_src.get_origin_work(clean_doi)
-            if err_status is None:
-                oa_origin_data = data
-            elif err_reason == "HTTP 404":
-                oa_failed_404 = True
-            else:
-                oa_lookup_status = err_status
-                oa_lookup_reason = err_reason
+            oa_origin_raw = await openalex_src.get_origin_work(clean_doi)
 
-        # Se o OpenAlex não achou (404) e a entrada é um DOI, segue só com a Semantic Scholar
-        if oa_failed_404 or openalex_src is None or oa_origin_data is None:
-            if oa_failed_404:
+        if oa_origin_raw is not None:
+            if isinstance(oa_origin_raw, tuple):
+                oa_data, oa_status, oa_reason = oa_origin_raw[:3]
+                oa_is_404 = getattr(oa_origin_raw, "not_found", False) or (
+                    oa_status == "failed" and oa_reason == "HTTP 404"
+                )
+            elif isinstance(oa_origin_raw, OriginWorkResult):
+                oa_data = oa_origin_raw.data
+                oa_status = oa_origin_raw.status
+                oa_reason = oa_origin_raw.reason
+                oa_is_404 = oa_origin_raw.not_found
+            else:
+                oa_data = getattr(oa_origin_raw, "data", None)
+                oa_status = getattr(oa_origin_raw, "status", None)
+                oa_reason = getattr(oa_origin_raw, "reason", None)
+                oa_is_404 = bool(getattr(oa_origin_raw, "not_found", False))
+        else:
+            oa_data = None
+            oa_status = None
+            oa_reason = None
+            oa_is_404 = False
+
+        if oa_status == "missing_key":
+            source_results_map["openalex"] = SourceResult(
+                name="openalex",
+                status="missing_key",
+                reason=oa_reason,
+                query=f"doi:{clean_doi}",
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        oa_has_data = oa_data is not None and oa_status is None
+        oa_failed_other = bool(
+            oa_status is not None and not oa_is_404 and oa_status != "missing_key"
+        )
+
+        if oa_is_404 or openalex_src is None or oa_failed_other or not oa_has_data:
+            if oa_is_404:
                 source_results_map["openalex"] = SourceResult(
                     name="openalex",
                     status="failed",
-                    reason="HTTP 404",
+                    reason=oa_reason or "HTTP 404",
                     query=f"doi:{clean_doi}",
                     found=None,
                     fetched=0,
                     works=[],
+                    not_found=True,
                 )
-            elif oa_lookup_status is not None:
+            elif oa_failed_other:
                 source_results_map["openalex"] = SourceResult(
                     name="openalex",
-                    status=oa_lookup_status,
-                    reason=oa_lookup_reason,
+                    status=oa_status,
+                    reason=oa_reason,
                     query=f"doi:{clean_doi}",
                     found=None,
                     fetched=0,
                     works=[],
+                    not_found=False,
                 )
 
             if s2_src is not None and hasattr(s2_src, "related"):
                 s2_res = await s2_src.related(clean_doi, direction, max_results)
-                if s2_res.status == "failed" and s2_res.reason == "HTTP 404":
-                    # Nenhuma fonte achou o artigo: erro work_not_found e nada gravado
-                    raise RSLError("work_not_found", f"artigo {clean_doi} não encontrado")
                 source_results_map["semantic_scholar"] = s2_res
+
+                # Se ambas as fontes responderam 404 (ou OpenAlex 404 e S2 não achou com 404):
+                # Erro work_not_found e nada é gravado
+                s2_is_404 = getattr(s2_res, "not_found", False) or (
+                    s2_res.status == "failed" and s2_res.reason == "HTTP 404"
+                )
+                if s2_is_404 and (oa_is_404 or openalex_src is None):
+                    raise RSLError("work_not_found", f"artigo {clean_doi} não encontrado")
             else:
-                raise RSLError("work_not_found", f"artigo {clean_doi} não encontrado")
+                if oa_is_404:
+                    raise RSLError("work_not_found", f"artigo {clean_doi} não encontrado")
 
         else:
             # OpenAlex achou o artigo de origem
-            resolved_oa_id = _short_openalex_id(oa_origin_data.get("id")) or clean_doi
+            resolved_oa_id = _short_openalex_id(oa_data.get("id")) or clean_doi
 
             async def _call_oa_with_origin() -> SourceResult:
                 return await openalex_src.related(
-                    resolved_oa_id, direction, max_results, origin_data=oa_origin_data
+                    resolved_oa_id, direction, max_results, origin_data=oa_data
                 )
 
             async def _call_s2_direct() -> SourceResult:

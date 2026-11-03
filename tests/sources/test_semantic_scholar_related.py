@@ -52,7 +52,58 @@ async def test_fr15_nfr03_s2_chave_invalida(monkeypatch: pytest.MonkeyPatch) -> 
     assert "caracteres inválidos" in (res.reason or "")
 
 
-# FR-15: Artigo não encontrado na Semantic Scholar devolve HTTP 404
+# NFR-03: Chave enviada apenas no cabeçalho x-api-key, nunca na URL
+@pytest.mark.anyio
+async def test_nfr03_s2_chave_somente_no_cabecalho_nunca_na_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_key = "fake-s2-secret-key"
+    monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", fake_key)
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "total": 0,
+                "data": [],
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    source = SemanticScholarSource(client=client)
+
+    await source.related("10.1234/exemplo", "references")
+    assert len(captured_requests) > 0
+    for req in captured_requests:
+        assert req.headers.get("x-api-key") == fake_key
+        assert fake_key not in str(req.url)
+
+
+# FR-15: DOI codificado na URL da Semantic Scholar com %2F
+@pytest.mark.anyio
+async def test_fr15_s2_doi_codificado_na_url() -> None:
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "total": 0,
+                "data": [],
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    source = SemanticScholarSource(client=client)
+
+    await source.related("10.1234/exemplo", "references")
+    assert len(captured_requests) == 1
+    # Confere que o DOI no caminho está codificado com %2F
+    assert b"DOI:10.1234%2Fexemplo/references" in captured_requests[0].url.raw_path
+
+
+# FR-15: Artigo não encontrado na Semantic Scholar devolve HTTP 404 e not_found=True
 @pytest.mark.anyio
 async def test_fr15_s2_paper_404() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
@@ -65,6 +116,7 @@ async def test_fr15_s2_paper_404() -> None:
     assert res.status == "failed"
     assert res.reason == "HTTP 404"
     assert res.fetched == 0
+    assert res.not_found is True
 
 
 # FR-15, FR-08, FR-14: Consulta de referências e citações com citedPaper e citingPaper
@@ -162,39 +214,69 @@ async def test_d010_s2_teto_max_results() -> None:
     assert res.reason == "teto de 1.000 atingido"
 
 
-# D-010: Semantic Scholar para antes de 10 mil e limite da fonte é o motivo
+# D-010: Semantic Scholar para antes de 10 mil e limite da fonte é o motivo (inclusive com next=9500 exigindo limit=500)
 @pytest.mark.anyio
-async def test_d010_s2_limite_10k_fonte() -> None:
-    # Simula requisição próxima de 10.000 (offset=9000, limit=1000) onde a próxima daria >= 10.000
+async def test_d010_s2_limite_10k_fonte_next_9500() -> None:
+    captured_calls: list[tuple[int, int]] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
         offset = int(request.url.params.get("offset", 0))
         limit = int(request.url.params.get("limit", 1000))
+        captured_calls.append((offset, limit))
+
         # Se for chamada com offset + limit > 10.000 a API daria 400
         if offset + limit > 10_000:
-            return httpx.Response(400, json={"error": "offset + limit must be < 10000"})
-        return httpx.Response(
-            200,
-            json={
-                "total": 15000,
-                "next": 10000,
-                "data": [
-                    {
-                        "citingPaper": {
-                            "paperId": f"p-{offset + i}",
-                            "title": f"Paper {offset + i}",
-                            "year": 2024,
+            return httpx.Response(400, json={"error": "offset + limit must be <= 10000"})
+
+        if offset == 0:
+            return httpx.Response(
+                200,
+                json={
+                    "total": 15000,
+                    "next": 9500,
+                    "data": [
+                        {
+                            "citingPaper": {
+                                "paperId": f"p-{i}",
+                                "title": f"Paper {i}",
+                                "year": 2024,
+                            }
                         }
-                    }
-                    for i in range(limit)
-                ],
-            },
-        )
+                        for i in range(limit)
+                    ],
+                },
+            )
+        elif offset == 9500:
+            return httpx.Response(
+                200,
+                json={
+                    "total": 15000,
+                    "next": 10000,
+                    "data": [
+                        {
+                            "citingPaper": {
+                                "paperId": f"p-{offset + i}",
+                                "title": f"Paper {offset + i}",
+                                "year": 2024,
+                            }
+                        }
+                        for i in range(limit)
+                    ],
+                },
+            )
+        return httpx.Response(400)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     source = SemanticScholarSource(client=client)
 
-    # Pede 10.000 resultados; na chamada com limit=1000, após offset 0 com next 10000 ele para antes
     res = await source.related("10.1234/exemplo", "citations", max_results=10_000)
     assert res.status == "ok"
     assert res.found == 15000
     assert res.reason == "limite de 10.000 da fonte"
+
+    # Confere que a segunda requisição chamou exatamente offset=9500 e limit=500 (sem estourar 10.000)
+    assert len(captured_calls) == 2
+    assert captured_calls[0] == (0, 1000)
+    assert captured_calls[1] == (9500, 500)
+    for off, lim in captured_calls:
+        assert off + lim <= 10_000
