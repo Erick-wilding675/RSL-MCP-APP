@@ -55,8 +55,29 @@ Tarefas 01-02 (servidor), 01-03 (armazenamento) e 02-01 (modelos, erros e fonte 
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - `src/rslapp/core/search.py`: implementação de `run_search`, `deduplicate_works` e `normalize_title` sem dependência do MCP (**FR-01**, **FR-04**, **FR-05**, **FR-08**, **FR-09**, **FR-12**, **NFR-06**, **D-002**, **D-003**). Valida `query`, `request_summary`, `max_results` (`1..1000`) e `source_names`; consulta `store.get_cache` antes de chamar cada fonte e só grava em cache resultados com `status == "ok"`; levanta `RSLError("no_source_available", ...)` sem gravar arquivos quando todas as fontes estão em `missing_key`; deduplica artigos por `doi:<doi minúsculo>` ou `title:<título normalizado>` preservando o primeiro registro e incorporando `source_ids` e `citations` novas dos repetidos; marca a lista como `complete` apenas quando todas as fontes consultadas terminam em `ok` (senão `incomplete`); persiste lista, busca e `log.md` via `store.record_search`; e devolve o resumo paginado (até 25 itens na primeira página, `next_page: 2` quando `total > 25` ou `None` caso contrário).
+  - `src/rslapp/server.py`: acréscimo de `_build_sources()` (devolvendo `[OpenAlexSource()]`) e da ferramenta assíncrona `@mcp.tool() search_works(query, request_summary="", sources=None, max_results=100)`, que carrega `config.load()` dinamicamente, instancia `Store(cfg.data_dir, cfg.cache_days)`, delega a `run_search` e converte `RSLError` em `ToolError(f"{e.code}: {e.message}")` (**FR-01**, **FR-04**, **FR-05**, **FR-08**, **FR-09**, **FR-12**, **NFR-06**, **D-002**, **D-003**).
+  - `tests/core/test_search.py` e `tests/test_server_search_works.py`: suíte de testes cobrindo gravação de lista/busca/log, deduplicação por DOI e título normalizado, preservação de DOIs distintos com mesmo título, estado `incomplete` em falha, lista vazia em zero resultados, erro `no_source_available` sem gravação quando todas as fontes estão em `missing_key`, leitura/escrita seletiva de cache, resumo de 25 itens vs registro completo salvo na lista, isolamento entre buscas seguidas e chamadas via `Client(mcp)` em memória com validação de `invalid_input:`.
+  - `tests/test_server.py`: atualização de asserção de ferramentas de `assert tool_names == ["list_sources"]` para `assert "list_sources" in tool_names`, refletindo o registro da nova ferramenta `search_works` no servidor MCP.
+- **O que foi assumido:**
+  - Quando uma duplicata traz uma chave em `source_ids` ou `citations` já existente no primeiro registro (por exemplo, dois registros da mesma fonte), prevalece o valor do primeiro registro; chaves de fontes ainda ausentes no primeiro registro são acrescentadas.
+  - Em `sources` na entrada de `search_works`, nomes duplicados na mesma chamada (por exemplo `["openalex", "openalex"]`) são consultados uma única vez mantendo a ordem.
+- **O que não deu para verificar:**
+  - Busca real fim a fim contra a API do OpenAlex pelo cliente MCP (todos os testes automatizados usam fontes simuladas, sem chamadas de rede).
 
 ## Como testar
 
-A escrever na entrega.
+1. **Comandos para rodar:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+2. **O que deve aparecer:**
+   - `All checks passed!` no `ruff check .`
+   - Todos os testes passando (`64 passed`) nas duas execuções do `pytest` (Python 3.10 e Python 3.14).
+3. **Onde olhar primeiro (pontos de risco, do mais difícil ao mais simples):**
+   1. **Gravação condicional, cache seletivo e estado da lista (`src/rslapp/core/search.py` — `run_search`, FR-05, FR-08, FR-12, NFR-06, D-002):** conferir que `store.set_cache` só é chamado quando `result.status == "ok"`, que `all(entry["status"] == "missing_key" ...)` levanta `RSLError("no_source_available", ...)` antes de qualquer chamada a `store.record_search`, e que qualquer fonte com estado diferente de `"ok"` resulta em `status == "incomplete"` tanto na lista salva quanto no `log.md`.
+   2. **Resumo para a IA vs dados pessoais completos na lista salva (`src/rslapp/core/search.py` — `_summarize_work` e `run_search`, FR-12, D-002, D-004):** verificar que `works` na resposta de `search_works` contém no máximo 25 itens e expõe apenas `doi`, `title`, `authors` (somente nomes), `year`, `venue`, `references_count` e `citations`, enquanto `lists/l-NNNN.json` guarda todos os registros completos (`Work.to_dict()`, incluindo ORCID, afiliações, resumo e ids de referências).
+   3. **Deduplicação por DOI e título normalizado (`src/rslapp/core/search.py` — `normalize_title`, `_dedup_key` e `deduplicate_works`, FR-04):** confirmar que DOIs com prefixo de URL ou maiúsculas convergem para a mesma chave `doi:<minúsculo>`, títulos sem DOI convergem após remoção de acentos (`NFKD`) e pontuação, e dois trabalhos com DOIs distintos nunca são fundidos mesmo que tenham título idêntico.
