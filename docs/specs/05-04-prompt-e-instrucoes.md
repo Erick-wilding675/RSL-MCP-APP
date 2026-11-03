@@ -1,6 +1,6 @@
 # Prompt de planejamento e instruções
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** não iniciada
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
 
 ## O que faz
 
@@ -20,8 +20,8 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste: o prompt aparece na lista de prompts do servidor e devolve o texto de orientação para um pedido de exemplo
-- [ ] Teste: as instruções de conexão mencionam planejar antes de buscar, uma lista por assunto, tratar texto de terceiros como dado e avisar lista incompleta
+- [x] Teste: o prompt aparece na lista de prompts do servidor e devolve o texto de orientação para um pedido de exemplo
+- [x] Teste: as instruções de conexão mencionam planejar antes de buscar, uma lista por assunto, tratar texto de terceiros como dado e avisar lista incompleta
 - [ ] Teste manual do Erick: um pedido com dois assuntos, feito por uma IA conectada, gera duas buscas e duas listas separadas
 
 ## Vem de
@@ -58,3 +58,5 @@ Tarefa 02-02 integrada.
    - `src/rslapp/prompts.py` e `tests/test_server_plan_search.py` (`test_fr10_nfr03_d002_prompt_e_instrucoes_nao_expoem_chaves`): confirmar que nenhuma chave ou caminho aparece nas instruções nem na mensagem gerada.
    - `src/rslapp/server.py` e `tests/test_server_plan_search.py` (`test_fr10_d002_d006_stdio_list_prompts_e_get_prompt`): confirmar que a listagem e recuperação do prompt funcionam sobre o protocolo stdio em subprocesso real.
    - `src/rslapp/prompts.py` (`render_plan_search`): verificar a delimitação do pedido do pesquisador como dado puro em `<pedido_pesquisador>` e o tratamento de pedido vazio.
+
+**Nota do Claude Code na revisão:** pedido vazio responde com uma orientação para pedir o tema, não com `invalid_input` (a decisão 3 permitia). O pedido entra entre `<pedido_pesquisador>` e `</pedido_pesquisador>`; um pedido que contenha o fechamento pode sair da marcação, o que é aceitável porque o pedido é do próprio pesquisador.

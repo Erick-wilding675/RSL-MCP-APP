@@ -1,6 +1,6 @@
 # Referências e citações de um artigo
 
-**Fase:** 4 · Referências e citações · **Situação:** não iniciada
+**Fase:** 4 · Referências e citações · **Situação:** para testar
 
 ## O que faz
 
@@ -32,13 +32,13 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste com respostas simuladas: as citações de um artigo viram uma lista própria, ligada ao artigo de origem no log com a direção; o mesmo para as referências
-- [ ] Teste: as referências do OpenAlex são pedidas em grupos de no máximo 100 ids
-- [ ] Teste: com mais trabalhos que o teto, a lista sai `incomplete` com o motivo; com a Semantic Scholar perto de 10 mil, ela para antes e o limite da fonte é o motivo
-- [ ] Teste: a Crossref aparece como `not_supported`, e a Semantic Scholar também quando o artigo de origem não tem DOI; nenhum campo é preenchido com valor suposto
-- [ ] Teste: artigo de origem não achado devolve `work_not_found` e não grava lista, busca nem log
-- [ ] Teste: os trabalhos que vêm das duas fontes são juntados pela regra da 03-03
-- [ ] Teste pelo servidor (`Client(mcp)` com fontes simuladas): a lista entra no log e pode ser exportada em RIS como qualquer outra; entradas inválidas dão `invalid_input`
+- [x] Teste com respostas simuladas: as citações de um artigo viram uma lista própria, ligada ao artigo de origem no log com a direção; o mesmo para as referências
+- [x] Teste: as referências do OpenAlex são pedidas em grupos de no máximo 100 ids
+- [x] Teste: com mais trabalhos que o teto, a lista sai `incomplete` com o motivo; com a Semantic Scholar perto de 10 mil, ela para antes e o limite da fonte é o motivo
+- [x] Teste: a Crossref aparece como `not_supported`, e a Semantic Scholar também quando o artigo de origem não tem DOI; nenhum campo é preenchido com valor suposto
+- [x] Teste: artigo de origem não achado devolve `work_not_found` e não grava lista, busca nem log
+- [x] Teste: os trabalhos que vêm das duas fontes são juntados pela regra da 03-03
+- [x] Teste pelo servidor (`Client(mcp)` com fontes simuladas): a lista entra no log e pode ser exportada em RIS como qualquer outra; entradas inválidas dão `invalid_input`
 
 ## Vem de
 
@@ -82,3 +82,5 @@ Deve aparecer: 55 testes passando.
 1. **Validação estrita de entrada e sanitização contra path traversal / injeção de parâmetros** (`tests/core/test_related.py::test_fr15_d002_validacao_estrita_doi_e_work_id` e `tests/test_server_related.py::test_fr15_d002_get_related_works_entradas_invalidas`): confere que tentativas de path traversal ou URLs malformadas retornam imediatamente `invalid_input`.
 2. **Resolução de falhas 500 do OpenAlex gravando incompleta sem levantar work_not_found** (`tests/core/test_related.py::test_fr08_openalex_500_nao_da_work_not_found_grava_incompleta`): confere que erro 500 do OpenAlex registra a lista `incomplete` com o motivo da fonte e não assume erroneamente que o trabalho inexiste.
 3. **Cálculo de teto com itens faltantes e corte preventivo próximo a 10.000** (`tests/sources/test_openalex_related.py::test_d010_openalex_related_teto_atingido_com_item_faltante` e `tests/sources/test_semantic_scholar_related.py::test_d010_s2_limite_10k_fonte_next_9500`): confere que a detecção de teto atinge `incomplete` mesmo com descartes de itens no lote e que a Semantic Scholar limita batches finais sem ultrapassar 10.000.
+
+**Acompanhamentos da revisão (não bloqueiam):** o DOI vai com a barra codificada no caminho (`%2F`); o OpenAlex aceita (conferido em 2026-11-03, HTTP 200), a Semantic Scholar só se confirma com a chave: se der 404 em todo DOI, trocar para `quote(doi, safe="/")`. Nas citações do OpenAlex, itens sem título descartados deixam a lista abaixo do teto, com o motivo declarado; um artigo com exatamente o número do teto sai `incomplete` sem ter havido corte. `get_origin_work` e `_request_related_page` copiam o laço de novas tentativas. `core/models.py` ganhou `SourceResult.not_found` (compatível com o cache antigo) e `OriginWorkResult`, fora do escopo declarado e aceitos.
