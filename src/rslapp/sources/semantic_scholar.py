@@ -378,6 +378,8 @@ class SemanticScholarSource(Source):
                         raw_total = data.get("total")
                         if isinstance(raw_total, int) and not isinstance(raw_total, bool):
                             found = raw_total
+                        elif isinstance(raw_total, str) and raw_total.strip().isdigit():
+                            found = int(raw_total.strip())
 
                     raw_data = data.get("data")
                     if not isinstance(raw_data, list) or not raw_data:
