@@ -10,7 +10,9 @@ from typing_extensions import TypedDict
 
 from rslapp import config
 from rslapp.core.errors import RSLError
+from rslapp.core.find import run_find
 from rslapp.core.related import run_related
+from rslapp.core.repeat import run_repeat
 from rslapp.core.search import run_search
 from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
@@ -120,6 +122,49 @@ async def get_related_works(
             request_summary=request_summary,
             max_results=max_results,
             source_names=sources,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+# FR-02, UC-02, D-002: Encontra um artigo específico por título ou DOI
+@mcp.tool()
+async def find_work(
+    title: str | None = None,
+    doi: str | None = None,
+    request_summary: str = "",
+    sources: list[str] | None = None,
+    max_results: int = 10,
+) -> dict[str, Any]:
+    """Busca um artigo específico por título ou DOI nas fontes, deduplica candidatos e grava lista própria."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return await run_find(
+            store,
+            _build_sources(),
+            title=title,
+            doi=doi,
+            request_summary=request_summary,
+            max_results=max_results,
+            source_names=sources,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
+# FR-11, UC-03, D-002: Repete uma busca salva do log com os mesmos parâmetros
+@mcp.tool()
+async def repeat_search(
+    search_id: str,
+) -> dict[str, Any]:
+    """Repete uma busca salva do log com as mesmas strings e fontes, gravando busca e lista novas."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return await run_repeat(
+            store,
+            _build_sources(),
+            search_id=search_id,
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
