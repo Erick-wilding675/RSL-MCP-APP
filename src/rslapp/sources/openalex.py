@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import importlib.metadata
 import os
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -267,6 +268,31 @@ def _format_query_text(query: str, per_page: int, last_page: int) -> str:
     return f"search={query} · per_page={per_page} · páginas 1-{last_page}"
 
 
+# FR-14, NFR-01, NFR-03: Resultado da busca em lote de DOIs por ids do OpenAlex
+@dataclass
+class DoiLookup:
+    """Resultado da consulta de DOIs por ids do OpenAlex."""
+
+    status: str
+    reason: str | None = None
+    mapping: dict[str, str | None] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "mapping": dict(self.mapping),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> DoiLookup:
+        return cls(
+            status=str(data["status"]),
+            reason=data.get("reason"),
+            mapping=dict(data.get("mapping") or {}),
+        )
+
+
 def _retry_failure(status: str, prefix: str) -> tuple[str, str]:
     return status, f"{prefix} depois de {len(RETRY_DELAYS)} tentativas"
 
@@ -477,3 +503,89 @@ class OpenAlexSource(Source):
             fetched=len(works),
             works=works,
         )
+
+    # FR-14, NFR-01, NFR-03, D-010: Consulta em lote de DOIs para até 100 ids do OpenAlex
+    async def lookup_dois(self, ids: list[str]) -> DoiLookup:
+        if not ids:
+            return DoiLookup(status="ok", reason=None, mapping={})
+
+        clean_ids: list[str] = []
+        for raw_id in ids[:MAX_PER_PAGE]:
+            sid = _short_openalex_id(raw_id) or (raw_id.strip() if isinstance(raw_id, str) else "")
+            if sid and sid not in clean_ids:
+                clean_ids.append(sid)
+
+        if not clean_ids:
+            return DoiLookup(status="ok", reason=None, mapping={})
+
+        raw_key = os.environ.get("OPENALEX_API_KEY")
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
+        if not api_key:
+            return DoiLookup(
+                status="missing_key",
+                reason="variável OPENALEX_API_KEY não configurada",
+                mapping={},
+            )
+        if not _is_valid_api_key(api_key):
+            return DoiLookup(
+                status="failed",
+                reason="OPENALEX_API_KEY tem caracteres inválidos",
+                mapping={},
+            )
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": _user_agent(),
+        }
+
+        filter_val = "|".join(clean_ids)
+        params = {
+            "filter": f"openalex:{filter_val}",
+            "select": "id,doi",
+            "per_page": "100",
+        }
+
+        try:
+            async with self._get_client() as client:
+                data, err_status, err_reason = await self._request_page(
+                    client, params, headers
+                )
+                if err_status is not None:
+                    return DoiLookup(
+                        status=err_status,
+                        reason=err_reason,
+                        mapping={},
+                    )
+
+                assert data is not None
+                raw_results = data.get("results")
+                if not isinstance(raw_results, list):
+                    return DoiLookup(
+                        status="failed",
+                        reason="resposta JSON inválida do OpenAlex",
+                        mapping={},
+                    )
+
+                found_map: dict[str, str | None] = {}
+                for item in raw_results:
+                    if isinstance(item, dict):
+                        sid = _short_openalex_id(item.get("id"))
+                        if sid:
+                            found_map[sid] = _normalize_doi(item.get("doi"))
+
+                mapping: dict[str, str | None] = {}
+                for raw_id in ids[:MAX_PER_PAGE]:
+                    sid = _short_openalex_id(raw_id) or (raw_id.strip() if isinstance(raw_id, str) else "")
+                    if sid:
+                        doi = found_map.get(sid)
+                        mapping[sid] = doi
+                        if raw_id != sid:
+                            mapping[raw_id] = doi
+
+                return DoiLookup(status="ok", reason=None, mapping=mapping)
+        except Exception:  # noqa: BLE001
+            return DoiLookup(
+                status="failed",
+                reason="falha inesperada ao consultar o OpenAlex",
+                mapping={},
+            )
