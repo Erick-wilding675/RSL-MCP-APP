@@ -52,6 +52,12 @@ def _extract_tool_error_payload(call_result: Any) -> str:
     return raw.removeprefix("Error executing tool get_list: ")
 
 
+def _extract_search_log_error_payload(call_result: Any) -> str:
+    assert call_result.content
+    raw = str(call_result.content[0].text)
+    return raw.removeprefix("Error executing tool get_search_log: ")
+
+
 def _create_sample_list(data_dir: Path, count: int = 30) -> str:
     store = Store(data_dir)
     works: list[Work] = []
@@ -186,3 +192,85 @@ async def test_fr12_d002_get_list_server_parametros_invalidos_volta_invalid_inpu
         assert res.is_error is True
         err_msg = _extract_tool_error_payload(res)
         assert err_msg.startswith("invalid_input:")
+
+
+def _seed_server_searches(data_dir: Path, count: int = 5) -> list[str]:
+    store = Store(data_dir)
+    ids: list[str] = []
+    for i in range(1, count + 1):
+        saved_search, _list = store.record_search(
+            {
+                "kind": "terms",
+                "query": f"consulta {i}",
+                "request_summary": f"Resumo {i}",
+                "sources": [{"name": "openalex", "status": "ok", "query": f"q{i}", "found": i, "fetched": i}],
+            },
+            {"status": "complete", "works": []},
+        )
+        ids.append(str(saved_search["id"]))
+    return ids
+
+
+# FR-05, FR-13, D-002: get_search_log via Client(mcp) lista buscas e filtra por search_id
+@pytest.mark.anyio
+async def test_fr05_fr13_d002_get_search_log_server_sucesso(isolated_env: Path) -> None:
+    search_ids = _seed_server_searches(isolated_env, count=5)
+
+    async with Client(server.mcp) as client:
+        tools = await client.list_tools()
+        tool_names = [t.name for t in tools.tools]
+        assert "get_search_log" in tool_names
+
+        # Sem search_id, com limit=3
+        res = await client.call_tool("get_search_log", {"limit": 3})
+        assert res.is_error is False
+        data = _extract_result_dict(res)
+        assert "entries" in data
+        assert len(data["entries"]) == 3
+        assert [e["id"] for e in data["entries"]] == search_ids[-3:]
+        assert data["log_file"] == str((isolated_env / "log.md").resolve())
+
+        # Com search_id
+        res_single = await client.call_tool("get_search_log", {"search_id": "s-0002"})
+        assert res_single.is_error is False
+        data_single = _extract_result_dict(res_single)
+        assert len(data_single["entries"]) == 1
+        assert data_single["entries"][0]["id"] == "s-0002"
+        assert data_single["entries"][0]["query"] == "consulta 2"
+
+
+# FR-05, FR-13, D-002: get_search_log com search_id inexistente ou malformado devolve erro search_not_found
+@pytest.mark.anyio
+@pytest.mark.parametrize("bad_id", ["s-9999", "s-invalido", "l-0001", "invalido", ""])
+async def test_fr05_fr13_d002_get_search_log_server_inexistente_volta_search_not_found(
+    isolated_env: Path,
+    bad_id: str,
+) -> None:
+    with pytest.raises(ToolError) as exc_info:
+        server.get_search_log(search_id=bad_id)
+    assert str(exc_info.value).startswith("search_not_found:")
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("get_search_log", {"search_id": bad_id})
+        assert res.is_error is True
+        err_msg = _extract_search_log_error_payload(res)
+        assert err_msg.startswith("search_not_found:")
+
+
+# FR-05, FR-13, D-002: get_search_log com limit inválido devolve erro invalid_input
+@pytest.mark.anyio
+@pytest.mark.parametrize("bad_limit", [0, -1, 201])
+async def test_fr05_fr13_d002_get_search_log_server_limite_invalido_volta_invalid_input(
+    isolated_env: Path,
+    bad_limit: int,
+) -> None:
+    with pytest.raises(ToolError) as exc_info:
+        server.get_search_log(limit=bad_limit)
+    assert str(exc_info.value).startswith("invalid_input:")
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("get_search_log", {"limit": bad_limit})
+        assert res.is_error is True
+        err_msg = _extract_search_log_error_payload(res)
+        assert err_msg.startswith("invalid_input:")
+

@@ -11,7 +11,7 @@ from typing_extensions import TypedDict
 from rslapp import config
 from rslapp.core.errors import RSLError
 from rslapp.core.search import run_search
-from rslapp.core.views import get_list_view
+from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
 from rslapp.sources.base import Source
 from rslapp.sources.openalex import OpenAlexSource
@@ -117,7 +117,7 @@ def export_list(list_id: str, format: str) -> dict[str, Any]:
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# D-006, NFR-02: Ponto de entrada do comando rslapp via transporte stdio
+
 # FR-12, D-002: Mostra uma lista salva por páginas com resumo ou detalhes completos
 @mcp.tool()
 def get_list(
@@ -136,6 +136,26 @@ def get_list(
             page=page,
             page_size=page_size,
             detail=detail,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
+
+# FR-05, FR-13, D-002: Mostra entradas do log de buscas e o caminho do log.md legível
+@mcp.tool()
+def get_search_log(
+    search_id: str | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Mostra entradas do log de buscas em ordem cronológica e o caminho do arquivo legível."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return get_search_log_view(
+            store,
+            search_id=search_id,
+            limit=limit,
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e

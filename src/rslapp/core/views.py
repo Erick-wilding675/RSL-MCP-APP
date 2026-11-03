@@ -15,6 +15,10 @@ MIN_PAGE_SIZE = 1
 MAX_PAGE_SIZE = 100
 ALLOWED_DETAILS = frozenset({"summary", "full"})
 
+DEFAULT_LOG_LIMIT = 20
+MIN_LOG_LIMIT = 1
+MAX_LOG_LIMIT = 200
+
 
 def _item_to_work(item: Any) -> Work:
     if isinstance(item, Work):
@@ -101,3 +105,50 @@ def get_list_view(
         "next_page": next_page,
         "works": works,
     }
+
+
+# FR-05, FR-13, D-002: Leitura do log de buscas e caminho absoluto do log.md legível
+def get_search_log_view(
+    store: Store,
+    search_id: str | None = None,
+    limit: int = DEFAULT_LOG_LIMIT,
+) -> dict[str, Any]:
+    """Consulta as entradas gravadas do log de buscas e o caminho do log.md legível.
+
+    Args:
+        store: Armazenamento contendo as buscas e o log legível.
+        search_id: Identificador opcional da busca ('s-NNNN'). Se informado, volta apenas ela.
+        limit: Quantidade máxima de entradas recentes (entre 1 e 200).
+
+    Returns:
+        Dicionário com 'entries' e 'log_file' (caminho absoluto do log.md).
+
+    Raises:
+        RSLError('invalid_input'): limit fora do intervalo [1, 200] ou tipo inválido.
+        RSLError('search_not_found'): search_id inexistente ou malformado.
+    """
+    if type(limit) is not int or limit < MIN_LOG_LIMIT or limit > MAX_LOG_LIMIT:
+        raise RSLError(
+            "invalid_input",
+            f"limit deve ser um inteiro entre {MIN_LOG_LIMIT} e {MAX_LOG_LIMIT} (recebido: {limit!r})",
+        )
+
+    if search_id is not None:
+        if not isinstance(search_id, str):
+            raise RSLError("search_not_found", f"Busca não encontrada: {search_id!r}")
+        try:
+            search_data = store.get_search(search_id)
+        except (FileNotFoundError, ValueError) as err:
+            raise RSLError("search_not_found", f"Busca não encontrada: {search_id}") from err
+        entries = [search_data]
+    else:
+        all_searches = store.list_searches()
+        entries = all_searches[-limit:]
+
+    log_file = str(store.log_path.resolve())
+
+    return {
+        "entries": entries,
+        "log_file": log_file,
+    }
+

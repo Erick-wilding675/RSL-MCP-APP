@@ -9,7 +9,7 @@ import pytest
 
 from rslapp.core.errors import RSLError
 from rslapp.core.models import Affiliation, Author, Work
-from rslapp.core.views import get_list_view
+from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.store import Store
 
 
@@ -189,3 +189,117 @@ def test_fr12_d002_get_list_view_parametros_invalidos_lanca_invalid_input(
     with pytest.raises(RSLError) as exc_info:
         get_list_view(store, list_id, page=page, page_size=page_size, detail=detail)
     assert exc_info.value.code == "invalid_input"
+
+
+def _seed_searches(store: Store, count: int = 25) -> list[str]:
+    search_ids: list[str] = []
+    for i in range(1, count + 1):
+        saved_search, _list = store.record_search(
+            {
+                "kind": "terms",
+                "query": f"busca-{i}",
+                "request_summary": f"Resumo da busca {i}",
+                "sources": [{"name": "openalex", "status": "ok", "query": f"q{i}", "found": i, "fetched": i}],
+            },
+            {"status": "complete", "works": []},
+        )
+        search_ids.append(str(saved_search["id"]))
+    return search_ids
+
+
+# FR-05, FR-13, D-002: get_search_log devolve entradas mais recentes em ordem cronológica e respeita limit
+def test_fr05_fr13_d002_get_search_log_ordem_cronologica_e_limite(tmp_path: Path) -> None:
+    store = Store(tmp_path)
+    search_ids = _seed_searches(store, count=25)
+
+    # limit=10: as 10 mais recentes (s-0016 até s-0025) em ordem cronológica (antiga primeiro)
+    res = get_search_log_view(store, limit=10)
+    entries = res["entries"]
+    assert len(entries) == 10
+    entry_ids = [e["id"] for e in entries]
+    assert entry_ids == search_ids[-10:]
+    assert entry_ids[0] == "s-0016"
+    assert entry_ids[-1] == "s-0025"
+    assert res["log_file"] == str((tmp_path / "log.md").resolve())
+
+    # limit padrão de 20
+    res_default = get_search_log_view(store)
+    assert len(res_default["entries"]) == 20
+    assert [e["id"] for e in res_default["entries"]] == search_ids[-20:]
+
+
+# FR-05, FR-13, D-002: get_search_log com search_id devolve apenas a entrada solicitada
+def test_fr05_fr13_d002_get_search_log_filtra_por_search_id(tmp_path: Path) -> None:
+    store = Store(tmp_path)
+    _seed_searches(store, count=5)
+
+    res = get_search_log_view(store, search_id="s-0003")
+    assert len(res["entries"]) == 1
+    assert res["entries"][0]["id"] == "s-0003"
+    assert res["entries"][0]["query"] == "busca-3"
+    assert res["log_file"] == str((tmp_path / "log.md").resolve())
+
+
+# FR-05, FR-13, D-002: get_search_log com search_id inexistente ou malformado devolve search_not_found
+@pytest.mark.parametrize(
+    "bad_id",
+    [
+        "s-9999",
+        "s-invalido",
+        "l-0001",
+        "invalido",
+        "",
+        "   ",
+        None,
+        123,
+    ],
+)
+def test_fr05_fr13_d002_get_search_log_busca_inexistente_ou_malformada_lanca_search_not_found(
+    tmp_path: Path,
+    bad_id: Any,
+) -> None:
+    store = Store(tmp_path)
+    _seed_searches(store, count=3)
+    if bad_id is None:
+        # None significa busca geral, não search_id inválido
+        return
+    with pytest.raises(RSLError) as exc_info:
+        get_search_log_view(store, search_id=bad_id)
+    assert exc_info.value.code == "search_not_found"
+
+
+# FR-05, FR-13, D-002: get_search_log com limit inválido devolve invalid_input
+@pytest.mark.parametrize(
+    "bad_limit",
+    [
+        0,
+        -1,
+        201,
+        "20",
+        True,
+        False,
+        None,
+    ],
+)
+def test_fr05_fr13_d002_get_search_log_limite_invalido_lanca_invalid_input(
+    tmp_path: Path,
+    bad_limit: Any,
+) -> None:
+    store = Store(tmp_path)
+    with pytest.raises(RSLError) as exc_info:
+        get_search_log_view(store, limit=bad_limit)
+    assert exc_info.value.code == "invalid_input"
+
+
+# FR-13, D-002: get_search_log devolve caminho absoluto do log.md mesmo sem o arquivo existir ainda
+def test_fr13_d002_get_search_log_caminho_absoluto_mesmo_sem_log_md(tmp_path: Path) -> None:
+    store = Store(tmp_path)
+    assert not store.log_path.exists()
+
+    res = get_search_log_view(store)
+    assert res["entries"] == []
+    log_path = Path(res["log_file"])
+    assert log_path.is_absolute()
+    assert log_path.name == "log.md"
+    assert log_path == store.log_path.resolve()
+
