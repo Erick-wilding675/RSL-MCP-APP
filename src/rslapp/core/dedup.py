@@ -71,9 +71,8 @@ def _source_priority(work: Work) -> int:
 @dataclass
 class _WorkCluster:
     works: list[Work] = field(default_factory=list)
-    doi: str | None = None
-    norm_title: str = ""
-    year: int | None = None
+    dois: set[str] = field(default_factory=set)
+    title_years: set[tuple[str, int]] = field(default_factory=set)
 
 
 @dataclass
@@ -188,7 +187,56 @@ def _compute_cluster_divergences(cluster: _WorkCluster) -> dict[str, bool]:
     return diverged
 
 
-# FR-04, FR-14: Deduplicação com contagem de artigos juntados e divergências
+# FR-04: Atualização de índices do grupo para junção transitiva
+def _reindex_cluster(
+    cluster: _WorkCluster,
+    by_doi: dict[str, _WorkCluster],
+    by_title_year: dict[tuple[str, int], list[_WorkCluster]],
+) -> None:
+    cluster_year = next((w.year for w in cluster.works if isinstance(w.year, int)), None)
+    for w in cluster.works:
+        norm_d = normalize_doi(w.doi)
+        if norm_d is not None:
+            cluster.dois.add(norm_d)
+            by_doi[norm_d] = cluster
+
+        norm_t = normalize_title(w.title)
+        if norm_t:
+            if isinstance(w.year, int):
+                ty = (norm_t, w.year)
+                cluster.title_years.add(ty)
+                cands = by_title_year.setdefault(ty, [])
+                if cluster not in cands:
+                    cands.append(cluster)
+            elif cluster_year is not None:
+                ty = (norm_t, cluster_year)
+                cluster.title_years.add(ty)
+                cands = by_title_year.setdefault(ty, [])
+                if cluster not in cands:
+                    cands.append(cluster)
+
+
+# FR-04: Fusão de grupo de origem no alvo com migração de referências e índices
+def _merge_clusters(
+    target: _WorkCluster,
+    source: _WorkCluster,
+    clusters: list[_WorkCluster],
+    by_doi: dict[str, _WorkCluster],
+    by_title_year: dict[tuple[str, int], list[_WorkCluster]],
+) -> None:
+    target.works.extend(source.works)
+    if source in clusters:
+        clusters.remove(source)
+    for ty in source.title_years:
+        if ty in by_title_year and source in by_title_year[ty]:
+            by_title_year[ty].remove(source)
+    for d in source.dois:
+        if by_doi.get(d) is source:
+            by_doi[d] = target
+    _reindex_cluster(target, by_doi, by_title_year)
+
+
+# FR-04, FR-14: Deduplicação transitiva com contagem de artigos juntados e divergências
 def deduplicate_works_with_merge(works: Sequence[Work]) -> DedupResult:
     """Agrupa artigos duplicados por DOI ou (título normalizado + ano), gerando merge info."""
     clusters: list[_WorkCluster] = []
@@ -200,49 +248,43 @@ def deduplicate_works_with_merge(works: Sequence[Work]) -> DedupResult:
         norm_title = normalize_title(work.title)
         year = work.year if isinstance(work.year, int) else None
 
-        matched_cluster: _WorkCluster | None = None
+        doi_cluster = by_doi.get(norm_doi) if norm_doi is not None else None
 
-        if norm_doi is not None:
-            if norm_doi in by_doi:
-                matched_cluster = by_doi[norm_doi]
-            elif norm_title and year is not None:
-                candidates = by_title_year.get((norm_title, year), [])
-                for candidate in candidates:
-                    if candidate.doi is None:
-                        matched_cluster = candidate
-                        break
-        else:
-            # Sem DOI: só junta se houver título normalizado não vazio E ano definido
-            if norm_title and year is not None:
-                candidates = by_title_year.get((norm_title, year), [])
-                if candidates:
-                    matched_cluster = candidates[0]
+        title_clusters: list[_WorkCluster] = []
+        if norm_title and year is not None:
+            for cand in by_title_year.get((norm_title, year), []):
+                if cand not in title_clusters:
+                    title_clusters.append(cand)
 
-        if matched_cluster is not None:
-            matched_cluster.works.append(work)
-            if matched_cluster.doi is None and norm_doi is not None:
-                matched_cluster.doi = norm_doi
-                by_doi[norm_doi] = matched_cluster
-            if matched_cluster.year is None and year is not None:
-                matched_cluster.year = year
-            if not matched_cluster.norm_title and norm_title:
-                matched_cluster.norm_title = norm_title
-                if matched_cluster.year is not None:
-                    by_title_year.setdefault(
-                        (norm_title, matched_cluster.year), []
-                    ).append(matched_cluster)
+        # Escolha do cluster alvo respeitando regras de DOI e junção transitiva:
+        # - Dois DOIs diferentes nunca se juntam (FR-04).
+        # - Se um registro casa com dois grupos diferentes (um pelo DOI, outro pelo título),
+        #   ele fica no grupo do DOI (FR-04).
+        target: _WorkCluster
+        if doi_cluster is not None:
+            target = doi_cluster
+        elif norm_doi is not None:
+            valid_cands = [c for c in title_clusters if not c.dois]
+            if valid_cands:
+                target = valid_cands[0]
+            else:
+                target = _WorkCluster()
+                clusters.append(target)
         else:
-            new_cluster = _WorkCluster(
-                works=[work],
-                doi=norm_doi,
-                norm_title=norm_title,
-                year=year,
-            )
-            clusters.append(new_cluster)
-            if norm_doi is not None:
-                by_doi[norm_doi] = new_cluster
-            if norm_title and year is not None:
-                by_title_year.setdefault((norm_title, year), []).append(new_cluster)
+            if title_clusters:
+                doi_cands = [c for c in title_clusters if c.dois]
+                target = doi_cands[0] if doi_cands else title_clusters[0]
+            else:
+                target = _WorkCluster()
+                clusters.append(target)
+
+        # Funde transitivamente quaisquer candidatos por título que não tenham DOI conflitante
+        for cand in title_clusters:
+            if cand is not target and not cand.dois:
+                _merge_clusters(target, cand, clusters, by_doi, by_title_year)
+
+        target.works.append(work)
+        _reindex_cluster(target, by_doi, by_title_year)
 
     merged_count = 0
     divergence_counts: dict[str, int] = {"year": 0, "title": 0, "doi": 0, "venue": 0}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 from rslapp.core.dedup import (
     deduplicate_works,
     deduplicate_works_with_merge,
@@ -153,6 +155,10 @@ def test_fr04_dois_dois_diferentes_nunca_se_juntam() -> None:
     res = deduplicate_works_with_merge([w1, w2])
     assert len(res.works) == 2
     assert res.merge["merged"] == 0
+
+    res_rev = deduplicate_works_with_merge([w2, w1])
+    assert len(res_rev.works) == 2
+    assert res_rev.merge["merged"] == 0
 
 
 # FR-04: Um trabalho com DOI se junta a outro sem DOI pelo título normalizado e ano
@@ -331,3 +337,138 @@ def test_fr04_deduplicate_works_compatibilidade() -> None:
     works = deduplicate_works([w1, w2])
     assert isinstance(works, list)
     assert len(works) == 1
+
+
+# FR-04: Junção transitiva em todas as 6 ordens com prevalência preservada
+def test_fr04_juncao_transitiva_seis_ordens_mesmo_artigo_e_prevalencia() -> None:
+    work_a = _make_work(
+        "openalex",
+        title="Deep Learning Review",
+        doi="10.1/x",
+        year=2020,
+        authors=[Author(name="Autor OpenAlex")],
+        source_id="W1",
+        citations_count=10,
+    )
+    work_b = _make_work(
+        "crossref",
+        title="Deep learning: a review",
+        doi="10.1/x",
+        year=2020,
+        authors=[Author(name="Autor Crossref")],
+        source_id="CR1",
+        citations_count=5,
+    )
+    work_c = _make_work(
+        "semantic_scholar",
+        title="Deep learning: a review",
+        doi=None,
+        year=2020,
+        authors=[Author(name="Autor S2")],
+        source_id="S2-1",
+        citations_count=3,
+    )
+
+    for perm in itertools.permutations([work_a, work_b, work_c]):
+        res = deduplicate_works_with_merge(list(perm))
+        assert len(res.works) == 1
+        w = res.works[0]
+        assert w.doi == "10.1/x"
+        # Prevalência: OpenAlex prevalece em título e autores
+        assert w.title == "Deep Learning Review"
+        assert [a.name for a in w.authors] == ["Autor OpenAlex"]
+        assert w.year == 2020
+        assert w.source_ids == {
+            "openalex": "W1",
+            "crossref": "CR1",
+            "semantic_scholar": "S2-1",
+        }
+        assert w.citations == {
+            "openalex": 10,
+            "crossref": 5,
+            "semantic_scholar": 3,
+        }
+        assert res.merge["merged"] == 1
+
+
+# FR-04: Junção transitiva com ano ausente em uma fonte resolvido por outra em todas as 6 ordens
+def test_fr04_juncao_transitiva_caso_ano_ausente_seis_ordens() -> None:
+    work_a = _make_work(
+        "openalex",
+        title="Deep Learning",
+        doi="10.1/y",
+        year=None,
+        authors=[Author(name="Autor OA")],
+        source_id="W-Y",
+    )
+    work_b = _make_work(
+        "crossref",
+        title="Deep Learning",
+        doi="10.1/y",
+        year=2021,
+        authors=[Author(name="Autor CR")],
+        source_id="CR-Y",
+    )
+    work_c = _make_work(
+        "semantic_scholar",
+        title="Deep Learning",
+        doi=None,
+        year=2021,
+        authors=[Author(name="Autor S2")],
+        source_id="S2-Y",
+    )
+
+    for perm in itertools.permutations([work_a, work_b, work_c]):
+        res = deduplicate_works_with_merge(list(perm))
+        assert len(res.works) == 1
+        w = res.works[0]
+        assert w.doi == "10.1/y"
+        assert w.year == 2021
+        assert w.source_ids == {
+            "openalex": "W-Y",
+            "crossref": "CR-Y",
+            "semantic_scholar": "S2-Y",
+        }
+        assert res.merge["merged"] == 1
+
+
+# FR-04: Quando um registro casa com dois grupos diferentes (um por DOI, outro por título), fica no grupo do DOI
+def test_fr04_registro_casa_dois_grupos_doi_e_titulo_fica_no_grupo_doi() -> None:
+    # Grupo 1 (OpenAlex): DOI 10.1/doi-a, Título "Unique Alpha", ano 2020
+    w_doi_group = _make_work(
+        "openalex",
+        title="Unique Alpha",
+        doi="10.1/doi-a",
+        year=2020,
+        source_id="OA-1",
+    )
+    # Grupo 2 (Crossref): DOI 10.1/doi-b, Título "Shared Beta", ano 2020
+    w_title_group = _make_work(
+        "crossref",
+        title="Shared Beta",
+        doi="10.1/doi-b",
+        year=2020,
+        source_id="CR-1",
+    )
+    # Registro que casa com Grupo 1 pelo DOI (10.1/doi-a) e com Grupo 2 pelo título ("Shared Beta", 2020)
+    w_dual = _make_work(
+        "semantic_scholar",
+        title="Shared Beta",
+        doi="10.1/doi-a",
+        year=2020,
+        source_id="S2-1",
+    )
+
+    res = deduplicate_works_with_merge([w_doi_group, w_title_group, w_dual])
+    assert len(res.works) == 2
+
+    # w_dual deve ficar no grupo do DOI (10.1/doi-a), e não no grupo do título (10.1/doi-b)
+    g_doi = next(w for w in res.works if w.doi == "10.1/doi-a")
+    g_title = next(w for w in res.works if w.doi == "10.1/doi-b")
+
+    assert "openalex" in g_doi.source_ids
+    assert "semantic_scholar" in g_doi.source_ids
+    assert g_doi.source_ids["semantic_scholar"] == "S2-1"
+
+    assert "crossref" in g_title.source_ids
+    assert "semantic_scholar" not in g_title.source_ids
