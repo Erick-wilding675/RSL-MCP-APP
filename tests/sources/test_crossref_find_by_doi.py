@@ -15,6 +15,12 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
+@pytest.fixture(autouse=True)
+def _sem_email_de_contato(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Os testes não dependem do RSL_CONTACT_EMAIL de quem roda; quem precisa, define."""
+    monkeypatch.delenv("RSL_CONTACT_EMAIL", raising=False)
+
+
 # FR-02, D-002: Caminho da URL cotado e mailto opcional quando configurado
 @pytest.mark.anyio
 async def test_fr02_crossref_find_by_doi_path_and_mailto(monkeypatch: pytest.MonkeyPatch) -> None:
