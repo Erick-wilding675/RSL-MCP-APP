@@ -36,8 +36,39 @@ Tarefa 02-02 integrada.
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - Implementado `src/rslapp/core/views.py` com `get_list_view` e `get_search_log_view` (sem dependência de MCP):
+    - `get_list_view`: valida `page` (>= 1), `page_size` (1 a 100) e `detail` (`summary` ou `full`), realiza paginação com `next_page` e resume trabalhos com `_summarize_work` de `search.py` ou retorna `Work.to_dict()` completo.
+    - `get_search_log_view`: valida `limit` (1 a 200), retorna as entradas mais recentes em ordem cronológica (a mais antiga primeiro) ou filtra por `search_id`, e devolve o caminho absoluto de `log.md`.
+  - Expostas as ferramentas MCP `get_list` e `get_search_log` em `src/rslapp/server.py`, traduzindo `RSLError` para `ToolError("<código>: <mensagem>")`.
+  - Adicionados testes unitários em `tests/core/test_views.py` e testes de servidor MCP em memória (`Client(mcp)`) em `tests/test_server_get_list.py`.
+  - Realizada a medição T-006 do tamanho de payload JSON UTF-8 compacto com 100 e 500 trabalhos sintéticos (10 autores e 40 referências cada):
+    - 100 artigos summary: 55.839 bytes (~54,5 KB)
+    - 100 artigos full: 399.239 bytes (~389,9 KB)
+    - 500 artigos summary: 278.639 bytes (~272,1 KB)
+    - 500 artigos full: 1.995.639 bytes (~1,95 MB)
+    - Números anotados no item T-006 de `docs/test-plan.md`.
+- **Qual requisito serve:** FR-05, FR-12, FR-13, D-002 e T-006.
+- **O que foi assumido:**
+  - Páginas além do final da lista devolvem `works: []` e `next_page: None`.
+  - `list_id` inexistente ou com formato inválido devolve erro `list_not_found`.
+  - `search_id` inexistente ou com formato inválido devolve erro `search_not_found`.
+  - `log_file` usa `resolve()` para devolver o caminho absoluto canônico do `log.md`, mesmo que o arquivo ainda não exista.
+- **O que não deu para verificar:**
+  - Sessão interativa com cliente externo real (testes executados com o cliente em memória do SDK oficial `mcp.Client`).
 
 ## Como testar
 
-A escrever na entrega.
+- **Comandos:**
+  ```powershell
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+  ```
+- **O que deve aparecer:**
+  - `ruff check .` passa limpo sem erros.
+  - `pytest -q` em Python 3.10 e 3.14 reporta 207 testes passando (100% de sucesso).
+- **Onde olhar primeiro:**
+  1. *Paginação e corte de metadados em `get_list` (`summary` vs `full`)*: em `tests/core/test_views.py::test_fr12_d002_get_list_view_respeita_detail_summary_e_full` e `test_fr12_d002_get_list_view_paginacao_e_proxima_pagina`.
+  2. *Ordem cronológica e janela mais recente em `get_search_log`*: em `tests/core/test_views.py::test_fr05_fr13_d002_get_search_log_ordem_cronologica_e_limite`.
+  3. *Tradução de erros no servidor MCP*: em `tests/test_server_get_list.py`, conferindo `list_not_found`, `search_not_found` e `invalid_input` como `ToolError`.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -302,4 +303,109 @@ def test_fr13_d002_get_search_log_caminho_absoluto_mesmo_sem_log_md(tmp_path: Pa
     assert log_path.is_absolute()
     assert log_path.name == "log.md"
     assert log_path == store.log_path.resolve()
+
+
+def _create_synthetic_work(idx: int) -> Work:
+    """Cria um trabalho sintético com exatamente 10 autores e 40 referências para medição T-006."""
+    authors = [
+        Author(
+            name=f"Synthetic Author {a:02d}",
+            orcid=f"0000-0002-{a:04d}-{idx:04d}",
+            affiliations=[
+                Affiliation(
+                    name=f"Laboratory of Systematic Reviews {a}, University of Benchmark",
+                    country_code="BR",
+                )
+            ],
+        )
+        for a in range(1, 11)
+    ]
+    references = [f"W{r:09d}" for r in range(1, 41)]
+    return Work(
+        title=f"Synthetic Benchmark Work {idx:04d} on Systematic Literature Review and Artificial Intelligence",
+        doi=f"10.1234/synth.benchmark.{idx:04d}",
+        year=2024,
+        type="article",
+        venue="Journal of Synthetic Reviews and Empirical Methods",
+        abstract=(
+            "This is a realistic synthetic abstract for benchmarking payload sizes of get_list responses. "
+            "It contains typical academic terminology regarding methodology, deduplication, and citation networks."
+        ),
+        keywords=["systematic review", "benchmark", "mcp server", "bibliometrics", "vosviewer"],
+        authors=authors,
+        references=references,
+        references_count=40,
+        citations={"openalex": 15, "crossref": 12, "semantic_scholar": 8},
+        source_ids={"openalex": f"W{idx:09d}", "crossref": f"10.1234/synth.benchmark.{idx:04d}"},
+    )
+
+
+# D-002, T-006: Medição do tamanho em bytes do JSON de get_list com 100 e 500 trabalhos (10 autores, 40 referências)
+def test_t006_d002_medicao_tamanho_payload_100_e_500_trabalhos(
+    tmp_path: Path,
+) -> None:
+    store = Store(tmp_path)
+
+    # Criação da lista de 100 trabalhos sintéticos
+    works_100 = [_create_synthetic_work(i) for i in range(1, 101)]
+    _search_100, saved_list_100 = store.record_search(
+        {
+            "kind": "terms",
+            "query": "benchmark-100",
+            "sources": [{"name": "openalex", "status": "ok", "query": "q", "found": 100, "fetched": 100}],
+        },
+        {"status": "complete", "works": [w.to_dict() for w in works_100]},
+    )
+    list_id_100 = str(saved_list_100["id"])
+
+    # 100 artigos em summary
+    res_100_summary = get_list_view(store, list_id_100, page=1, page_size=100, detail="summary")
+    bytes_100_summary = len(json.dumps(res_100_summary, ensure_ascii=False).encode("utf-8"))
+
+    # 100 artigos em full
+    res_100_full = get_list_view(store, list_id_100, page=1, page_size=100, detail="full")
+    bytes_100_full = len(json.dumps(res_100_full, ensure_ascii=False).encode("utf-8"))
+
+    # Criação da lista de 500 trabalhos sintéticos
+    works_500 = [_create_synthetic_work(i) for i in range(1, 501)]
+    _search_500, saved_list_500 = store.record_search(
+        {
+            "kind": "terms",
+            "query": "benchmark-500",
+            "sources": [{"name": "openalex", "status": "ok", "query": "q", "found": 500, "fetched": 500}],
+        },
+        {"status": "complete", "works": [w.to_dict() for w in works_500]},
+    )
+    list_id_500 = str(saved_list_500["id"])
+
+    # 500 artigos em summary (usando max_page_size=500 para permitir medir resposta com 500 itens)
+    res_500_summary = get_list_view(
+        store, list_id_500, page=1, page_size=500, detail="summary", max_page_size=500
+    )
+    bytes_500_summary = len(json.dumps(res_500_summary, ensure_ascii=False).encode("utf-8"))
+
+    # 500 artigos em full (usando max_page_size=500)
+    res_500_full = get_list_view(
+        store, list_id_500, page=1, page_size=500, detail="full", max_page_size=500
+    )
+    bytes_500_full = len(json.dumps(res_500_full, ensure_ascii=False).encode("utf-8"))
+
+    # Asserções de sanidade das respostas e medições
+    assert len(res_100_summary["works"]) == 100
+    assert len(res_100_full["works"]) == 100
+    assert len(res_500_summary["works"]) == 500
+    assert len(res_500_full["works"]) == 500
+
+    assert bytes_100_summary > 0
+    assert bytes_100_full > bytes_100_summary
+    assert bytes_500_summary > bytes_100_summary
+    assert bytes_500_full > bytes_500_summary
+
+    # Exibe os valores para captura no log do teste
+    print("\n--- MEDIÇÃO T-006 (Bytes UTF-8 compactos) ---")
+    print(f"100 artigos summary: {bytes_100_summary} bytes ({bytes_100_summary / 1024:.2f} KB)")
+    print(f"100 artigos full:    {bytes_100_full} bytes ({bytes_100_full / 1024:.2f} KB)")
+    print(f"500 artigos summary: {bytes_500_summary} bytes ({bytes_500_summary / 1024:.2f} KB)")
+    print(f"500 artigos full:    {bytes_500_full} bytes ({bytes_500_full / 1024:.2f} KB)")
+
 
