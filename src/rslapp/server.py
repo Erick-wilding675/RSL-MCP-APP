@@ -11,6 +11,7 @@ from typing_extensions import TypedDict
 from rslapp import config
 from rslapp.core.errors import RSLError
 from rslapp.core.search import run_search
+from rslapp.exporters import run_export
 from rslapp.sources.base import Source
 from rslapp.sources.openalex import OpenAlexSource
 from rslapp.store import Store
@@ -93,6 +94,23 @@ async def search_works(
             request_summary=request_summary,
             max_results=max_results,
             source_names=sources,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
+# FR-06, FR-12, UC-01, D-002: Exporta uma lista salva para arquivo no formato solicitado
+@mcp.tool()
+def export_list(list_id: str, format: str) -> dict[str, Any]:
+    """Exporta uma lista salva para arquivo no formato solicitado (atualmente 'ris')."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return run_export(
+            store,
+            list_id=list_id,
+            export_format=format,
+            export_dir=cfg.export_dir,
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
