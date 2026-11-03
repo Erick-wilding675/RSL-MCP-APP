@@ -11,6 +11,7 @@ from typing_extensions import TypedDict
 from rslapp import config
 from rslapp.core.errors import RSLError
 from rslapp.core.search import run_search
+from rslapp.core.views import get_list_view
 from rslapp.exporters import run_export
 from rslapp.sources.base import Source
 from rslapp.sources.openalex import OpenAlexSource
@@ -111,6 +112,30 @@ def export_list(list_id: str, format: str) -> dict[str, Any]:
             list_id=list_id,
             export_format=format,
             export_dir=cfg.export_dir,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
+# D-006, NFR-02: Ponto de entrada do comando rslapp via transporte stdio
+# FR-12, D-002: Mostra uma lista salva por páginas com resumo ou detalhes completos
+@mcp.tool()
+def get_list(
+    list_id: str,
+    page: int = 1,
+    page_size: int = 25,
+    detail: str = "summary",
+) -> dict[str, Any]:
+    """Mostra uma lista salva por páginas, com nível de detalhe summary ou full."""
+    cfg = config.load()
+    store = Store(cfg.data_dir, cfg.cache_days)
+    try:
+        return get_list_view(
+            store,
+            list_id=list_id,
+            page=page,
+            page_size=page_size,
+            detail=detail,
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
