@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import importlib.metadata
 import os
 import re
@@ -30,7 +31,7 @@ _BLOCK_TAG_RE = re.compile(
     r"</?(?:jats:)?(?:p|title|sec|list|list-item|def-list|boxed-text)(?:\s[^>]*)?>",
     re.IGNORECASE,
 )
-_ANY_TAG_RE = re.compile(r"<[^>]+>")
+_TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*(\s[^>]*)?/?>")
 
 
 def _user_agent() -> str:
@@ -102,12 +103,13 @@ def _extract_year(raw_issued: Any) -> int | None:
     return raw_year if isinstance(raw_year, int) and not isinstance(raw_year, bool) else None
 
 
-# FR-03: Remove marcas JATS/XML do resumo e normaliza espaços simples
+# FR-03: Remove marcas JATS/XML do resumo, decodifica entidades HTML e normaliza espaços simples
 def _clean_abstract(raw_abstract: Any) -> str | None:
     if not isinstance(raw_abstract, str):
         return None
     text = _BLOCK_TAG_RE.sub(" ", raw_abstract)
-    text = _ANY_TAG_RE.sub("", text)
+    text = _TAG_RE.sub("", text)
+    text = html.unescape(text)
     cleaned = " ".join(text.split())
     return cleaned if cleaned else None
 
