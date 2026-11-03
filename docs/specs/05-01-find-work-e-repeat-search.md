@@ -1,6 +1,6 @@
 # Achar um artigo e repetir uma busca
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** não iniciada
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
 
 ## O que faz
 
@@ -23,10 +23,10 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste: `find_work` por DOI exato devolve o artigo; por título parecido devolve candidatos; sem resultado devolve lista vazia registrada
-- [ ] Teste: `repeat_search` usa as strings originais de cada fonte e gera `s-` e `l-` novos, com `repeated_from` apontando para a original
-- [ ] Teste: a busca original e a lista original continuam idênticas depois da repetição
-- [ ] Teste: se uma fonte usada antes está sem chave, a repetição segue com as outras e marca a falha
+- [x] Teste: `find_work` por DOI exato devolve o artigo; por título parecido devolve candidatos; sem resultado devolve lista vazia registrada
+- [x] Teste: `repeat_search` usa as strings originais de cada fonte e gera `s-` e `l-` novos, com `repeated_from` apontando para a original
+- [x] Teste: a busca original e a lista original continuam idênticas depois da repetição
+- [x] Teste: se uma fonte usada antes está sem chave, a repetição segue com as outras e marca a falha
 
 ## Vem de
 
@@ -62,3 +62,5 @@ Tarefas 03-03 e 04-02 integradas.
    1. **Crossref find_by_doi sem parâmetro `select`:** Em `tests/sources/test_crossref_find_by_doi.py`, verificar se a chamada a `/works/<doi>` não envia `select` (que causa HTTP 400 na API da Crossref), mantém `mailto` e mapeia `data["message"]` como Work.
    2. **Validação estrita de argumentos e fidelidade na repetição:** Em `tests/core/test_repeat.py`, verificar que `repeat_search` passa exatamente a mesma query e `max_results` para cada fonte, copia o `origin` nas buscas de tipo `related`, e recusa ids malformados (`s-1`, `../x`) com `search_not_found`.
    3. **Segurança de injeção em caminhos de DOI e rate limit:** Em `test_sources_*_find_by_doi.py`, conferir que DOIs contendo `../`, `?`, `#`, `%` e espaço geram caminhos URL estritamente cotados via `urllib.parse.quote(safe="")`, e que chamadas consecutivas no Semantic Scholar respeitam a pausa de 1s via `rate_limited_call`.
+
+**Notas do Claude Code na revisão:** a rodada 1 pedia `select` em `/works/<doi>` da Crossref, que a API recusa (HTTP 400, conferido com chamada real em 2026-11-03); a rodada 2 tirou. Acompanhamentos (não bloqueiam): faltam testes de que a repetição usa só as fontes da original quando ela foi feita num subconjunto, e de que o `origin` é copiado e não recalculado; `run_find` copia parte de `run_search`; uma repetição dentro do prazo do cache volta do cache (`from_cache: true`), de acordo com a NFR-06.
