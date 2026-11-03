@@ -27,7 +27,7 @@ RSL.app é um servidor MCP em Python, gratuito e self-hosted, que deixa a IA do 
 
 ### Regras deste projeto
 
-- **Quem faz o quê:** o Claude desktop escreve documentos e specs, o Gemini, pelo Antigravity CLI (`agy`), escreve o código de cada tarefa, o Claude Code revisa, corrige e orquestra com o Playmaker, e o Erick testa e marca como pronta. Quem codifica não muda uma spec sozinho: se a spec está errada ou incompleta, registre e devolva para atualizar.
+- **Quem faz o quê:** o Claude (desktop ou Claude Code, é o mesmo papel) planeja, escreve e revê documentos e specs, revisa o código e orquestra com o Playmaker. O Gemini, pelo Antigravity CLI (`agy`), escreve o código de cada tarefa, com o Gemini 4 Argon ou, se o limite dele acabar, o Gemini 3.8 Flash. O Erick testa e marca como pronta. Quem codifica não muda uma spec sozinho: se a spec está errada ou incompleta, registre e devolva ao Claude para atualizar.
 - **Antes de usar uma API ou uma biblioteca nova:** leia a página oficial por inteiro (T-001, T-009). O que for dito de memória ou lido só num resultado de busca não vale como fato.
 - **O servidor usa o SDK oficial `mcp>=2,<3`.** A maior parte dos exemplos que os modelos conhecem é da versão 1 (`from mcp.server.fastmcp import FastMCP`). Confira o nome da classe e o import na documentação da versão 2 antes de escrever (T-009).
 - **Fora da primeira versão:** app desktop, juntar buscas, abrir o VOSviewer, Scopus, Web of Science e CAPES, texto completo. O Sci-Hub está fora do projeto.

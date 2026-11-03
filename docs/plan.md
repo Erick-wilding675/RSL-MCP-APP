@@ -13,7 +13,7 @@
 - Cada tarefa que lê uma API começa conferindo as páginas oficiais por inteiro (T-001). Os itens de conferência de cada spec estão na seção "Pronto quando".
 - O código leva os identificadores FR-xx, NFR-xx, UC-xx e D-xxx como âncoras em comentários, para a revisão responder por que cada trecho existe.
 - O Gemini escreve o código, o Claude Code revisa e marca a tarefa como "para testar", e o Erick marca como "pronta" depois de testar. Os testes que dependem de abrir o VOSviewer ou de chamar uma API com chave real são do Erick.
-- O Claude Code não muda o escopo de uma spec sozinho. Se a spec está errada ou incompleta, ele registra e devolve para o Claude desktop atualizar.
+- O Claude (desktop ou Claude Code, é o mesmo papel) atualiza as specs quando estão erradas ou incompletas, registrando o motivo na própria spec. O Gemini não muda spec: registra e devolve. Desde 2026-11-03, o Erick liberou todas as fases e recebe um resumo ao fim de cada uma.
 - O Langfuse, para observar os agentes do Gemini e do Claude Code, será configurado quando o Erick pedir.
 
 ## Fases
