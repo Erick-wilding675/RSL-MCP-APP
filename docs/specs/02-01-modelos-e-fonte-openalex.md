@@ -90,8 +90,31 @@ Tarefas 01-01 e 01-03 integradas. A chave do OpenAlex está no Lore secrets desd
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - `pyproject.toml`: acrescentada `"typing_extensions"` às dependências do pacote.
+  - `src/rslapp/core/errors.py`: exceção `RSLError(code, message)` validando os sete códigos de erro do contrato (`ERROR_CODES`), sem dependência do protocolo MCP (**D-002**).
+  - `src/rslapp/core/models.py` e `src/rslapp/core/__init__.py`: dataclasses `Affiliation`, `Author`, `Work` e `SourceResult` com serialização simétrica `to_dict()` / `from_dict()` (**FR-01**, **FR-03**, **FR-14**, **NFR-03**, **D-004**, **D-010**).
+  - `src/rslapp/sources/base.py` e `src/rslapp/sources/__init__.py`: protocolo `Source` (`@runtime_checkable`) com `name`, `needs_key`, `cache_query` e `search` (**FR-01**, **D-009**).
+  - `src/rslapp/sources/openalex.py`: conector `OpenAlexSource` lendo `OPENALEX_API_KEY` do ambiente a cada chamada e enviando exclusivamente no cabeçalho `Authorization: Bearer <chave>`, `User-Agent: rslapp/<versão>`, `select` de primeiro nível, reconstrução de `abstract_inverted_index`, normalização de DOI/ORCID/ids do OpenAlex em forma curta, descarte de registros sem título, paginação limitada a `max_results` e ao teto de 10.000 resultados, e novas tentativas (`1`, `2`, `4` s) em 429 transitório, 5xx e falhas de rede/tempo limite (**FR-01**, **FR-03**, **FR-14**, **NFR-01**, **NFR-03**, **NFR-04**, **NFR-05**, **D-004**, **D-010**).
+  - `tests/core/test_models.py` e `tests/sources/test_openalex.py`: 9 testes unitários (sem rede, usando `httpx.MockTransport` e `sleep` injetável) cobrindo todos os itens automatizados de "Pronto quando".
+- **O que foi assumido:**
+  - Autores na lista `authorships` sem `author.display_name` válido são ignorados, já que `Author.name` é obrigatório no modelo.
+  - Em `Affiliation.ids["ror"]`, o identificador ROR é preservado (sem exigir nem remover prefixo de URL), aceitando tanto a URL (`https://ror.org/...`) quanto a forma curta.
+- **O que não deu para verificar:**
+  - A chamada real à API do OpenAlex com a chave do Erick (item final de "Pronto quando", que pertence ao Erick para aferição do custo real no T-002).
 
 ## Como testar
 
-A escrever na entrega.
+1. **Comandos para rodar:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+2. **O que deve aparecer:**
+   - `All checks passed!` no `ruff check .`
+   - `40 passed` em ambas as execuções do `pytest` (Python 3.10 e Python 3.14).
+3. **Onde olhar primeiro (pontos de risco, do mais difícil ao mais simples):**
+   1. **Isolamento da chave de API (`src/rslapp/sources/openalex.py` — `OpenAlexSource.search`, `OpenAlexSource.cache_query`, `OpenAlexSource.__repr__`, NFR-03):** conferir que `OPENALEX_API_KEY` é lida de `os.environ` apenas dentro de `search`, enviada somente no cabeçalho `Authorization: Bearer` e nunca aparece na URL requisitada, em `SourceResult.query`, em `SourceResult.reason`, em `cache_query`, no `repr` nem nos logs do `httpx`.
+   2. **Mapeamento de autores, afiliações, resumo e referências (`src/rslapp/sources/openalex.py` — `_parse_work`, `_parse_author`, `_reconstruct_abstract`, FR-03, FR-14, D-004, D-010):** verificar a normalização de DOI (minúsculo sem URL), ORCID (curto sem URL) e ids do OpenAlex (`W...`, `A...`, `I...`), a reconstrução ordenada do `abstract_inverted_index` e o descarte seguro de trabalhos sem `display_name` ou com campos nulos em qualquer nível.
+   3. **Paginação, retentativas e preservação parcial (`src/rslapp/sources/openalex.py` — `_request_page` e laço de páginas em `search`, NFR-01, NFR-04, NFR-05):** confirmar que 429 com `not_enough_credits` e 403 com `key_not_activated` falham imediatamente sem repetir, que 429 transitório e 5xx esperam `1`, `2` e `4` s antes de desistir, que o laço para em `max_results`, no fim do resultado ou em 10.000 itens, e que uma falha a partir da página 2 preserva os trabalhos já obtidos na página 1.
