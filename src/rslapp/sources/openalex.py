@@ -1,0 +1,483 @@
+"""Conector da fonte acadêmica OpenAlex."""
+
+from __future__ import annotations
+
+import asyncio
+import importlib.metadata
+import os
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
+from typing import Any
+
+import httpx
+
+from rslapp.core.models import Affiliation, Author, SourceResult, Work
+from rslapp.sources.base import Source
+
+OPENALEX_WORKS_URL = "https://api.openalex.org/works"
+# NFR-05, D-010: Seleção apenas dos campos de primeiro nível necessários, incluindo referências e citações
+SELECT_FIELDS = (
+    "id,doi,display_name,publication_year,type,primary_location,"
+    "authorships,abstract_inverted_index,keywords,referenced_works,"
+    "referenced_works_count,cited_by_count"
+)
+MAX_PER_PAGE = 100
+MAX_RESULTS_LIMIT = 10_000
+DEFAULT_TIMEOUT = 30.0
+# NFR-04: Espera crescente de 1 s, 2 s e 4 s para até 3 novas tentativas em 429 e 5xx
+RETRY_DELAYS: tuple[int, ...] = (1, 2, 4)
+
+
+def _user_agent() -> str:
+    try:
+        version = importlib.metadata.version("rslapp")
+    except importlib.metadata.PackageNotFoundError:
+        version = "0"
+    return f"rslapp/{version}"
+
+
+def _short_openalex_id(raw: Any) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    val = raw.strip().rstrip("/")
+    if not val:
+        return None
+    lower = val.lower()
+    for prefix in ("https://openalex.org/", "http://openalex.org/"):
+        if lower.startswith(prefix):
+            val = val[len(prefix) :].strip().rstrip("/")
+            break
+    return val if val else None
+
+
+def _normalize_doi(raw: Any) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    val = raw.strip()
+    if not val:
+        return None
+    lower = val.lower()
+    for prefix in (
+        "https://doi.org/",
+        "http://doi.org/",
+        "https://dx.doi.org/",
+        "http://dx.doi.org/",
+        "doi:",
+    ):
+        if lower.startswith(prefix):
+            val = val[len(prefix) :].strip()
+            lower = val.lower()
+    return lower if lower else None
+
+
+def _normalize_orcid(raw: Any) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    val = raw.strip().rstrip("/")
+    if not val:
+        return None
+    lower = val.lower()
+    for prefix in ("https://orcid.org/", "http://orcid.org/"):
+        if lower.startswith(prefix):
+            val = val[len(prefix) :].strip().rstrip("/")
+            break
+    return val.upper() if val else None
+
+
+# FR-03: Remonta o texto do resumo a partir do abstract_inverted_index do OpenAlex
+def _reconstruct_abstract(inverted_index: Any) -> str | None:
+    if not isinstance(inverted_index, dict) or not inverted_index:
+        return None
+    positions: list[tuple[int, str]] = []
+    for word, indices in inverted_index.items():
+        if not isinstance(word, str) or not isinstance(indices, list):
+            continue
+        for idx in indices:
+            if isinstance(idx, int) and not isinstance(idx, bool) and idx >= 0:
+                positions.append((idx, word))
+    if not positions:
+        return None
+    positions.sort(key=lambda item: item[0])
+    text = " ".join(word for _, word in positions).strip()
+    return text if text else None
+
+
+# FR-03, D-004: Extrai dados completos de cada autor na ordem, incluindo ORCID e afiliações com ROR
+def _parse_author(raw_authorship: Any) -> Author | None:
+    if not isinstance(raw_authorship, dict):
+        return None
+    raw_author = raw_authorship.get("author")
+    if not isinstance(raw_author, dict):
+        return None
+    raw_name = raw_author.get("display_name")
+    if not isinstance(raw_name, str) or not raw_name.strip():
+        return None
+
+    author_ids: dict[str, str] = {}
+    oa_author_id = _short_openalex_id(raw_author.get("id"))
+    if oa_author_id:
+        author_ids["openalex"] = oa_author_id
+
+    raw_pos = raw_authorship.get("author_position")
+    position = raw_pos.strip() if isinstance(raw_pos, str) and raw_pos.strip() else None
+
+    raw_corr = raw_authorship.get("is_corresponding")
+    is_corresponding = raw_corr if isinstance(raw_corr, bool) else None
+
+    affiliations: list[Affiliation] = []
+    raw_institutions = raw_authorship.get("institutions")
+    if isinstance(raw_institutions, list):
+        for inst in raw_institutions:
+            if not isinstance(inst, dict):
+                continue
+            raw_inst_name = inst.get("display_name")
+            inst_name = (
+                raw_inst_name.strip()
+                if isinstance(raw_inst_name, str) and raw_inst_name.strip()
+                else None
+            )
+            inst_ids: dict[str, str] = {}
+            oa_inst_id = _short_openalex_id(inst.get("id"))
+            if oa_inst_id:
+                inst_ids["openalex"] = oa_inst_id
+            raw_ror = inst.get("ror")
+            if isinstance(raw_ror, str) and raw_ror.strip():
+                inst_ids["ror"] = raw_ror.strip()
+            raw_cc = inst.get("country_code")
+            country_code = raw_cc.strip() if isinstance(raw_cc, str) and raw_cc.strip() else None
+            affiliations.append(
+                Affiliation(name=inst_name, ids=inst_ids, country_code=country_code)
+            )
+
+    raw_affs: list[str] = []
+    raw_aff_list = raw_authorship.get("raw_affiliation_strings")
+    if isinstance(raw_aff_list, list):
+        for item in raw_aff_list:
+            if isinstance(item, str) and item.strip():
+                raw_affs.append(item.strip())
+
+    return Author(
+        name=raw_name.strip(),
+        orcid=_normalize_orcid(raw_author.get("orcid")),
+        ids=author_ids,
+        position=position,
+        is_corresponding=is_corresponding,
+        affiliations=affiliations,
+        raw_affiliations=raw_affs,
+    )
+
+
+# FR-03, FR-14, D-004, D-010: Traduz registro do OpenAlex para Work; descarta trabalho sem título
+def _parse_work(raw_work: Any) -> Work | None:
+    if not isinstance(raw_work, dict):
+        return None
+    raw_title = raw_work.get("display_name")
+    if not isinstance(raw_title, str) or not raw_title.strip():
+        return None
+
+    venue: str | None = None
+    primary_loc = raw_work.get("primary_location")
+    if isinstance(primary_loc, dict):
+        source = primary_loc.get("source")
+        if isinstance(source, dict):
+            raw_venue = source.get("display_name")
+            if isinstance(raw_venue, str) and raw_venue.strip():
+                venue = raw_venue.strip()
+
+    keywords: list[str] = []
+    raw_keywords = raw_work.get("keywords")
+    if isinstance(raw_keywords, list):
+        for kw in raw_keywords:
+            if isinstance(kw, dict):
+                kw_name = kw.get("display_name")
+                if isinstance(kw_name, str) and kw_name.strip():
+                    keywords.append(kw_name.strip())
+
+    authors: list[Author] = []
+    raw_authorships = raw_work.get("authorships")
+    if isinstance(raw_authorships, list):
+        for authorship in raw_authorships:
+            parsed_author = _parse_author(authorship)
+            if parsed_author is not None:
+                authors.append(parsed_author)
+
+    # FR-14, D-010: Referências guardadas como ids curtos do OpenAlex (W...)
+    references: list[str] = []
+    raw_refs = raw_work.get("referenced_works")
+    if isinstance(raw_refs, list):
+        for ref in raw_refs:
+            short_ref = _short_openalex_id(ref)
+            if short_ref:
+                references.append(short_ref)
+
+    raw_ref_count = raw_work.get("referenced_works_count")
+    references_count = (
+        raw_ref_count
+        if isinstance(raw_ref_count, int) and not isinstance(raw_ref_count, bool)
+        else None
+    )
+
+    citations: dict[str, int] = {}
+    raw_cited = raw_work.get("cited_by_count")
+    if isinstance(raw_cited, int) and not isinstance(raw_cited, bool):
+        citations["openalex"] = raw_cited
+
+    source_ids: dict[str, str] = {}
+    oa_work_id = _short_openalex_id(raw_work.get("id"))
+    if oa_work_id:
+        source_ids["openalex"] = oa_work_id
+
+    raw_year = raw_work.get("publication_year")
+    year = raw_year if isinstance(raw_year, int) and not isinstance(raw_year, bool) else None
+
+    raw_type = raw_work.get("type")
+    work_type = raw_type.strip() if isinstance(raw_type, str) and raw_type.strip() else None
+
+    return Work(
+        title=raw_title.strip(),
+        doi=_normalize_doi(raw_work.get("doi")),
+        year=year,
+        type=work_type,
+        venue=venue,
+        abstract=_reconstruct_abstract(raw_work.get("abstract_inverted_index")),
+        keywords=keywords,
+        authors=authors,
+        references=references,
+        references_count=references_count,
+        citations=citations,
+        source_ids=source_ids,
+    )
+
+
+def _extract_error_tag(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return ""
+    if isinstance(payload, dict):
+        for key in ("error", "code", "message"):
+            val = payload.get(key)
+            if isinstance(val, str):
+                if "not_enough_credits" in val:
+                    return "not_enough_credits"
+                if "key_not_activated" in val:
+                    return "key_not_activated"
+    return ""
+
+
+def _format_query_text(query: str, per_page: int, last_page: int) -> str:
+    return f"search={query} · per_page={per_page} · páginas 1-{last_page}"
+
+
+# FR-01, FR-03, FR-14, NFR-01, NFR-03, NFR-04, NFR-05, D-004, D-010: Conector OpenAlex
+class OpenAlexSource(Source):
+    """Conector de busca acadêmica na API do OpenAlex."""
+
+    name: str = "openalex"
+    needs_key: bool = True
+
+    def __init__(
+        self,
+        client: httpx.AsyncClient | None = None,
+        sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
+    ) -> None:
+        self._client = client
+        self._sleep = sleep
+
+    # NFR-03: Representação textual sem chave de API
+    def __repr__(self) -> str:
+        return f"OpenAlexSource(name={self.name!r}, needs_key={self.needs_key!r})"
+
+    # NFR-03: Parâmetros que identificam a consulta no cache, sem incluir a chave
+    def cache_query(self, query: str, max_results: int = 100) -> dict[str, Any]:
+        effective_max = min(max(max_results, 1), MAX_RESULTS_LIMIT)
+        per_page = min(effective_max, MAX_PER_PAGE)
+        return {
+            "search": query.strip(),
+            "max_results": max_results,
+            "per_page": per_page,
+            "select": SELECT_FIELDS,
+        }
+
+    @asynccontextmanager
+    async def _get_client(self) -> AsyncIterator[httpx.AsyncClient]:
+        if self._client is not None:
+            yield self._client
+        else:
+            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+                yield client
+
+    # NFR-04: Faz a chamada de uma página com até 3 novas tentativas (1, 2, 4 s) em 429 e 5xx
+    async def _request_page(
+        self,
+        client: httpx.AsyncClient,
+        params: dict[str, str],
+        headers: dict[str, str],
+    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
+        max_retries = len(RETRY_DELAYS)
+        for attempt in range(max_retries + 1):
+            try:
+                response = await client.get(
+                    OPENALEX_WORKS_URL,
+                    params=params,
+                    headers=headers,
+                    timeout=DEFAULT_TIMEOUT,
+                )
+            except httpx.TimeoutException:
+                if attempt < max_retries:
+                    await self._sleep(RETRY_DELAYS[attempt])
+                    continue
+                return (
+                    None,
+                    "failed",
+                    f"tempo limite esgotado depois de {max_retries} tentativas",
+                )
+            except httpx.HTTPError:
+                if attempt < max_retries:
+                    await self._sleep(RETRY_DELAYS[attempt])
+                    continue
+                return (
+                    None,
+                    "failed",
+                    f"erro de rede depois de {max_retries} tentativas",
+                )
+
+            status_code = response.status_code
+            if status_code == 200:
+                try:
+                    data = response.json()
+                except ValueError:
+                    return None, "failed", "resposta JSON inválida do OpenAlex"
+                if not isinstance(data, dict):
+                    return None, "failed", "resposta JSON inválida do OpenAlex"
+                return data, None, None
+
+            error_tag = _extract_error_tag(response)
+            # NFR-01, NFR-05: Cota diária esgotada não faz novas tentativas
+            if status_code == 429 and error_tag == "not_enough_credits":
+                return None, "rate_limited", "créditos diários do OpenAlex esgotados"
+
+            if status_code == 403 and error_tag == "key_not_activated":
+                return (
+                    None,
+                    "failed",
+                    "a chave do OpenAlex ainda não foi ativada pelo link do e-mail",
+                )
+
+            if status_code == 429:
+                if attempt < max_retries:
+                    await self._sleep(RETRY_DELAYS[attempt])
+                    continue
+                return (
+                    None,
+                    "rate_limited",
+                    f"HTTP 429 depois de {max_retries} tentativas",
+                )
+
+            if 500 <= status_code < 600:
+                if attempt < max_retries:
+                    await self._sleep(RETRY_DELAYS[attempt])
+                    continue
+                return (
+                    None,
+                    "failed",
+                    f"HTTP {status_code} depois de {max_retries} tentativas",
+                )
+
+            return None, "failed", f"HTTP {status_code}"
+
+        return None, "failed", "falha inesperada ao consultar o OpenAlex"
+
+    # FR-01, NFR-03, NFR-04, NFR-05: Busca paginada com chave via cabeçalho Authorization: Bearer
+    async def search(self, query: str, max_results: int = 100) -> SourceResult:
+        clean_query = query.strip()
+        effective_max = min(max(max_results, 1), MAX_RESULTS_LIMIT)
+        per_page = min(effective_max, MAX_PER_PAGE)
+
+        # NFR-03: Lê a chave diretamente do ambiente a cada chamada, sem guardá-la em atributo
+        raw_key = os.environ.get("OPENALEX_API_KEY")
+        api_key = raw_key.strip() if raw_key else ""
+        if not api_key:
+            return SourceResult(
+                name=self.name,
+                status="missing_key",
+                reason="variável OPENALEX_API_KEY não configurada",
+                query=_format_query_text(clean_query, per_page, 1),
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": _user_agent(),
+        }
+
+        works: list[Work] = []
+        found: int | None = None
+        page = 1
+
+        async with self._get_client() as client:
+            while True:
+                params = {
+                    "search": clean_query,
+                    "per_page": str(per_page),
+                    "page": str(page),
+                    "select": SELECT_FIELDS,
+                }
+                data, err_status, err_reason = await self._request_page(
+                    client, params, headers
+                )
+                if err_status is not None:
+                    return SourceResult(
+                        name=self.name,
+                        status=err_status,
+                        reason=err_reason,
+                        query=_format_query_text(clean_query, per_page, page),
+                        found=found,
+                        fetched=len(works),
+                        works=works,
+                    )
+
+                assert data is not None
+                if page == 1:
+                    meta = data.get("meta")
+                    if isinstance(meta, dict):
+                        raw_count = meta.get("count")
+                        if isinstance(raw_count, int) and not isinstance(raw_count, bool):
+                            found = raw_count
+
+                raw_results = data.get("results")
+                if not isinstance(raw_results, list) or not raw_results:
+                    break
+
+                for raw_item in raw_results:
+                    parsed = _parse_work(raw_item)
+                    if parsed is not None:
+                        works.append(parsed)
+                        if len(works) >= effective_max:
+                            break
+
+                # Para quando atinge max_results, o limite de 10.000 ou o fim dos resultados
+                if len(works) >= effective_max:
+                    break
+                if page * per_page >= effective_max:
+                    break
+                if len(raw_results) < per_page:
+                    break
+                if found is not None and page * per_page >= found:
+                    break
+                if (page + 1) * per_page > MAX_RESULTS_LIMIT:
+                    break
+
+                page += 1
+
+        return SourceResult(
+            name=self.name,
+            status="ok",
+            reason=None,
+            query=_format_query_text(clean_query, per_page, page),
+            found=found,
+            fetched=len(works),
+            works=works,
+        )
