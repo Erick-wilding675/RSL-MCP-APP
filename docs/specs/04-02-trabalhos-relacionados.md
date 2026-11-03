@@ -50,8 +50,31 @@ Tarefas 02-03, 03-03 e 04-01 integradas.
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - Implementado o método `related` e `get_origin_work` em `src/rslapp/sources/openalex.py` para consulta de citações (`filter=cites:W...`) e referências em lotes de no máximo 100 IDs (`filter=openalex:W1|...`).
+  - Implementado o método `related` em `src/rslapp/sources/semantic_scholar.py` para consulta de referências e citações via `/paper/DOI:<doi>/references` e `/citations`, com parada preventiva antes do limite de 10.000 para evitar erro 400.
+  - Criado `src/rslapp/core/related.py` com a orquestração `run_related`: resolução do artigo de origem (OpenAlex seguido de Semantic Scholar), consulta concorrente, deduplicação com merge (regra 03-03), aplicação de teto (padrão 1.000 até 10.000) com marcação de lista `incomplete`, gravação de buscas, listas e entrada legível com linha "Artigo de origem" em `log.md`.
+  - Adicionada a ferramenta `get_related_works` no servidor MCP `src/rslapp/server.py`.
+  - Criadas suítes de testes cobrindo todos os cenários em `tests/sources/test_openalex_related.py`, `tests/sources/test_semantic_scholar_related.py`, `tests/core/test_related.py` e `tests/test_server_related.py`.
+- **Requisitos atendidos:** FR-15, FR-08, FR-14, UC-04, D-002, D-005, D-010.
+- **O que foi assumido:**
+  - A Semantic Scholar exige DOI para trabalhos relacionados; na ausência de DOI, devolve `not_supported` com motivo "artigo de origem sem DOI".
+  - A Crossref devolve `not_supported` em ambas as direções com motivo "não suportado pela Crossref", sem campos preenchidos com valores supostos.
+  - Artigo de origem inexistente em ambas as fontes levanta erro `work_not_found` e nada é gravado em disco.
+- **O que não deu para verificar:**
+  - Chamadas reais contra as APIs com chaves de produção (todos os testes usam `httpx.MockTransport`).
 
 ## Como testar
 
-A escrever na entrega.
+Rode a suíte de testes completa da entrega:
+
+```bash
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_related.py tests/core/test_related.py tests/sources/test_openalex_related.py tests/sources/test_semantic_scholar_related.py -v
+```
+
+Deve aparecer: 30 testes passando.
+
+**Onde olhar primeiro (pontos mais arriscados):**
+1. **Resolução de artigo inexistente e garantia de não gravação** (`tests/core/test_related.py::test_fr15_artigo_origem_nao_achado_work_not_found_nada_gravado`): confere que o erro `work_not_found` é levantado e nenhuma busca, lista ou log é gravado em disco.
+2. **Agrupamento de referências em lotes de até 100 ids** (`tests/sources/test_openalex_related.py::test_fr14_openalex_related_references_lotes_100`): confere que as chamadas ao OpenAlex dividem as referências em batches estritamente `<= 100`.
+3. **Parada preventiva antes de 10.000 na Semantic Scholar e corte de teto** (`tests/sources/test_semantic_scholar_related.py::test_d010_s2_limite_10k_fonte` e `tests/core/test_related.py::test_d010_teto_incompleta_com_motivo`): confere que a busca para antes de estourar 10.000 na fonte e que a lista sai marcada como `incomplete` com o motivo registrado.
