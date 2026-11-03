@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-03T14:20:00Z
+updated: 2026-11-03T21:00:00Z
 updated_by: Claude Code
 ---
 
@@ -165,27 +165,16 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - O que a LGPD exige para guardar nomes e ORCID de autores (T-007; Erick)
 - Se o usuário precisa de um meio fácil de apagar os dados guardados (Erick)
 
-## Pontos que as specs da fase 2 precisam resolver
-
-Achados na fase 1, para o Claude desktop rever as specs antes de a fase 2 começar:
-
-1. **02-01, a chave chega ao conector como?** `config.load()` guarda só se a chave existe, nunca o valor (NFR-03), e o conector do OpenAlex precisa do valor. Proposta: o conector lê a variável de ambiente na hora da chamada, sem guardar nem registrar.
-2. **02-02, "Antes de começar: Nenhuma".** Na prática, ela depende da 02-01 (modelos), da 01-02 (servidor) e da 01-03 (armazenamento). A 02-03 depende da 02-02. O quadro já usa essas dependências.
-3. **02-02, erro do contrato chega à IA como?** No `mcp` 2.x, `ToolError` aparece ao modelo como resultado com erro, e `MCPError` vira erro JSON-RPC de protocolo. Falta escolher como `no_source_available`, `invalid_input` e os demais chegam à IA.
-4. **02-02, campos dos JSON.** O armazenamento já usa nomes em inglês (ver spec 01-03). `sources[].query` deve ir como texto, e a consulta do cache como dicionário de parâmetros.
-5. **`httpx` e `httpx2`.** O `mcp` 2.x traz o `httpx2`, e o projeto declara o `httpx` (spec 01-01). Funciona, mas instala dois clientes HTTP. Vale decidir qual os conectores usam.
-6. **`typing_extensions`.** O `server.py` importa esse pacote, exigido pelo Pydantic no Python 3.10, e ele não está declarado no `pyproject.toml`. Hoje vem com o `mcp`.
-
 ## Next question
 
-**Pausa pedida pelo Erick em 2026-11-03 (~11h20 de Brasília).** O run `b20261102-221933` do Playmaker fica parado; retomar com `/sintese-playmaker:go`.
+**Fases 1 a 5 entregues para teste** (run `b20261102-221933` do Playmaker, 15 de 16 tarefas integradas, 435 testes em Python 3.10 e 3.14). Todas estão "para testar"; o que testar está em `playmaker/to-test.md` no Lore e no "Como testar" de cada spec.
 
-- O Erick liberou as fases 2 a 6 (relatório ao fim de cada fase), até 5 workers, e o Claude revê as specs (é o mesmo papel do Claude desktop). Todas as specs da 02-01 à 05-04 já foram revistas e estão no quadro. A 06-01 espera a conta e o token do PyPI.
-- **Para testar:** 01-01, 01-02, 01-03 e 02-01 (falta só a chamada real com a chave, que pede `lore secrets run`, ausente no Lore 2.4.2 desta máquina).
-- **02-02 entregue, revisão não feita:** branch `playmaker/b20261102-221933/02-02-busca-e-lista-r3` (commit `941bf64`). Ao voltar: revisar com o agente revisor e integrar.
-- **03-01, 03-02 e 04-01 paradas** (`board stop`, voltam a `not_started`). O trabalho parcial ficou em `wip/03-01-crossref` e `wip/03-02-semantic-scholar` (a 03-02 inclui um `_update_spec.py` solto, que não deve entrar). A 04-01 não tinha nada.
-- **Modelos:** a cota do Gemini 4 Argon acabou por volta das 10h50 e volta perto das 17h40; o quadro usa o Gemini 3.8 Flash (High) nas tarefas que faltam.
-- **Ids das tarefas** das fases 2 a 6 foram encurtados no quadro (o Playmaker recusa id de worker com mais de 31 caracteres).
-- Chaves no Lore secrets: `OPENALEX_API_KEY` guardada; `SEMANTIC_SCHOLAR_API_KEY` aprovada pela Semantic Scholar, link enviado ao Erick.
-
-Em 2026-11-03 a pasta saiu do OneDrive para `C:\Users\hulkd\_Sintese-Labs-Projetos\RSL.app` (árvores do Playmaker em `..\RSL.app-playmaker`). Os três gates passaram no lugar novo. O caminho novo não tem acento, então o motivo do `--no-editable` nos gates pode não valer mais; os gates continuam iguais até alguém medir.
+- **O que espera o Erick:**
+  - testar as tarefas e marcar com `/sintese-playmaker:done <tarefa>`, a começar pelo RIS no VOSviewer (critério de aceite) e pelas buscas reais com as chaves;
+  - aprovar este computador no Lore (`lore setup --server-url https://app.lorememory.ai --no-browser`): o cliente foi atualizado para a 2.6.2 e, sem a aprovação, os eventos das sessões ficam numa fila local e `lore secrets run` não funciona;
+  - criar a conta no PyPI para a 06-01 (o token vai pelo Lore secrets);
+  - decidir se o CSV protege contra fórmula (`=`, `+`, `-`, `@`), depois do teste no VOSviewer, e se lista vazia exporta arquivo vazio ou dá erro.
+- **Proposta pendente:** uma tarefa pequena de tipos estritos nas ferramentas (o SDK converte `page=True` em 1 antes do miolo).
+- **Acompanhamentos das revisões** estão no fim de cada spec; nenhum bloqueia.
+- As chaves no Lore secrets: `OPENALEX_API_KEY` e `SEMANTIC_SCHOLAR_API_KEY` (prod).
+- Pasta do projeto desde 2026-11-03: `C:\Users\hulkd\_Sintese-Labs-Projetos\RSL.app`; árvores do Playmaker em `..\RSL.app-playmaker`.
