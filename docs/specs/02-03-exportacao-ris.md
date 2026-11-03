@@ -37,8 +37,32 @@ Tarefa 02-02 integrada. O teste no VOSviewer é feito pelo Erick.
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - `src/rslapp/exporters/base.py`: interface base `Exporter` com atributos `format`, `extension` e método abstrato `render(list_data: dict) -> str` (**FR-06**, **D-002**); e função utilitária `save_export_file(export_dir, filename, content)` que cria a pasta de exportação se não existir, realiza gravação atômica em UTF-8 usando `atomic_write_replace`, e converte `(PermissionError, OSError)` em `RSLError("export_folder_not_writable", ...)` (**FR-06**, **D-007**).
+  - `src/rslapp/exporters/ris.py`: exportador `RISExporter` com mapeamento estrito para o padrão RIS (`\r\n`, UTF-8, tags de 2 caracteres seguidas de 2 espaços, hífen e 1 espaço) (**FR-06**, **D-002**, **D-004**). Mapeia `TY` (`JOUR` para artigos, `CONF` para eventos/conferências/proceedings e `GEN` para o restante); `TI` (título limpo de quebras internas); `AU` (um por autor, na ordem exata e sem inversão de sobrenome); `PY` (ano numérico positivo); `JO` (periódico/venue); `AB` (resumo em linha contínua); `KW` (um por palavra-chave); `DO` (DOI); e `ER  - ` ao fim de cada registro. Campos vazios ou nulos são estritamente omitidos ("Campos vazios não são escritos. Nada é inventado").
+  - `src/rslapp/exporters/__init__.py`: registro e resolução de exportadores com `get_exporter(format_name)` (atualmente suportando `"ris"`, levantando `RSLError("invalid_input", ...)` para outros formatos); e função de orquestração `run_export(store, list_id, export_format, export_dir)` que recupera a lista salva via `store.get_list` (convertendo `FileNotFoundError` e `ValueError` em `RSLError("list_not_found", ...)`), renderiza e grava `<list_id>.ris`, retornando `{"path": str(dest_path), "format": exporter.format, "count": count}` (**FR-06**, **FR-12**, **UC-01**, **D-002**).
+  - `src/rslapp/server.py`: acréscimo da ferramenta `@mcp.tool() export_list(list_id: str, format: str) -> dict[str, Any]` que lê dinamicamente a configuração com `config.load()`, instancia `Store(cfg.data_dir, cfg.cache_days)`, executa `run_export` e converte `RSLError` em `ToolError(f"{e.code}: {e.message}")` (**FR-06**, **FR-12**, **UC-01**, **D-002**).
+  - `tests/exporters/test_ris.py`: 34 testes cobrindo renderização linha a linha, preservação de ordem de autores sem inversão, caracteres acentuados e UTF-8, omissão de campos vazios, mapeamento de tipos RIS (`JOUR`, `CONF`, `GEN`), ausência de ORCID/afiliações/referências no arquivo RIS, múltiplos artigos, lista vazia, validação de tipo de entrada, gravação atômica e substituição em reexportação, tratamento de pasta sem permissão (`export_folder_not_writable`), execução de `run_export`, validação de `list_not_found` e rejeição de formatos não suportados com `invalid_input`.
+  - `tests/test_server_export_list.py`: 12 testes de integração via `Client(mcp)` em memória cobrindo registro e descoberta da ferramenta `export_list`, exportação bem-sucedida de lista gravada no `Store`, integridade do arquivo gerado (`.ris`, UTF-8, `\r\n`), reexportação com substituição de arquivo, e retorno de erros conforme o contrato (`list_not_found:`, `invalid_input:` e `export_folder_not_writable:`).
+- **O que foi assumido:**
+  - Em conformidade com a decisão 5 da spec e a ausência de campo padrão na especificação clássica de RIS, ORCID, afiliações e identificadores de referências ficaram fora do arquivo RIS (permanecem salvos na íntegra no JSON da lista e serão exportados no formato JSON completo na tarefa 05-03).
+  - Espaços em branco redundantes e quebras de linha internas em títulos, nomes de autor, periódicos, resumos e palavras-chave são normalizados para espaços simples (`" ".join(texto.split())`), prevenindo a quebra de estrutura e de tags no padrão de linhas do RIS.
+  - O formato recebido em `export_list` é tratado sem distinção de maiúsculas/minúsculas e sem espaços laterais (`format_name.strip().lower()`).
+- **O que não deu para verificar:**
+  - O teste manual de abertura direta no software VOSviewer 1.6.21 (item reservado ao Erick conforme a spec e o plano do projeto, teste T-008).
 
 ## Como testar
 
-A escrever na entrega.
+1. **Comandos para rodar:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+2. **O que deve aparecer:**
+   - `All checks passed!` no `ruff check .`
+   - Todos os testes passando (`110 passed`) no `pytest` para Python 3.10 e Python 3.14.
+3. **Onde olhar primeiro (pontos de risco, do mais difícil ao mais simples):**
+   1. **Formatação RIS, codificação UTF-8 e quebras `\r\n` (`src/rslapp/exporters/ris.py` — `RISExporter.render`, FR-06, D-004):** conferir que cada linha termina estritamente em `\r\n`, que os registros iniciam em `TY  - ` e encerram em `ER  - \r\n`, que autores preservam a ordem original sem inversões artificiais, que acentuação internacional é gravada intacta em UTF-8 e que campos vazios não geram tags.
+   2. **Gravação atômica, substituição e tratamento de permissão (`src/rslapp/exporters/base.py` — `save_export_file`, FR-06, D-007):** verificar que o arquivo de exportação é gravado em `<RSL_EXPORT_DIR>/<list_id>.ris` via `atomic_write_replace`, que reexportar a mesma lista substitui o arquivo sem erro de colisão, e que falhas de escrita/permissão de diretório levantam `RSLError("export_folder_not_writable", ...)`.
+   3. **Tratamento de erros e contrato MCP (`src/rslapp/server.py` — `export_list`, D-002, FR-12):** verificar que listas inexistentes ou identificadores malformados voltam com erro iniciado por `list_not_found:`, formatos diferentes de `"ris"` voltam com `invalid_input:`, e falhas de pasta de exportação voltam com `export_folder_not_writable:`.
