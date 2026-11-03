@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError, asdict
+from dataclasses import FrozenInstanceError, asdict, fields
 from importlib.metadata import entry_points, version
 from pathlib import Path
 
@@ -111,10 +111,38 @@ def test_fr07_nfr03_chaves_vazias_ou_espacos_contam_como_nao_configuradas(
     assert cfg.contact_email is None
 
 
+# FR-07, NFR-03: Cada chave de API controla exclusivamente o seu respectivo booleano
+def test_fr07_nfr03_cada_chave_controla_apenas_seu_booleano(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123-oa")
+    cfg_oa = config.load()
+    assert cfg_oa.openalex_key_configured is True
+    assert cfg_oa.semantic_scholar_key_configured is False
+
+    monkeypatch.delenv("OPENALEX_API_KEY")
+    monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "fake-key-456-s2")
+    cfg_s2 = config.load()
+    assert cfg_s2.openalex_key_configured is False
+    assert cfg_s2.semantic_scholar_key_configured is True
+
+
 # NFR-03: repr, str, vars e asdict nunca expõem o valor das chaves nem o email de contato em repr/str
 def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    campos = {f.name: f.type for f in fields(config.Config)}
+    assert set(campos.keys()) == {
+        "data_dir",
+        "export_dir",
+        "cache_days",
+        "contact_email",
+        "openalex_key_configured",
+        "semantic_scholar_key_configured",
+    }
+    assert campos["openalex_key_configured"] in (bool, "bool")
+    assert campos["semantic_scholar_key_configured"] in (bool, "bool")
+
     fake_oa_key = "fake-key-123-openalex"
     fake_s2_key = "fake-key-456-s2"
     fake_email = "pesquisador@exemplo.org"
@@ -125,6 +153,8 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
 
     cfg = config.load()
 
+    assert type(cfg.openalex_key_configured) is bool
+    assert type(cfg.semantic_scholar_key_configured) is bool
     assert cfg.openalex_key_configured is True
     assert cfg.semantic_scholar_key_configured is True
     assert cfg.contact_email == fake_email
@@ -142,6 +172,29 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
 
     assert fake_email not in texto_repr
     assert fake_email not in texto_str
+
+
+# NFR-03: Erro ao validar RSL_CACHE_DAYS não expõe chaves configuradas nem o valor recebido
+def test_nfr03_erro_cache_days_nao_expoe_chaves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_oa_key = "fake-key-123-openalex"
+    fake_s2_key = "fake-key-456-s2"
+    valor_invalido = "invalido-789"
+
+    monkeypatch.setenv("OPENALEX_API_KEY", fake_oa_key)
+    monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", fake_s2_key)
+    monkeypatch.setenv("RSL_CACHE_DAYS", valor_invalido)
+
+    with pytest.raises(ValueError, match="RSL_CACHE_DAYS") as exc_info:
+        config.load()
+
+    mensagem_erro = str(exc_info.value)
+    assert fake_oa_key not in mensagem_erro
+    assert fake_s2_key not in mensagem_erro
+    assert valor_invalido not in mensagem_erro
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__ is True
 
 
 # FR-07: RSL_CACHE_DAYS aceita inteiro positivo e rejeita valores inválidos com o nome da variável

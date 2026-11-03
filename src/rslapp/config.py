@@ -38,12 +38,10 @@ def _parse_cache_days(raw_value: str | None) -> int:
         return DEFAULT_CACHE_DAYS
     try:
         days = int(raw_value.strip())
-    except ValueError as exc:
-        raise ValueError(
-            f"RSL_CACHE_DAYS deve ser um inteiro positivo, recebido: {raw_value!r}"
-        ) from exc
+    except ValueError:
+        raise ValueError("RSL_CACHE_DAYS deve ser um inteiro positivo") from None
     if days <= 0:
-        raise ValueError(f"RSL_CACHE_DAYS deve ser um inteiro positivo, recebido: {raw_value!r}")
+        raise ValueError("RSL_CACHE_DAYS deve ser um inteiro positivo")
     return days
 
 
