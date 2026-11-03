@@ -268,6 +268,10 @@ def _format_query_text(query: str, per_page: int, last_page: int) -> str:
     return f"search={query} · per_page={per_page} · páginas 1-{last_page}"
 
 
+def _format_number(n: int) -> str:
+    return f"{n:,}".replace(",", ".")
+
+
 # FR-14, NFR-01, NFR-03: Resultado da busca em lote de DOIs por ids do OpenAlex
 @dataclass
 class DoiLookup:
@@ -341,13 +345,14 @@ class OpenAlexSource(Source):
         client: httpx.AsyncClient,
         params: dict[str, str],
         headers: dict[str, str],
+        url: str = OPENALEX_WORKS_URL,
     ) -> tuple[dict[str, Any] | None, str | None, str | None]:
         max_retries = len(RETRY_DELAYS)
         err_status, err_reason = "failed", "falha inesperada ao consultar o OpenAlex"
         for attempt in range(max_retries + 1):
             try:
                 response = await client.get(
-                    OPENALEX_WORKS_URL,
+                    url,
                     params=params,
                     headers=headers,
                     timeout=DEFAULT_TIMEOUT,
@@ -588,4 +593,265 @@ class OpenAlexSource(Source):
                 status="failed",
                 reason="falha inesperada ao consultar o OpenAlex",
                 mapping={},
+            )
+
+    # FR-15, D-005, D-010: Consulta o artigo de origem avulso no OpenAlex para obter id, doi e referenced_works
+    async def get_origin_work(
+        self, doi_or_id: str
+    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
+        raw_key = os.environ.get("OPENALEX_API_KEY")
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
+        if not api_key:
+            return None, "missing_key", "variável OPENALEX_API_KEY não configurada"
+        if not _is_valid_api_key(api_key):
+            return None, "failed", "OPENALEX_API_KEY tem caracteres inválidos"
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": _user_agent(),
+        }
+
+        short_id = _short_openalex_id(doi_or_id)
+        if short_id and short_id.upper().startswith("W") and short_id[1:].isdigit():
+            target = short_id.upper()
+        else:
+            norm_doi = _normalize_doi(doi_or_id) or doi_or_id.strip()
+            target = f"doi:{norm_doi}"
+
+        url = f"{OPENALEX_WORKS_URL}/{target}"
+        params = {"select": "id,doi,referenced_works,cited_by_count"}
+
+        try:
+            async with self._get_client() as client:
+                return await self._request_page(client, params, headers, url=url)
+        except Exception:  # noqa: BLE001
+            return None, "failed", "falha inesperada ao consultar o OpenAlex"
+
+    # FR-15, FR-08, FR-14, D-005, D-010: Consulta referências ou citações no OpenAlex
+    async def related(
+        self,
+        doi_or_id: str,
+        direction: str,
+        max_results: int = 1000,
+        origin_data: dict[str, Any] | None = None,
+    ) -> SourceResult:
+        clean_id_or_doi = doi_or_id.strip() if isinstance(doi_or_id, str) else ""
+        query_text = f"related={clean_id_or_doi} · direction={direction}"
+
+        raw_key = os.environ.get("OPENALEX_API_KEY")
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
+        if not api_key:
+            return SourceResult(
+                name=self.name,
+                status="missing_key",
+                reason="variável OPENALEX_API_KEY não configurada",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+        if not _is_valid_api_key(api_key):
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="OPENALEX_API_KEY tem caracteres inválidos",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": _user_agent(),
+        }
+
+        effective_max = min(max(max_results, 1), MAX_RESULTS_LIMIT)
+
+        try:
+            async with self._get_client() as client:
+                if origin_data is None:
+                    data, err_status, err_reason = await self.get_origin_work(clean_id_or_doi)
+                    if err_status is not None:
+                        return SourceResult(
+                            name=self.name,
+                            status=err_status,
+                            reason=err_reason,
+                            query=query_text,
+                            found=None,
+                            fetched=0,
+                            works=[],
+                        )
+                    origin_data = data
+
+                assert origin_data is not None
+                origin_id = _short_openalex_id(origin_data.get("id"))
+                works: list[Work] = []
+                found: int | None = None
+                reason: str | None = None
+
+                if direction == "citations":
+                    if not origin_id:
+                        return SourceResult(
+                            name=self.name,
+                            status="failed",
+                            reason="artigo de origem sem id no OpenAlex",
+                            query=query_text,
+                            found=None,
+                            fetched=0,
+                            works=[],
+                        )
+                    raw_count = origin_data.get("cited_by_count")
+                    if isinstance(raw_count, int) and not isinstance(raw_count, bool):
+                        found = raw_count
+
+                    per_page = min(effective_max, MAX_PER_PAGE)
+                    page = 1
+                    while True:
+                        params = {
+                            "filter": f"cites:{origin_id}",
+                            "select": SELECT_FIELDS,
+                            "per_page": str(per_page),
+                            "page": str(page),
+                        }
+                        page_data, err_status, err_reason = await self._request_page(
+                            client, params, headers
+                        )
+                        if err_status is not None:
+                            return SourceResult(
+                                name=self.name,
+                                status=err_status,
+                                reason=err_reason,
+                                query=f"cites={origin_id} · per_page={per_page} · páginas 1-{page}",
+                                found=found,
+                                fetched=len(works),
+                                works=works,
+                            )
+
+                        assert page_data is not None
+                        if page == 1 and found is None:
+                            meta = page_data.get("meta")
+                            if isinstance(meta, dict):
+                                c = meta.get("count")
+                                if isinstance(c, int) and not isinstance(c, bool):
+                                    found = c
+
+                        raw_results = page_data.get("results")
+                        if not isinstance(raw_results, list) or not raw_results:
+                            break
+
+                        for raw_item in raw_results:
+                            parsed = _parse_work(raw_item)
+                            if parsed is not None:
+                                works.append(parsed)
+                                if len(works) >= effective_max:
+                                    break
+
+                        if len(works) >= effective_max:
+                            break
+                        if len(raw_results) < per_page:
+                            break
+                        if found is not None and page * per_page >= found:
+                            break
+                        if (page + 1) * per_page > MAX_RESULTS_LIMIT:
+                            break
+                        page += 1
+
+                    if found is not None and found > len(works):
+                        if len(works) >= MAX_RESULTS_LIMIT:
+                            reason = "limite de 10.000 da fonte"
+                        elif len(works) >= max_results:
+                            reason = f"teto de {_format_number(max_results)} atingido"
+
+                    return SourceResult(
+                        name=self.name,
+                        status="ok",
+                        reason=reason,
+                        query=f"cites={origin_id} · per_page={per_page} · páginas 1-{page}",
+                        found=found,
+                        fetched=len(works),
+                        works=works,
+                    )
+
+                elif direction == "references":
+                    raw_refs = origin_data.get("referenced_works") or []
+                    clean_ref_ids: list[str] = []
+                    for ref in raw_refs:
+                        sid = _short_openalex_id(ref)
+                        if sid and sid.upper().startswith("W") and sid[1:].isdigit():
+                            clean_ref_ids.append(sid.upper())
+
+                    found = len(clean_ref_ids)
+                    target_ids = clean_ref_ids[:effective_max]
+
+                    batch_size = 100
+                    last_batch_num = 0
+                    for i in range(0, len(target_ids), batch_size):
+                        batch = target_ids[i : i + batch_size]
+                        last_batch_num = i // batch_size + 1
+                        params = {
+                            "filter": f"openalex:{'|'.join(batch)}",
+                            "select": SELECT_FIELDS,
+                            "per_page": "100",
+                        }
+                        batch_data, err_status, err_reason = await self._request_page(
+                            client, params, headers
+                        )
+                        if err_status is not None:
+                            return SourceResult(
+                                name=self.name,
+                                status=err_status,
+                                reason=err_reason,
+                                query=f"references={origin_id or clean_id_or_doi} · lotes 1-{last_batch_num}",
+                                found=found,
+                                fetched=len(works),
+                                works=works,
+                            )
+
+                        assert batch_data is not None
+                        raw_results = batch_data.get("results")
+                        if isinstance(raw_results, list):
+                            for raw_item in raw_results:
+                                parsed = _parse_work(raw_item)
+                                if parsed is not None:
+                                    works.append(parsed)
+                                    if len(works) >= effective_max:
+                                        break
+                        if len(works) >= effective_max:
+                            break
+
+                    if found > len(works):
+                        if len(works) >= MAX_RESULTS_LIMIT:
+                            reason = "limite de 10.000 da fonte"
+                        elif len(works) >= max_results:
+                            reason = f"teto de {_format_number(max_results)} atingido"
+
+                    return SourceResult(
+                        name=self.name,
+                        status="ok",
+                        reason=reason,
+                        query=f"references={origin_id or clean_id_or_doi} · {found} referências",
+                        found=found,
+                        fetched=len(works),
+                        works=works,
+                    )
+                else:
+                    return SourceResult(
+                        name=self.name,
+                        status="failed",
+                        reason=f"direção inválida: {direction}",
+                        query=query_text,
+                        found=None,
+                        fetched=0,
+                        works=[],
+                    )
+        except Exception:  # noqa: BLE001
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="falha inesperada ao consultar o OpenAlex",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
             )
