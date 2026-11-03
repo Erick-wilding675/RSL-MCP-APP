@@ -223,6 +223,10 @@ def _format_query_text(query: str, limit: int, offset: int) -> str:
     return f"query={query} · limit={limit} · offset={offset}"
 
 
+def _format_number(n: int) -> str:
+    return f"{n:,}".replace(",", ".")
+
+
 def _retry_failure(status: str, prefix: str) -> tuple[str, str]:
     return status, f"{prefix} depois de {len(RETRY_DELAYS)} tentativas"
 
@@ -275,6 +279,7 @@ class SemanticScholarSource(Source):
         params: dict[str, str],
         headers: dict[str, str],
         api_key: str = "",
+        url: str = SEMANTIC_SCHOLAR_SEARCH_URL,
     ) -> tuple[dict[str, Any] | None, str | None, str | None]:
         max_retries = len(RETRY_DELAYS)
         err_status, err_reason = "failed", "falha inesperada ao consultar a Semantic Scholar"
@@ -285,7 +290,7 @@ class SemanticScholarSource(Source):
             try:
                 async with rate_limited_call(clock=clock_fn, sleep=sleep_fn):
                     response = await client.get(
-                        SEMANTIC_SCHOLAR_SEARCH_URL,
+                        url,
                         params=params,
                         headers=headers,
                         timeout=DEFAULT_TIMEOUT,
@@ -312,6 +317,8 @@ class SemanticScholarSource(Source):
                     err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
                 elif 500 <= status_code < 600:
                     err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
+                elif status_code == 404:
+                    return None, "failed", "HTTP 404"
                 else:
                     # 400 e outras 4xx falham na hora com o texto do error da API
                     error_msg = _extract_error_message(response, api_key=api_key)
@@ -423,6 +430,171 @@ class SemanticScholarSource(Source):
             status="ok",
             reason=None,
             query=_format_query_text(clean_query, limit, offset),
+            found=found,
+            fetched=len(works),
+            works=works,
+        )
+
+    # FR-15, FR-08, FR-14, D-005, D-010: Consulta referências ou citações na Semantic Scholar
+    async def related(
+        self,
+        doi: str | None,
+        direction: str,
+        max_results: int = 1000,
+    ) -> SourceResult:
+        if not doi or not isinstance(doi, str) or not doi.strip():
+            return SourceResult(
+                name=self.name,
+                status="not_supported",
+                reason="artigo de origem sem DOI",
+                query="",
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        clean_doi = _normalize_doi(doi) or doi.strip()
+        query_text = f"paper=DOI:{clean_doi}/{direction}"
+
+        raw_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
+        api_key = raw_key.strip(" \t\r\n") if raw_key else ""
+        if api_key and not _is_valid_api_key(api_key):
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="SEMANTIC_SCHOLAR_API_KEY tem caracteres inválidos",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        headers = {"User-Agent": _user_agent()}
+        if api_key:
+            headers["x-api-key"] = api_key
+
+        if direction not in ("references", "citations"):
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason=f"direção inválida: {direction}",
+                query=query_text,
+                found=None,
+                fetched=0,
+                works=[],
+            )
+
+        effective_max = min(max(max_results, 1), 10_000)
+        paper_url = f"https://api.semanticscholar.org/graph/v1/paper/DOI:{clean_doi}/{direction}"
+
+        works: list[Work] = []
+        found: int | None = None
+        offset = 0
+        batch_limit = min(effective_max, 1000)
+        stopped_by_source_limit = False
+
+        try:
+            async with self._get_client() as client:
+                while True:
+                    if offset >= 10_000:
+                        stopped_by_source_limit = True
+                        break
+
+                    current_limit = min(batch_limit, 10_000 - offset, effective_max - len(works))
+                    if current_limit <= 0:
+                        break
+
+                    params = {
+                        "offset": str(offset),
+                        "limit": str(current_limit),
+                        "fields": SELECT_FIELDS,
+                    }
+
+                    data, err_status, err_reason = await self._request_page(
+                        client, params, headers, api_key=api_key, url=paper_url
+                    )
+                    if err_status is not None:
+                        return SourceResult(
+                            name=self.name,
+                            status=err_status,
+                            reason=err_reason,
+                            query=f"{query_text} · limit={current_limit} · offset={offset}",
+                            found=found,
+                            fetched=len(works),
+                            works=works,
+                        )
+
+                    assert data is not None
+                    if offset == 0:
+                        raw_total = data.get("total")
+                        if isinstance(raw_total, int) and not isinstance(raw_total, bool):
+                            found = raw_total
+                        elif isinstance(raw_total, str) and raw_total.strip().isdigit():
+                            found = int(raw_total.strip())
+
+                    raw_data = data.get("data")
+                    if not isinstance(raw_data, list) or not raw_data:
+                        break
+
+                    for raw_item in raw_data:
+                        if isinstance(raw_item, dict):
+                            paper_info = (
+                                raw_item.get("citedPaper")
+                                if direction == "references"
+                                else raw_item.get("citingPaper")
+                            )
+                            if paper_info is None:
+                                paper_info = raw_item
+                            parsed = _parse_work(paper_info)
+                            if parsed is not None:
+                                works.append(parsed)
+                                if len(works) >= effective_max:
+                                    break
+
+                    if len(works) >= effective_max:
+                        break
+
+                    next_offset = data.get("next")
+                    if (
+                        next_offset is None
+                        or not isinstance(next_offset, int)
+                        or isinstance(next_offset, bool)
+                    ):
+                        if len(raw_data) < current_limit:
+                            break
+                        next_offset = offset + len(raw_data)
+
+                    if next_offset >= 10_000:
+                        stopped_by_source_limit = True
+                        break
+                    if next_offset <= offset:
+                        break
+
+                    offset = next_offset
+
+        except Exception:  # noqa: BLE001
+            return SourceResult(
+                name=self.name,
+                status="failed",
+                reason="falha inesperada ao consultar a Semantic Scholar",
+                query=query_text,
+                found=found,
+                fetched=len(works),
+                works=works,
+            )
+
+        reason: str | None = None
+        if (found is not None and found > len(works)) or stopped_by_source_limit:
+            if stopped_by_source_limit or len(works) >= 10_000:
+                reason = "limite de 10.000 da fonte"
+            elif len(works) >= max_results:
+                reason = f"teto de {_format_number(max_results)} atingido"
+
+        return SourceResult(
+            name=self.name,
+            status="ok",
+            reason=reason,
+            query=f"{query_text} · limit={batch_limit} · offset={offset}",
             found=found,
             fetched=len(works),
             works=works,
