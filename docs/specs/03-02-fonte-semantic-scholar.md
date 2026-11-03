@@ -1,6 +1,6 @@
 # Fonte Semantic Scholar
 
-**Fase:** 3 · Mais fontes · **Situação:** não iniciada
+**Fase:** 3 · Mais fontes · **Situação:** para testar
 
 ## O que faz
 
@@ -34,11 +34,11 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 ## Pronto quando
 
 - [x] Antes de escrever, conferir o T-001 para a Semantic Scholar (feito acima pelo Claude Code)
-- [ ] Teste com respostas simuladas: os campos acima são mapeados, e o que falta (`abstract`, `journal`, `externalIds` sem DOI, `year` nulo) fica vazio
-- [ ] Teste: paginação por `offset` para em `max_results`, quando `next` some ou nos 1.000
-- [ ] Teste: as chamadas saem uma por vez, com pelo menos um segundo entre elas, com e sem chave (relógio falso)
-- [ ] Teste: sem chave, um 429 que persiste dá `rate_limited` e não derruba a busca; com chave, ela vai no cabeçalho `x-api-key` e não aparece na URL, no `query`, no `reason` nem no `repr`
-- [ ] Teste: um 400 vira `failed` com o motivo, sem novas tentativas
+- [x] Teste com respostas simuladas: os campos acima são mapeados, e o que falta (`abstract`, `journal`, `externalIds` sem DOI, `year` nulo) fica vazio
+- [x] Teste: paginação por `offset` para em `max_results`, quando `next` some ou nos 1.000
+- [x] Teste: as chamadas saem uma por vez, com pelo menos um segundo entre elas, com e sem chave (relógio falso)
+- [x] Teste: sem chave, um 429 que persiste dá `rate_limited` e não derruba a busca; com chave, ela vai no cabeçalho `x-api-key` e não aparece na URL, no `query`, no `reason` nem no `repr`
+- [x] Teste: um 400 vira `failed` com o motivo, sem novas tentativas
 
 ## Vem de
 
