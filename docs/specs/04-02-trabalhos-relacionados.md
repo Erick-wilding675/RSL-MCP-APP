@@ -50,17 +50,21 @@ Tarefas 02-03, 03-03 e 04-01 integradas.
 
 ## Resultado da entrega
 
-- **O que mudou:**
-  - Implementado o método `related` e `get_origin_work` em `src/rslapp/sources/openalex.py` para consulta de citações (`filter=cites:W...`) e referências em lotes de no máximo 100 IDs (`filter=openalex:W1|...`).
-  - Implementado o método `related` em `src/rslapp/sources/semantic_scholar.py` para consulta de referências e citações via `/paper/DOI:<doi>/references` e `/citations`, com parada preventiva antes do limite de 10.000 para evitar erro 400.
-  - Criado `src/rslapp/core/related.py` com a orquestração `run_related`: resolução do artigo de origem (OpenAlex seguido de Semantic Scholar), consulta concorrente, deduplicação com merge (regra 03-03), aplicação de teto (padrão 1.000 até 10.000) com marcação de lista `incomplete`, gravação de buscas, listas e entrada legível com linha "Artigo de origem" em `log.md`.
-  - Adicionada a ferramenta `get_related_works` no servidor MCP `src/rslapp/server.py`.
-  - Criadas suítes de testes cobrindo todos os cenários em `tests/sources/test_openalex_related.py`, `tests/sources/test_semantic_scholar_related.py`, `tests/core/test_related.py` e `tests/test_server_related.py`.
+- **O que mudou (Rodada 2):**
+  - Validação estrita de entrada no miolo (`core/related.py`): `work_id` aceito estritamente no formato `W[0-9]+` (ASCII) após remoção de prefixos `https://openalex.org/` ou `http://openalex.org/`; `doi` aceito estritamente iniciando com `10.`, sem espaços, caracteres `?#%` nem segmentos `.` ou `..` (preservando caracteres válidos em DOIs como `;`, `<` e `>`). Qualquer violação retorna `invalid_input`.
+  - Codificação de caminhos de DOI nos conectores (`openalex.py` e `semantic_scholar.py`) utilizando `urllib.parse.quote(doi, safe="")`, impedindo vazamento de parâmetros e truncamento de rota.
+  - Substituição de `isdigit()` por checagem de dígitos exclusivamente ASCII (`[0-9]`) no OpenAlex.
+  - Correção na lógica de teto em `openalex.py` e `semantic_scholar.py`: a marcação do motivo do teto não depende de `len(works) >= max_results`, identificando o corte preventivo pela quantidade de referências originais ou parada na paginação mesmo se itens faltarem no lote.
+  - Sinal explícito `not_found: bool` nos modelos (`OriginWorkResult` e `SourceResult`) para indicar 404, substituindo comparações de texto frágil.
+  - Isolamento do tratamento 404 da Semantic Scholar no fluxo específico de `related` (`_request_related_page`), revertendo `_request_page` ao estado compartilhado original para não afetar `search()`.
+  - Tratamento resiliente de falhas de rede/servidor (500, timeout, rate_limited): o OpenAlex retornando 500 não levanta `work_not_found`, mas grava a busca e lista como `incomplete` com o motivo da fonte no log (FR-08).
+  - Remoção de cópias duplicadas de `_summarize_work` e `_select_sources` em `core/related.py`, importando-as diretamente de `core/search.py`.
+  - Inclusão de testes unitários para isolamento de chaves (enviadas exclusivamente em cabeçalhos, nunca em URLs), Semantic Scholar próximo ao limite de 10.000 sem estourar `offset + limit > 10.000`, descarte de IDs sujos em `openalex:` e preservação de `max_results` em `params`.
 - **Requisitos atendidos:** FR-15, FR-08, FR-14, UC-04, D-002, D-005, D-010.
 - **O que foi assumido:**
   - A Semantic Scholar exige DOI para trabalhos relacionados; na ausência de DOI, devolve `not_supported` com motivo "artigo de origem sem DOI".
   - A Crossref devolve `not_supported` em ambas as direções com motivo "não suportado pela Crossref", sem campos preenchidos com valores supostos.
-  - Artigo de origem inexistente em ambas as fontes levanta erro `work_not_found` e nada é gravado em disco.
+  - Artigo de origem inexistente em ambas as fontes (404) levanta erro `work_not_found` e nada é gravado em disco.
 - **O que não deu para verificar:**
   - Chamadas reais contra as APIs com chaves de produção (todos os testes usam `httpx.MockTransport`).
 
@@ -72,9 +76,9 @@ Rode a suíte de testes completa da entrega:
 uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_related.py tests/core/test_related.py tests/sources/test_openalex_related.py tests/sources/test_semantic_scholar_related.py -v
 ```
 
-Deve aparecer: 30 testes passando.
+Deve aparecer: 55 testes passando.
 
 **Onde olhar primeiro (pontos mais arriscados):**
-1. **Resolução de artigo inexistente e garantia de não gravação** (`tests/core/test_related.py::test_fr15_artigo_origem_nao_achado_work_not_found_nada_gravado`): confere que o erro `work_not_found` é levantado e nenhuma busca, lista ou log é gravado em disco.
-2. **Agrupamento de referências em lotes de até 100 ids** (`tests/sources/test_openalex_related.py::test_fr14_openalex_related_references_lotes_100`): confere que as chamadas ao OpenAlex dividem as referências em batches estritamente `<= 100`.
-3. **Parada preventiva antes de 10.000 na Semantic Scholar e corte de teto** (`tests/sources/test_semantic_scholar_related.py::test_d010_s2_limite_10k_fonte` e `tests/core/test_related.py::test_d010_teto_incompleta_com_motivo`): confere que a busca para antes de estourar 10.000 na fonte e que a lista sai marcada como `incomplete` com o motivo registrado.
+1. **Validação estrita de entrada e sanitização contra path traversal / injeção de parâmetros** (`tests/core/test_related.py::test_fr15_d002_validacao_estrita_doi_e_work_id` e `tests/test_server_related.py::test_fr15_d002_get_related_works_entradas_invalidas`): confere que tentativas de path traversal ou URLs malformadas retornam imediatamente `invalid_input`.
+2. **Resolução de falhas 500 do OpenAlex gravando incompleta sem levantar work_not_found** (`tests/core/test_related.py::test_fr08_openalex_500_nao_da_work_not_found_grava_incompleta`): confere que erro 500 do OpenAlex registra a lista `incomplete` com o motivo da fonte e não assume erroneamente que o trabalho inexiste.
+3. **Cálculo de teto com itens faltantes e corte preventivo próximo a 10.000** (`tests/sources/test_openalex_related.py::test_d010_openalex_related_teto_atingido_com_item_faltante` e `tests/sources/test_semantic_scholar_related.py::test_d010_s2_limite_10k_fonte_next_9500`): confere que a detecção de teto atinge `incomplete` mesmo com descartes de itens no lote e que a Semantic Scholar limita batches finais sem ultrapassar 10.000.
