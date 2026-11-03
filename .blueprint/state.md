@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-03T12:40:00Z
+updated: 2026-11-03T14:20:00Z
 updated_by: Claude Code
 ---
 
@@ -178,6 +178,14 @@ Achados na fase 1, para o Claude desktop rever as specs antes de a fase 2 começ
 
 ## Next question
 
-Fase 1 entregue para teste (1.1, 1.2 e 1.3 em "para testar", run `b20261102-221933` do Playmaker). Os commits da fase 1 foram enviados ao GitHub em 2026-11-03. O Erick testa e marca como prontas. Antes da fase 2: a chave do OpenAlex guardada no Lore secrets (`OPENALEX_API_KEY`, ambiente `prod`; a `SEMANTIC_SCHOLAR_API_KEY` é opcional) e a revisão das specs 02-01 e 02-02 com os pontos acima. As fases 2 a 6 estão retidas no quadro até o Erick liberar.
+**Pausa pedida pelo Erick em 2026-11-03 (~11h20 de Brasília).** O run `b20261102-221933` do Playmaker fica parado; retomar com `/sintese-playmaker:go`.
+
+- O Erick liberou as fases 2 a 6 (relatório ao fim de cada fase), até 5 workers, e o Claude revê as specs (é o mesmo papel do Claude desktop). Todas as specs da 02-01 à 05-04 já foram revistas e estão no quadro. A 06-01 espera a conta e o token do PyPI.
+- **Para testar:** 01-01, 01-02, 01-03 e 02-01 (falta só a chamada real com a chave, que pede `lore secrets run`, ausente no Lore 2.4.2 desta máquina).
+- **02-02 entregue, revisão não feita:** branch `playmaker/b20261102-221933/02-02-busca-e-lista-r3` (commit `941bf64`). Ao voltar: revisar com o agente revisor e integrar.
+- **03-01, 03-02 e 04-01 paradas** (`board stop`, voltam a `not_started`). O trabalho parcial ficou em `wip/03-01-crossref` e `wip/03-02-semantic-scholar` (a 03-02 inclui um `_update_spec.py` solto, que não deve entrar). A 04-01 não tinha nada.
+- **Modelos:** a cota do Gemini 4 Argon acabou por volta das 10h50 e volta perto das 17h40; o quadro usa o Gemini 3.8 Flash (High) nas tarefas que faltam.
+- **Ids das tarefas** das fases 2 a 6 foram encurtados no quadro (o Playmaker recusa id de worker com mais de 31 caracteres).
+- Chaves no Lore secrets: `OPENALEX_API_KEY` guardada; `SEMANTIC_SCHOLAR_API_KEY` aprovada pela Semantic Scholar, link enviado ao Erick.
 
 Em 2026-11-03 a pasta saiu do OneDrive para `C:\Users\hulkd\_Sintese-Labs-Projetos\RSL.app` (árvores do Playmaker em `..\RSL.app-playmaker`). Os três gates passaram no lugar novo. O caminho novo não tem acento, então o motivo do `--no-editable` nos gates pode não valer mais; os gates continuam iguais até alguém medir.
