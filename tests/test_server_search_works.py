@@ -12,7 +12,9 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from rslapp import server
 from rslapp.core.models import Author, SourceResult, Work
+from rslapp.sources.crossref import CrossrefSource
 from rslapp.sources.openalex import OpenAlexSource
+from rslapp.sources.semantic_scholar import SemanticScholarSource
 
 ENV_VARS = (
     "RSL_DATA_DIR",
@@ -77,8 +79,10 @@ async def test_fr01_fr05_fr12_d002_d003_search_works_em_memoria_responde_como_no
     isolated_env: Path,
 ) -> None:
     default_sources = server._build_sources()
-    assert len(default_sources) == 1
+    assert len(default_sources) == 3
     assert isinstance(default_sources[0], OpenAlexSource)
+    assert isinstance(default_sources[1], CrossrefSource)
+    assert isinstance(default_sources[2], SemanticScholarSource)
 
     monkeypatch.setenv("RSL_CACHE_DAYS", "14")
     fake_work = Work(

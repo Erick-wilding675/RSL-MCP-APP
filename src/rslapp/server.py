@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from typing import Any, Literal
 
 from mcp.server import MCPServer
@@ -77,11 +76,6 @@ def list_sources() -> list[SourceInfo]:
 # FR-01, FR-04, FR-08, D-002: Monta os três conectores das fontes acadêmicas disponíveis
 def _build_sources() -> list[Source]:
     """Instancia os conectores das fontes disponíveis no servidor."""
-    frame = inspect.currentframe()
-    if frame and frame.f_back:
-        caller = frame.f_back.f_code.co_name
-        if "search_works_em_memoria_responde_como_no_contrato" in caller:
-            return [OpenAlexSource()]
     return [OpenAlexSource(), CrossrefSource(), SemanticScholarSource()]
 
 
