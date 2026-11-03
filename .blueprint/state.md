@@ -8,8 +8,8 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-02T22:10:00Z
-updated_by: Claude Desktop
+updated: 2026-11-03T03:40:00Z
+updated_by: Claude Code
 ---
 
 # Project state
@@ -165,6 +165,17 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - O que a LGPD exige para guardar nomes e ORCID de autores (T-007; Erick)
 - Se o usuário precisa de um meio fácil de apagar os dados guardados (Erick)
 
+## Pontos que as specs da fase 2 precisam resolver
+
+Achados na fase 1, para o Claude desktop rever as specs antes de a fase 2 começar:
+
+1. **02-01, a chave chega ao conector como?** `config.load()` guarda só se a chave existe, nunca o valor (NFR-03), e o conector do OpenAlex precisa do valor. Proposta: o conector lê a variável de ambiente na hora da chamada, sem guardar nem registrar.
+2. **02-02, "Antes de começar: Nenhuma".** Na prática, ela depende da 02-01 (modelos), da 01-02 (servidor) e da 01-03 (armazenamento). A 02-03 depende da 02-02. O quadro já usa essas dependências.
+3. **02-02, erro do contrato chega à IA como?** No `mcp` 2.x, `ToolError` aparece ao modelo como resultado com erro, e `MCPError` vira erro JSON-RPC de protocolo. Falta escolher como `no_source_available`, `invalid_input` e os demais chegam à IA.
+4. **02-02, campos dos JSON.** O armazenamento já usa nomes em inglês (ver spec 01-03). `sources[].query` deve ir como texto, e a consulta do cache como dicionário de parâmetros.
+5. **`httpx` e `httpx2`.** O `mcp` 2.x traz o `httpx2`, e o projeto declara o `httpx` (spec 01-01). Funciona, mas instala dois clientes HTTP. Vale decidir qual os conectores usam.
+6. **`typing_extensions`.** O `server.py` importa esse pacote, exigido pelo Pydantic no Python 3.10, e ele não está declarado no `pyproject.toml`. Hoje vem com o `mcp`.
+
 ## Next question
 
-Plano fechado e repositório preparado (AGENTS.md, CLAUDE.md, GEMINI.md, .ai-memory.toml, .gitignore). Próximo passo: a tarefa 1.1, "Pacote e configuração" (docs/specs/01-01-pacote-e-configuracao.md). O Erick vai levar o projeto para o Claude Code, que orquestra com o Playmaker e o Gemini.
+Fase 1 entregue para teste (1.1, 1.2 e 1.3 em "para testar", run `b20261102-221933` do Playmaker). O Erick testa e marca como prontas, e decide o push dos commits locais. Antes da fase 2: a chave do OpenAlex ativada e a revisão das specs 02-01 e 02-02 com os pontos acima. As fases 2 a 6 estão retidas no quadro até o Erick liberar.
