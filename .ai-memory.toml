@@ -1,0 +1,4 @@
+# Nomeia a memória deste projeto no Lore.
+# Este arquivo vai para o git: quem clonar o projeto compartilha a mesma memória.
+workspace = "erick-mendes"
+project   = "RSL.app"

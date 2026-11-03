@@ -1,0 +1,52 @@
+# Sistema e editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Segredos: nunca vão para o git
+.env
+.env.*
+!.env.example
+.pypirc
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials.*
+
+# Configuração local de clientes MCP: o bloco "env" costuma trazer chaves de API
+.mcp.json
+claude_desktop_config.json
+
+# Configuração local dos agentes: chaves de ferramentas locais ficam aqui, nunca no git
+.claude/settings.local.json
+
+# Árvores de trabalho do Playmaker, para agentes em paralelo
+.worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Dados e exportações de teste feitos na pasta do projeto (os dados reais ficam na pasta do usuário)
+# Trazem nome, ORCID e afiliação de autores (D-004): nunca vão para o git.
+/data/
+/exports/
+/searches/
+/lists/
+/cache/
+/log.md
+/*.ris
+/*.csv
+*.log
