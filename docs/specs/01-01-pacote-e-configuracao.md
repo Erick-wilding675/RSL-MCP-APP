@@ -28,8 +28,30 @@ Nenhuma.
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - `pyproject.toml`: definição do pacote `rslapp` (`0.1.0`, Python `>=3.10`, licença MIT, backend `hatchling` em layout `src/`), dependências `mcp>=2,<3` e `httpx`, extra `dev` (`pytest`, `ruff`), comando de entrada `rslapp = "rslapp.server:main"` e configuração do Ruff e do Pytest (**D-001**, **D-008**).
+  - `src/rslapp/__init__.py`: pacote raiz com `__version__ = "0.1.0"` (**D-001**).
+  - `src/rslapp/config.py`: dataclass imutável `Config` (`frozen=True`) e função `load()` que lê `RSL_DATA_DIR`, `RSL_EXPORT_DIR`, `RSL_CACHE_DAYS`, `OPENALEX_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY` e `RSL_CONTACT_EMAIL` a cada chamada, sem criar pastas nem reter o valor das chaves (**FR-07**, **NFR-02**, **NFR-03**).
+  - `tests/test_config.py`: suíte de testes unitários isolada com `monkeypatch` cobrindo padrões, expansão de `~`, derivação de `export_dir` a partir de `data_dir`, validação de `RSL_CACHE_DAYS`, imutabilidade e não exposição de chaves e e-mail em `repr`/`str`/`vars`/`asdict`.
+- **O que foi assumido:**
+  - `RSL_CONTACT_EMAIL` vazio ou apenas com espaços resulta em `contact_email=None`.
+  - Foi adicionado `pythonpath = ["src"]` em `[tool.pytest.ini_options]` porque no Python 3.10 do Windows a leitura de arquivos `.pth` usa a codificação local (`cp1252`), falhando ao resolver caminhos com acento (`Síntese Labs`) quando gerados em UTF-8 pelo `uv`.
+- **O que não deu para verificar:**
+  - A execução do comando `rslapp` de ponta a ponta depende de `rslapp.server:main`, que pertence à tarefa 01-02 (o registro do entrypoint no pacote já foi verificado via `importlib.metadata.entry_points`).
+  - O teste manual de `pip install -e .` num ambiente limpo fora do `uv run --isolated` fica para a conferência do gerente.
 
 ## Como testar
 
-A escrever na entrega.
+1. **Comandos para rodar:**
+   ```powershell
+   uv run --isolated --python 3.10 --extra dev ruff check .
+   uv run --isolated --python 3.10 --extra dev pytest -q
+   uv run --isolated --python 3.14 --extra dev pytest -q
+   ```
+2. **O que deve aparecer:**
+   - `All checks passed!` no `ruff check .`
+   - `16 passed` em ambas as execuções do `pytest` (Python 3.10 e Python 3.14).
+3. **Onde olhar primeiro (pontos de risco, do mais crítico ao menos crítico):**
+   1. **Não exposição de chaves e dados do usuário (`src/rslapp/config.py` — `Config`, `_is_key_configured` e `load()`, NFR-03):** confirmar que os valores de `OPENALEX_API_KEY` e `SEMANTIC_SCHOLAR_API_KEY` nunca entram em nenhum atributo de `Config` (apenas os booleanos `openalex_key_configured` e `semantic_scholar_key_configured`), e que `contact_email` usa `field(default=None, repr=False)` para não vazar em `repr(cfg)` nem `str(cfg)`.
+   2. **Resolução das pastas locais sem criação no disco (`src/rslapp/config.py` — `load()`, FR-07, NFR-02):** verificar que `export_dir` deriva de `data_dir / "exports"` quando `RSL_EXPORT_DIR` está ausente (mesmo quando `RSL_DATA_DIR` foi alterado), que `~` é expandido em ambas e que `load()` não cria nenhuma pasta no sistema de arquivos.
+   3. **Validação de `RSL_CACHE_DAYS` (`src/rslapp/config.py` — `_parse_cache_days()`, FR-07):** conferir que zero, números negativos, decimais, texto ou string vazia levantam `ValueError` contendo `"RSL_CACHE_DAYS"` na mensagem.
