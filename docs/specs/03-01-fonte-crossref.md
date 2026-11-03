@@ -4,11 +4,11 @@
 
 ## O que faz
 
-O conector `sources/crossref.py` com a mesma interface do OpenAlex (`Source`, tarefa 02-01): busca por termos e traduz o resultado para `Work` (título, autores com ORCID quando houver, afiliações com ROR quando houver, ano, periódico, resumo, DOI, tipo, DOIs das referências, número de referências e de citações). Usa o `RSL_CONTACT_EMAIL`, quando houver, para entrar na fila educada, e respeita o limite com novas tentativas. A Crossref passa a entrar nas fontes que o servidor monta e em `list_sources`.
+O conector `sources/crossref.py` com a mesma interface do OpenAlex (`Source`, tarefa 02-01): busca por termos e traduz o resultado para `Work` (título, autores com ORCID quando houver, afiliações com ROR quando houver, ano, periódico, resumo, DOI, tipo, DOIs das referências, número de referências e de citações). Usa o `RSL_CONTACT_EMAIL`, quando houver, para entrar na fila educada, e respeita o limite com novas tentativas.
 
 ## O que não faz
 
-Não consulta citações de um artigo (04-02). Não deduplica entre fontes (03-03). Não busca por título ou DOI exato (05-01).
+Não consulta citações de um artigo (04-02). Não deduplica entre fontes (03-03). Não busca por título ou DOI exato (05-01). Não mexe em `server.py`: a Crossref entra nas fontes do servidor na 03-03.
 
 ## Conferência do T-001 (Crossref)
 
@@ -39,7 +39,6 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 - [ ] Teste: paginação por cursor pede a página seguinte com o `next-cursor` e para em `max_results` ou quando a página vem menor que `rows`
 - [ ] Teste: 429 e 5xx seguem a mesma regra de novas tentativas e estado do OpenAlex
 - [ ] Teste: com `RSL_CONTACT_EMAIL`, a URL pedida leva `mailto`; o e-mail não aparece no `query`, no `reason` nem na chave do cache
-- [ ] `list_sources` mostra a Crossref como configurada, sem chave, e o servidor passa a consultá-la em `search_works` (teste pelo servidor com fontes simuladas)
 
 ## Vem de
 
@@ -47,7 +46,7 @@ FR-01, FR-03, FR-14, NFR-04, D-004. São os identificadores que o código leva c
 
 ## Antes de começar
 
-Tarefas 02-01 e 02-02 integradas.
+Tarefa 02-01 integrada. Roda em paralelo com a 02-02 e a 03-02.
 
 ## Resultado da entrega
 

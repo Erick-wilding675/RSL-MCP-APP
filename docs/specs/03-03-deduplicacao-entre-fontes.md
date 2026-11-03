@@ -19,6 +19,7 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 3. **O que se soma sem perder nada:** `source_ids` e `citations` juntam as chaves de todas as fontes (as citações nunca são somadas, FR-14); `references` é a união, na ordem, sem repetir, com os ids da primeira fonte primeiro (ids do OpenAlex e DOIs convivem; a tarefa 04-01 troca os ids por DOI).
 4. **Divergência:** quando duas fontes trazem valores diferentes e não vazios em `title` (comparado normalizado), `year`, `doi` ou `venue`, conta uma divergência daquele campo. A busca grava em `searches/` o campo `merge`: `{"merged": <artigos que vieram de mais de uma fonte>, "divergences": {"year": 3, "title": 1}}`, e o `log.md` ganha a linha `Junção: 12 artigos em mais de uma fonte · divergências: ano 3, título 1` (ou `· sem divergências`). Os valores divergentes não vão para o log, só a contagem por campo.
 5. **Onde fica:** a regra de junção em `core/dedup.py` (funções puras, sem rede nem disco); `core/search.py` passa a chamar as fontes com `asyncio.gather` e a usar `dedup`; `store/log.py` ganha a linha de junção.
+6. **As três fontes no servidor:** `server.py` passa a montar `[OpenAlexSource(), CrossrefSource(), SemanticScholarSource()]` (nessa ordem). Em `list_sources`, a Semantic Scholar continua `configured: true`, `needs_key: false` e `status: ok`, e a descrição da ferramenta (docstring) passa a dizer que a chave da Semantic Scholar é opcional e evita recusas por limite.
 
 ## Pronto quando
 
@@ -30,6 +31,7 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 - [ ] Teste: as fontes são chamadas em paralelo (uma fonte simulada lenta não atrasa a chamada das outras)
 - [ ] Teste: resposta vinda do cache aparece marcada no log com a data de obtenção (NFR-06)
 - [ ] Teste: o `log.md` refeito por `rebuild_log` tem a mesma linha de junção
+- [ ] Teste pelo servidor (`Client(mcp)` em memória, com as três fontes trocadas por simuladas): `search_works` consulta as três e junta o resultado; `list_sources` mostra as três, com a nota da chave da Semantic Scholar
 
 ## Vem de
 
