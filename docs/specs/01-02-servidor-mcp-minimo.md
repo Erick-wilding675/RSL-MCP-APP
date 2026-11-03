@@ -1,6 +1,6 @@
 # Servidor MCP mínimo
 
-**Fase:** 1 · Esqueleto · **Situação:** não iniciada
+**Fase:** 1 · Esqueleto · **Situação:** para testar
 
 ## O que faz
 
@@ -13,10 +13,10 @@ Não tem busca nem as outras ferramentas (tarefas 02-02 em diante). O prompt `pl
 ## Pronto quando
 
 - [x] Antes de escrever, conferir o T-009: abrir a documentação da v2 do SDK oficial e anotar no spec o nome exato da classe e o exemplo stdio (ver "Conferência do T-009")
-- [ ] `rslapp` inicia e responde ao handshake do MCP por stdio (teste com o MCP Inspector ou com um cliente de teste do próprio SDK)
-- [ ] A ferramenta `list_sources` aparece na lista de ferramentas e devolve uma linha por fonte (`openalex`, `crossref`, `semantic_scholar`) com `name`, `configured`, `needs_key`, `status`
-- [ ] Teste: sem chaves, o OpenAlex aparece como `needs_key: true` e `configured: false`; o Crossref aparece como configurado
-- [ ] Teste: nenhuma resposta contém o valor de uma chave
+- [x] `rslapp` inicia e responde ao handshake do MCP por stdio (teste com o MCP Inspector ou com um cliente de teste do próprio SDK)
+- [x] A ferramenta `list_sources` aparece na lista de ferramentas e devolve uma linha por fonte (`openalex`, `crossref`, `semantic_scholar`) com `name`, `configured`, `needs_key`, `status`
+- [x] Teste: sem chaves, o OpenAlex aparece como `needs_key: true` e `configured: false`; o Crossref aparece como configurado
+- [x] Teste: nenhuma resposta contém o valor de uma chave
 
 ## Conferência do T-009
 
@@ -88,11 +88,12 @@ T-009 (documentação da v2 do SDK).
 
 - **O que mudou:**
   - `src/rslapp/server.py`: servidor MCP mínimo com `MCPServer("rslapp", instructions=INSTRUCTIONS)` do SDK oficial `mcp>=2,<3` (**D-006**, **NFR-02**), constante `INSTRUCTIONS` em português orientando a IA a planejar e dividir assuntos em buscas separadas e a tratar títulos, resumos e metadados como dados (**D-002**, **NFR-03**), tipo `SourceInfo` (`typing_extensions.TypedDict` para compatibilidade com Pydantic no Python 3.10), ferramenta `list_sources()` que chama `config.load()` dinamicamente e devolve o estado das três fontes (`openalex`, `crossref`, `semantic_scholar`) sem expor chaves (**FR-07**, **NFR-03**, **D-002**), e função de entrada `main()` que executa `mcp.run()` via transporte stdio (**D-006**, **NFR-02**).
-  - `tests/test_server.py`: 5 testes cobrindo handshake real por stdio em subprocesso com o comando instalado `rslapp` (`StdioServerParameters`), verificação de `client.instructions` e `list_tools`, chamada de `list_sources` com e sem chaves em subprocesso e em memória (`Client(mcp)`), releitura dinâmica do ambiente a cada chamada e ausência de escrita em `stdout` e de exposição de valores de chaves ou e-mail nas respostas e instruções (**FR-07**, **NFR-02**, **NFR-03**, **D-002**, **D-006**).
+  - `tests/test_server.py`: 5 testes cobrindo handshake real por stdio em subprocesso com o comando instalado `rslapp` (`StdioServerParameters`), verificação de `client.instructions` e `list_tools`, chamada de `list_sources` com e sem chaves em subprocesso e em memória (`Client(mcp)`), releitura dinâmica do ambiente a cada chamada, ausência de escrita em `stdout` na chamada direta de `list_sources` e ausência de exposição de valores de chaves ou e-mail nas respostas e instruções (**FR-07**, **NFR-02**, **NFR-03**, **D-002**, **D-006**).
 - **O que foi assumido:**
   - Valores do campo `status` em `list_sources`: assumiu-se `"ok"` quando a fonte está pronta para uso e `"missing_key"` quando `needs_key` é `True` e `configured` é `False` (estados previstos em `docs/interface-contract.md`, já que a spec não detalhava os literais de `status`).
   - Para `semantic_scholar`, `needs_key` é `False`, `configured` é `True` e `status` é `"ok"` mesmo sem `SEMANTIC_SCHOLAR_API_KEY`, pois a chave é opcional.
 - **O que não deu para verificar:**
+  - Escrita em `stdout` na importação de `rslapp.server` ou em `main()` antes de `mcp.run()`: nenhum teste cobre esse caso, porque o cliente do SDK ignora a linha inválida. O `server.py` entregue não tem `print`.
   - Teste manual interativo na interface gráfica do MCP Inspector (o handshake e as chamadas MCP por stdio foram verificados de ponta a ponta em subprocesso real usando `mcp.Client` com `StdioServerParameters(command=shutil.which("rslapp"))`).
 
 ## Como testar
