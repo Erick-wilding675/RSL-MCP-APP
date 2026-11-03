@@ -106,7 +106,7 @@ async def search_works(
 # FR-06, FR-12, UC-01, D-002: Exporta uma lista salva para arquivo no formato solicitado
 @mcp.tool()
 def export_list(list_id: str, format: str) -> dict[str, Any]:
-    """Exporta uma lista salva para arquivo no formato solicitado (atualmente 'ris')."""
+    """Exporta uma lista salva para arquivo no formato solicitado ('ris', 'csv', 'json', 'dois', 'openalex_url')."""
     cfg = config.load()
     store = Store(cfg.data_dir, cfg.cache_days)
     try:
