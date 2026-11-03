@@ -1,6 +1,6 @@
 # Fonte Crossref
 
-**Fase:** 3 · Mais fontes · **Situação:** não iniciada
+**Fase:** 3 · Mais fontes · **Situação:** para testar
 
 ## O que faz
 
@@ -35,10 +35,10 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 ## Pronto quando
 
 - [x] Antes de escrever, conferir o T-001 para a Crossref (feito acima pelo Claude Code)
-- [ ] Teste com respostas simuladas: os campos acima são mapeados, inclusive autor organização, ORCID em URL, afiliação com e sem ROR, `issued` com `[[null]]` e resumo em JATS; o que a Crossref não traz fica vazio, sem valor suposto
-- [ ] Teste: paginação por cursor pede a página seguinte com o `next-cursor` e para em `max_results` ou quando a página vem menor que `rows`
-- [ ] Teste: 429 e 5xx seguem a mesma regra de novas tentativas e estado do OpenAlex
-- [ ] Teste: com `RSL_CONTACT_EMAIL`, a URL pedida leva `mailto`; o e-mail não aparece no `query`, no `reason` nem na chave do cache
+- [x] Teste com respostas simuladas: os campos acima são mapeados, inclusive autor organização, ORCID em URL, afiliação com e sem ROR, `issued` com `[[null]]` e resumo em JATS; o que a Crossref não traz fica vazio, sem valor suposto
+- [x] Teste: paginação por cursor pede a página seguinte com o `next-cursor` e para em `max_results` ou quando a página vem menor que `rows`
+- [x] Teste: 429 e 5xx seguem a mesma regra de novas tentativas e estado do OpenAlex
+- [x] Teste: com `RSL_CONTACT_EMAIL`, a URL pedida leva `mailto`; o e-mail não aparece no `query`, no `reason` nem na chave do cache
 
 ## Vem de
 
