@@ -1,6 +1,6 @@
 # Busca, lista e log
 
-**Fase:** 2 · Fatia completa · **Situação:** não iniciada
+**Fase:** 2 · Fatia completa · **Situação:** para testar
 
 ## O que faz
 
@@ -36,14 +36,14 @@ A ferramenta `search_works(query, request_summary="", sources=None, max_results=
 
 ## Pronto quando
 
-- [ ] Teste com fonte simulada: uma busca devolve lista, grava `lists/`, `searches/` e a linha no `log.md`, e os ids de busca e lista aparecem na resposta
-- [ ] Teste: dois registros com o mesmo DOI viram um; sem DOI, o mesmo título normalizado vira um; o caso de DOI diferente e título igual fica como dois
-- [ ] Teste: com a fonte em `failed`, a lista sai `incomplete` com a fonte e o motivo na resposta e no log (FR-08); com zero resultados, a lista sai vazia e registrada
-- [ ] Teste: com todas as fontes em `missing_key`, devolve o erro `no_source_available` e não grava lista, busca nem log
-- [ ] Teste: a segunda busca igual, dentro do prazo, vem do cache sem chamar a fonte, com `from_cache: true` na resposta e no log; um resultado `failed` não vai para o cache
-- [ ] Teste: a resposta à IA não passa de um resumo por artigo (25 no máximo); o registro completo fica na lista salva
-- [ ] Teste: cada busca gera uma lista própria; duas buscas seguidas não se juntam
-- [ ] Teste pelo servidor (`Client(mcp)` em memória, com fonte simulada e `RSL_DATA_DIR` temporário): `search_works` responde como no contrato, e uma entrada inválida volta como erro com `invalid_input:` no início do texto
+- [x] Teste com fonte simulada: uma busca devolve lista, grava `lists/`, `searches/` e a linha no `log.md`, e os ids de busca e lista aparecem na resposta
+- [x] Teste: dois registros com o mesmo DOI viram um; sem DOI, o mesmo título normalizado vira um; o caso de DOI diferente e título igual fica como dois
+- [x] Teste: com a fonte em `failed`, a lista sai `incomplete` com a fonte e o motivo na resposta e no log (FR-08); com zero resultados, a lista sai vazia e registrada
+- [x] Teste: com todas as fontes em `missing_key`, devolve o erro `no_source_available` e não grava lista, busca nem log
+- [x] Teste: a segunda busca igual, dentro do prazo, vem do cache sem chamar a fonte, com `from_cache: true` na resposta e no log; um resultado `failed` não vai para o cache
+- [x] Teste: a resposta à IA não passa de um resumo por artigo (25 no máximo); o registro completo fica na lista salva
+- [x] Teste: cada busca gera uma lista própria; duas buscas seguidas não se juntam
+- [x] Teste pelo servidor (`Client(mcp)` em memória, com fonte simulada e `RSL_DATA_DIR` temporário): `search_works` responde como no contrato, e uma entrada inválida volta como erro com `invalid_input:` no início do texto
 
 ## Vem de
 
@@ -80,4 +80,8 @@ Tarefas 01-02 (servidor), 01-03 (armazenamento) e 02-01 (modelos, erros e fonte 
 3. **Onde olhar primeiro (pontos de risco, do mais difícil ao mais simples):**
    1. **Gravação condicional, cache seletivo e estado da lista (`src/rslapp/core/search.py` — `run_search`, FR-05, FR-08, FR-12, NFR-06, D-002):** conferir que `store.set_cache` só é chamado quando `result.status == "ok"`, que `all(entry["status"] == "missing_key" ...)` levanta `RSLError("no_source_available", ...)` antes de qualquer chamada a `store.record_search`, e que qualquer fonte com estado diferente de `"ok"` resulta em `status == "incomplete"` tanto na lista salva quanto no `log.md`.
    2. **Resumo para a IA vs dados pessoais completos na lista salva (`src/rslapp/core/search.py` — `_summarize_work` e `run_search`, FR-12, D-002, D-004):** verificar que `works` na resposta de `search_works` contém no máximo 25 itens e expõe apenas `doi`, `title`, `authors` (somente nomes), `year`, `venue`, `references_count` e `citations`, enquanto `lists/l-NNNN.json` guarda todos os registros completos (`Work.to_dict()`, incluindo ORCID, afiliações, resumo e ids de referências).
-   3. **Deduplicação por DOI e título normalizado (`src/rslapp/core/search.py` — `normalize_title`, `_dedup_key` e `deduplicate_works`, FR-04):** confirmar que DOIs com prefixo de URL ou maiúsculas convergem para a mesma chave `doi:<minúsculo>`, títulos sem DOI convergem após remoção de acentos (`NFKD`) e pontuação, e dois trabalhos com DOIs distintos nunca são fundidos mesmo que tenham título idêntico.
+   3. **Deduplicação por DOI e título normalizado (`src/rslapp/core/search.py` — `normalize_title`, `_dedup_key` e `deduplicate_works`, FR-04):** confirmar que DOIs com maiúsculas convergem para a mesma chave `doi:<minúsculo>` (o prefixo de URL é tirado pela fonte, não aqui), títulos sem DOI convergem após remoção de acentos (`NFKD`) e pontuação, e dois trabalhos com DOIs distintos nunca são fundidos mesmo que tenham título idêntico.
+
+**Para ver na prática (nota do Claude Code na revisão):** conecte um cliente MCP ao servidor sem `OPENALEX_API_KEY` e chame `search_works(query="x")`. Deve voltar um erro começando por `no_source_available:`, e nada deve ser gravado na pasta de dados. Com a chave, uma busca pequena devolve `search_id`, `list_id` e até 25 trabalhos, e cria `lists/`, `searches/` e `log.md`.
+
+**Acompanhamentos da revisão (não bloqueiam):** falta um teste de que uma exceção que não é `RSLError` não vira texto com detalhes no servidor, e o teste de `RSL_CACHE_DAYS` não confere os 14 dias. Um título só de pontuação, sem DOI, normaliza para vazio e junta trabalhos diferentes: fica para a 03-03.
