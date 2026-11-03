@@ -15,3 +15,4 @@ Uma linha por marco, o mais novo por último.
 | 2026-11-02 | Arquitetura pronta | Servidor stdio em Python, núcleo do zero, arquivos soltos, instalação por uvx, e o custo de referências e citações limitado; falta o plano |
 | 2026-11-02 | Plano e repositório prontos | Seis fases, 16 tarefas com spec, arquivo de entrada para os agentes e memória do Lore nomeada; falta começar a codar |
 | 2026-11-03 | Fase 1 · Esqueleto entregue para teste | O pacote instala, o servidor MCP responde por stdio com `list_sources` e o armazenamento grava buscas, listas, log e cache; falta o Erick testar e marcar como pronta |
+| 2026-11-03 | Fase 2 · Fatia completa entregue para teste | Uma busca no OpenAlex vira lista sem duplicatas, entra no log e no cache, e a lista exporta em RIS; falta o Erick fazer a busca real e abrir o RIS no VOSviewer |

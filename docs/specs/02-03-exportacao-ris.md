@@ -25,7 +25,7 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 - [x] Teste: uma lista de exemplo vira um arquivo RIS válido, com um registro por artigo e todos os autores
 - [x] Teste: uma lista inexistente devolve `list_not_found`; uma pasta sem permissão devolve `export_folder_not_writable`; um formato desconhecido devolve `invalid_input`
 - [ ] Teste manual do Erick: uma busca real de tema pequeno, exportada em RIS, abre no VOSviewer 1.6.21 sem edição manual (primeiro critério de aceite do projeto); o resultado vai para a seção Resultado da entrega e para o T-008
-- [ ] O RIS não tem campo padrão para ORCID nem referências; anotar na entrega o que foi para campos livres ou ficou de fora
+- [x] O RIS não tem campo padrão para ORCID nem referências; anotar na entrega o que foi para campos livres ou ficou de fora
 
 ## Vem de
 
