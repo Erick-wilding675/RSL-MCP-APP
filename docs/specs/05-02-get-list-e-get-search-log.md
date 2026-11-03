@@ -1,6 +1,6 @@
 # Ver uma lista e ver o log
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** não iniciada
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
 
 ## O que faz
 
@@ -21,10 +21,10 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste: `get_list` pagina com `page` e `page_size`, devolve `next_page` e respeita `detail`
-- [ ] Teste: `get_list` com id inexistente devolve `list_not_found`
-- [ ] Teste: `get_search_log` devolve as entradas em ordem, filtra por `search_id` e devolve o caminho do `log.md`
-- [ ] Medida: o tamanho da resposta de `get_list` com 100 e 500 artigos em `summary` e em `full`, anotado no T-006
+- [x] Teste: `get_list` pagina com `page` e `page_size`, devolve `next_page` e respeita `detail`
+- [x] Teste: `get_list` com id inexistente devolve `list_not_found`
+- [x] Teste: `get_search_log` devolve as entradas em ordem, filtra por `search_id` e devolve o caminho do `log.md`
+- [x] Medida: o tamanho da resposta de `get_list` com 100 e 500 artigos em `summary` e em `full`, anotado no T-006
 
 ## Vem de
 
@@ -67,8 +67,10 @@ Tarefa 02-02 integrada.
   ```
 - **O que deve aparecer:**
   - `ruff check .` passa limpo sem erros.
-  - `pytest -q` em Python 3.10 e 3.14 reporta 207 testes passando (100% de sucesso).
+  - `pytest -q` em Python 3.10 e 3.14 mostra todos os testes passando (226 na entrega, antes de entrarem as tarefas seguintes).
 - **Onde olhar primeiro:**
   1. *Paginação e corte de metadados em `get_list` (`summary` vs `full`)*: em `tests/core/test_views.py::test_fr12_d002_get_list_view_respeita_detail_summary_e_full` e `test_fr12_d002_get_list_view_paginacao_e_proxima_pagina`.
   2. *Ordem cronológica e janela mais recente em `get_search_log`*: em `tests/core/test_views.py::test_fr05_fr13_d002_get_search_log_ordem_cronologica_e_limite`.
   3. *Tradução de erros no servidor MCP*: em `tests/test_server_get_list.py`, conferindo `list_not_found`, `search_not_found` e `invalid_input` como `ToolError`.
+
+**Acompanhamentos da revisão (não bloqueiam):** o SDK converte tipos antes de chegar ao miolo (`page=True` vira 1, `page="2"` vira 2), igual em `search_works` e `export_list`: fica para uma tarefa transversal de tipos estritos. Faltam testes de `log_file` com `RSL_DATA_DIR` relativo, de `limit=200`, da entrada do log sem campos novos e do `status` de uma lista `incomplete`. As medidas do T-006 usam `json.dumps` padrão; a resposta real pelo MCP é maior (texto indentado mais `structuredContent`).
