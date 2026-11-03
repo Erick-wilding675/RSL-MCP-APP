@@ -53,8 +53,29 @@ Tarefa 02-01 integrada.
 
 ## Resultado da entrega
 
-A escrever na entrega.
+- **O que mudou:**
+  - Em `src/rslapp/sources/openalex.py`: adicionadas a dataclass `DoiLookup` e o método `OpenAlexSource.lookup_dois(ids)` para consulta em lote de DOIs (filtro `openalex:W1|W2...`, `select=id,doi`, `per_page=100`, até 100 ids por chamada). Reutiliza `_request_page` com retentativas (429, 5xx) e autenticação via cabeçalho `Authorization: Bearer <chave>`. Nunca propaga exceção.
+  - Em `src/rslapp/core/references.py`: implementados o serviço `resolve_reference_dois(ids, *, store, source)` e a dataclass `ReferenceResolution`. Filtra e deduplica ids do OpenAlex, consulta o cache em `store.get_cache("openalex_doi", {"id": "W123"})`, agrupa os faltantes em lotes de até 100 e grava no cache cada id respondido (inclusive nulos e omitidos). Em caso de falha de lote (rede, limite ou ausência de chave), preserva os DOIs já obtidos, isola o lote falho sem poluir o cache e marca `complete=False`. Sem chave configurada, não faz chamadas à rede e indica `missing_key`.
+  - Em `tests/sources/test_openalex_dois.py`: 14 testes cobrindo consulta com parâmetros esperados, ids sem DOI e omitidos, envio exclusivo da chave no header (sem vazamento na URL), chave ausente ou com caracteres inválidos, tratamento de 429 com esgotamento de tentativas e créditos esgotados, captura de exceções e serialização da dataclass.
+  - Em `tests/core/test_references.py`: 10 testes cobrindo resolução de 120 ids em 2 chamadas (100 e 20), deduplicação e descarte de entradas não-OpenAlex sem gerar chamadas, reaproveitamento integral do cache na segunda resolução (`calls == 0`), retenção dos DOIs do primeiro lote com isolamento do lote com erro sem gravar no cache, e comportamento sem chave configurada.
+- **Requisitos atendidos:** FR-14, NFR-01, NFR-03, D-005, D-010.
+- **O que foi assumido:** Ids de trabalho do OpenAlex seguem o padrão `W` seguido de dígitos (aceitando também URLs completas `https://openalex.org/W...` convertidas para id curto canônico). Entradas que não correspondem a esse padrão (como DOIs já existentes oriundos de outras fontes) são ignoradas sem disparar consultas à API do OpenAlex.
+- **O que não deu para verificar:** A medida real com a chave do Erick para troca de 100 artigos (anotada no T-005), por ser uma atividade que depende da chave pessoal e execução manual dele.
 
 ## Como testar
 
-A escrever na entrega.
+- **Comandos:**
+  ```bash
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/sources/test_openalex_dois.py tests/core/test_references.py -v
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+  uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+  ```
+- **O que deve aparecer:**
+  - 14 testes passando em `test_openalex_dois.py` e 10 testes passando em `test_references.py`.
+  - 71 testes passando no pytest geral em Python 3.10 e em Python 3.14.
+  - No ruff: `All checks passed!`.
+- **Onde olhar primeiro (dois ou três pontos mais arriscados, o mais difícil primeiro):**
+  1. *Segurança e confidencialidade da chave de API (NFR-03):* Em `tests/sources/test_openalex_dois.py` (`test_nfr03_lookup_dois_chave_apenas_no_header`) e `tests/core/test_references.py` (`test_nfr03_com_chave_vai_so_no_cabecalho`), certificar-se de que a chave viaja estritamente no cabeçalho `Authorization: Bearer <key>` e nunca aparece em query strings, URLs nem logs.
+  2. *Isolamento do cache em falhas no meio da resolução (FR-14, D-007):* Em `tests/core/test_references.py` (`test_fr14_nfr04_falha_na_segunda_chamada`), verificar que, quando o segundo lote falha, os 100 ids do primeiro lote permanecem válidos e salvos no cache, enquanto nenhum dos 20 ids do lote que falhou é persistido no cache.
+  3. *Agrupamento em lotes e economia de chamadas (NFR-01, D-010):* Em `tests/core/test_references.py` (`test_fr14_nfr01_resolve_120_ids_em_2_chamadas` e `test_nfr06_d007_segunda_troca_vem_do_cache`), conferir que 120 referências geram exatamente 2 chamadas de até 100 itens (`openalex:W...|W...`) e que a repetição imediata resulta em `calls == 0` com 100% de acerto no cache.
