@@ -1,6 +1,6 @@
 # Armazenamento em arquivos
 
-**Fase:** 1 · Esqueleto · **Situação:** não iniciada
+**Fase:** 1 · Esqueleto · **Situação:** para testar
 
 ## O que faz
 
@@ -12,13 +12,13 @@ Não decide o que uma busca contém (isso vem da tarefa 02-02). Não apaga nem r
 
 ## Pronto quando
 
-- [ ] Teste: gravar uma lista, uma busca e uma entrada de log, e lê-las de volta iguais
-- [ ] Teste: se a gravação é interrompida no meio, nenhum arquivo fica pela metade
-- [ ] Teste: ordem de gravação lista, busca, log; apagar o `log.md` e chamar o refazer reconstrói o log a partir de `searches/`
-- [ ] Teste: uma lista já gravada não pode ser alterada pela API do módulo
-- [ ] Teste: cache dentro do prazo devolve a resposta e diz que veio do cache, com a data de obtenção; cache vencido é ignorado
-- [ ] Teste: a chave de API não aparece em nenhum arquivo gravado nem na chave do cache
-- [ ] O `log.md` segue o formato abaixo, legível por pessoas e pronto para anexar na metodologia (FR-13)
+- [x] Teste: gravar uma lista, uma busca e uma entrada de log, e lê-las de volta iguais
+- [x] Teste: se a gravação é interrompida no meio, nenhum arquivo fica pela metade
+- [x] Teste: ordem de gravação lista, busca, log; apagar o `log.md` e chamar o refazer reconstrói o log a partir de `searches/`
+- [x] Teste: uma lista já gravada não pode ser alterada pela API do módulo
+- [x] Teste: cache dentro do prazo devolve a resposta e diz que veio do cache, com a data de obtenção; cache vencido é ignorado
+- [x] Teste: a chave de API não aparece em nenhum arquivo gravado nem na chave do cache
+- [x] O `log.md` segue o formato abaixo, legível por pessoas e pronto para anexar na metodologia (FR-13)
 
 ## Formato do `log.md`
 
@@ -55,6 +55,18 @@ Nenhuma.
   - Campos base de busca (`searches/s-NNNN.json`): `id`, `created_at` (UTC, ISO 8601), `kind` (`terms`, `work`, `related` ou `repeat`), `request_summary`, `list_id`, `repeated_from` (ou `null`), `origin` (`{"work": ..., "direction": "references" | "citations"}` ou `null`) e `sources` (lista de objetos com `name`, `query`, `status`, `reason`, `found`, `fetched`, `from_cache` e `fetched_at`), preservando quaisquer campos adicionais recebidos sem conversão de tipos.
   - Campos base de lista (`lists/l-NNNN.json`): `id`, `search_id`, `created_at` (UTC, ISO 8601), `status` (`complete` ou `incomplete`), `total` e `works`, preservando quaisquer campos adicionais recebidos.
   - Campos de cache (`cache/<fonte>/<sha256>.json`): `source`, `query`, `response`, `fetched_at` e `expires_at`.
+- **Decisões do gerente (técnicas, baratas de desfazer):**
+  - Um número para o par: a busca `s-0007` gera sempre a lista `l-0007`, como no exemplo de log desta spec. Com contadores separados, uma colisão entre processos ligava uma lista à busca de outra.
+  - Trava em arquivo (`<pasta de dados>/.lock`) em volta de `record_search` e `rebuild_log`, para duas IAs usarem o mesmo servidor ao mesmo tempo (Claude Desktop e Claude Code, por exemplo). Uma trava parada há mais de 10 s é rompida; a espera máxima é de 15 s.
+  - Os nomes dos campos dos JSON (acima) não estavam na spec nem no modelo de dados. Foram definidos pelo gerente, em inglês, como no contrato.
+- **Acompanhamento (achados da revisão que não bloqueiam; ficam para uma tarefa futura):**
+  - Se uma busca ficar presa mais de 10 s dentro da trava (processo congelado, máquina suspensa), outra pode romper a trava, e a entrada do primeiro no `log.md` pode se perder. Listas e buscas ficam certas, e `rebuild_log` recupera o log byte a byte. Correção sugerida: renomear a trava velha para um nome único antes de apagar e gravar um token que o `finally` confere.
+  - Uma busca com valor que o JSON não aceita (um `set`, por exemplo) levanta erro depois de a lista ser publicada, deixando uma lista órfã. O vínculo não fica errado. Correção: serializar as duas antes de publicar.
+  - Uma queda entre a busca e o log, ou um `PermissionError` persistente no `log.md`, deixa a busca sem entrada no log até alguém chamar `rebuild_log`.
+  - `strip_url_credentials` come a pontuação logo depois de uma URL com credencial ("...?api_key=X." perde o ponto) e deixa passar `&amp;api_key=`, `api%5Fkey=` e `user:senha@host`. A tarefa 02-02 deve passar `sources[].query` como texto e a consulta do cache como dicionário de parâmetros: assim nenhum desses casos acontece.
+  - `created_at` informado é regravado em UTC, sem microssegundos.
+  - O teste do fallback sem hard link falha fora do Windows (troca `sys.platform` e o código também confere `os.name`). Não há CI hoje.
+  - Tamanho: 504 linhas de código e 389 de teste, acima das umas 400 do AGENTS.md. A primeira rodada tinha 1.586.
 - **O que não deu para verificar:**
   - Partição **exFAT real** (o comportamento sem suporte a hard links foi verificado simulando `OSError` em `os.link` com `monkeypatch`).
 
