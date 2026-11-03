@@ -10,7 +10,8 @@ import pytest
 
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
-from rslapp.core.models import Author, SourceResult, Work
+from rslapp.core.models import Author, OriginWorkResult, SourceResult, Work
+from rslapp.core.related import run_related
 from rslapp.core.repeat import run_repeat
 from rslapp.core.search import run_search
 from rslapp.store import Store
@@ -83,6 +84,17 @@ async def test_fr11_d002_repeat_search_not_found(store: Store) -> None:
     assert "s-9999 não encontrada" in exc.value.message
 
 
+# FR-11, D-002: search_id malformado ('s-1', '../x', etc.) levanta search_not_found
+@pytest.mark.anyio
+@pytest.mark.parametrize("malformed_id", ["s-1", "../x", "s-01", "s-99999", "invalid", "s-", "l-0001"])
+async def test_fr11_d002_repeat_search_malformed_id_gives_search_not_found(store: Store, malformed_id: str) -> None:
+    src = FakeSource()
+    with pytest.raises(RSLError) as exc:
+        await run_repeat(store, [src], search_id=malformed_id)
+    assert exc.value.code == "search_not_found"
+    assert f"busca {malformed_id} não encontrada" in exc.value.message
+
+
 # FR-11, D-002: search_id vazio levanta invalid_input
 @pytest.mark.anyio
 @pytest.mark.parametrize("invalid_id", ["", "   "])
@@ -139,6 +151,11 @@ async def test_fr11_uc03_repeat_search_creates_new_records(store: Store) -> None
     orig_list_content = store.get_list(orig_list_id)
     assert orig_list_content["status"] == "complete"
 
+    # Limpa cache para garantir que a repetição chame as fontes de fato
+    import shutil
+    if store.cache_dir.exists():
+        shutil.rmtree(store.cache_dir)
+
     # 2. Executa repeat_search
     repeat_res = await run_repeat(store, [src1, src2], search_id=orig_search_id)
 
@@ -159,6 +176,17 @@ async def test_fr11_uc03_repeat_search_creates_new_records(store: Store) -> None
     new_list = store.get_list(repeat_res["list_id"])
     assert new_list["status"] == "complete"
     assert new_list["total"] == 1
+
+    # Confere que cada fonte foi chamada com a mesma query e mesmo max_results da original
+    assert src1.search_calls == [("machine learning", 50), ("machine learning", 50)]
+    assert src2.search_calls == [("machine learning", 50), ("machine learning", 50)]
+
+    # Confere que sources[].query e sources[].name da busca original e repetida são idênticos
+    assert len(new_search["sources"]) == len(orig_search_content["sources"])
+    for s_orig, s_new in zip(orig_search_content["sources"], new_search["sources"]):
+        assert s_orig["name"] == s_new["name"]
+        assert s_orig["query"] == s_new["query"]
+        assert s_orig["status"] == s_new["status"]
 
     # Confere log legível
     log_content = store.read_log()
@@ -256,3 +284,107 @@ async def test_fr11_repeat_find_work_by_title(store: Store) -> None:
     new_search = store.get_search(repeat_res["search_id"])
     assert new_search["kind"] == "repeat"
     assert new_search["params"]["title"] == "Deep Learning Survey"
+
+
+class FakeRelatedSource:
+    """Fonte simulada para buscas de relacionados."""
+
+    def __init__(
+        self,
+        name: str,
+        result: SourceResult,
+    ) -> None:
+        self.name = name
+        self.needs_key = True
+        self._result = result
+        self.related_calls: list[tuple[str, str, int]] = []
+        self.origin_calls: list[str] = []
+
+    def cache_query(self, query: str, max_results: int) -> dict[str, Any]:
+        return {"query": query, "max_results": max_results}
+
+    async def get_origin_work(
+        self, doi_or_id: str
+    ) -> OriginWorkResult:
+        self.origin_calls.append(doi_or_id)
+        return OriginWorkResult(
+            data={"id": "W1", "doi": "10.1234/test", "referenced_works": []},
+            status=None,
+            reason=None,
+            not_found=False,
+        )
+
+    async def related(
+        self,
+        doi_or_id: str,
+        direction: str,
+        max_results: int = 1000,
+        origin_data: dict[str, Any] | None = None,
+    ) -> SourceResult:
+        self.related_calls.append((doi_or_id, direction, max_results))
+        return self._result
+
+
+# FR-11, UC-03: Repetição de busca 'related' copia origin da original e repete chamadas às fontes
+@pytest.mark.anyio
+async def test_fr11_repeat_related_search_copies_origin(store: Store, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123")
+    w1 = Work(title="Ref 1", doi="10.1234/ref1", year=2021, authors=[Author(name="Autor R")])
+    src_res = SourceResult(
+        name="openalex",
+        status="ok",
+        reason=None,
+        query="related=10.1234/test · direction=references",
+        found=1,
+        fetched=1,
+        works=[w1],
+    )
+    src = FakeRelatedSource("openalex", src_res)
+
+    orig_res = await run_related(
+        store,
+        [src],
+        direction="references",
+        doi="10.1234/test",
+        request_summary="Referências do artigo teste",
+        max_results=50,
+        source_names=["openalex"],
+    )
+    orig_search_id = orig_res["search_id"]
+    orig_search = store.get_search(orig_search_id)
+    assert orig_search["kind"] == "related"
+    assert orig_search["origin"] is not None
+    assert orig_search["origin"]["direction"] == "references"
+
+    # Limpa cache para garantir chamada real à fonte na repetição
+    import shutil
+    if store.cache_dir.exists():
+        shutil.rmtree(store.cache_dir)
+
+    # Executa repetição
+    repeat_res = await run_repeat(store, [src], search_id=orig_search_id)
+    assert repeat_res["search_id"] != orig_search_id
+    assert repeat_res["repeated_from"] == orig_search_id
+    assert repeat_res["status"] == "complete"
+    assert repeat_res["total"] == 1
+
+    new_search = store.get_search(repeat_res["search_id"])
+    assert new_search["kind"] == "repeat"
+    assert new_search["repeated_from"] == orig_search_id
+    # origin deve ser copiado identicamente da busca original
+    assert new_search["origin"] == orig_search["origin"]
+    assert new_search["params"] == orig_search["params"]
+    assert new_search["request_summary"] == orig_search["request_summary"]
+
+    # Prova que chamou a fonte com os mesmos argumentos da original
+    assert src.origin_calls == ["10.1234/test", "10.1234/test"]
+    assert src.related_calls == [
+        ("W1", "references", 50),
+        ("W1", "references", 50),
+    ]
+
+    # Compara sources[].query entre a original e a repetida
+    assert len(new_search["sources"]) == len(orig_search["sources"])
+    for s_orig, s_new in zip(orig_search["sources"], new_search["sources"]):
+        assert s_orig["name"] == s_new["name"]
+        assert s_orig["query"] == s_new["query"]
