@@ -1,6 +1,6 @@
 # Deduplicação entre fontes
 
-**Fase:** 3 · Mais fontes · **Situação:** não iniciada
+**Fase:** 3 · Mais fontes · **Situação:** para testar
 
 ## O que faz
 
@@ -24,16 +24,16 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste: o mesmo DOI em duas ou três fontes vira um artigo, com as fontes e os ids registrados
-- [ ] Teste: sem DOI, o título normalizado igual e o mesmo ano contam como o mesmo artigo; título igual com anos diferentes, ou ano ausente, ficam como dois
-- [ ] Teste: quando duas fontes divergem num campo, prevalece a ordem OpenAlex, Crossref, Semantic Scholar, e a divergência é contada no `merge` da busca e na linha de junção do log
-- [ ] Teste: as referências das fontes viram a união sem repetir, e as citações de cada fonte ficam separadas e não são somadas (FR-14)
-- [ ] Teste: uma fonte em falha deixa a lista `incomplete` com a fonte e o motivo, e as outras seguem
-- [ ] Teste: as fontes são chamadas em paralelo (uma fonte simulada lenta não atrasa a chamada das outras)
-- [ ] Teste: resposta vinda do cache aparece marcada no log com a data de obtenção (NFR-06)
-- [ ] Teste: o `log.md` refeito por `rebuild_log` tem a mesma linha de junção
-- [ ] Teste: a busca gravada em `searches/` tem `params` com a consulta, o `max_results` e as fontes pedidas
-- [ ] Teste pelo servidor (`Client(mcp)` em memória, com as três fontes trocadas por simuladas): `search_works` consulta as três e junta o resultado; `list_sources` mostra as três, com a nota da chave da Semantic Scholar
+- [x] Teste: o mesmo DOI em duas ou três fontes vira um artigo, com as fontes e os ids registrados
+- [x] Teste: sem DOI, o título normalizado igual e o mesmo ano contam como o mesmo artigo; título igual com anos diferentes, ou ano ausente, ficam como dois
+- [x] Teste: quando duas fontes divergem num campo, prevalece a ordem OpenAlex, Crossref, Semantic Scholar, e a divergência é contada no `merge` da busca e na linha de junção do log
+- [x] Teste: as referências das fontes viram a união sem repetir, e as citações de cada fonte ficam separadas e não são somadas (FR-14)
+- [x] Teste: uma fonte em falha deixa a lista `incomplete` com a fonte e o motivo, e as outras seguem
+- [x] Teste: as fontes são chamadas em paralelo (uma fonte simulada lenta não atrasa a chamada das outras)
+- [x] Teste: resposta vinda do cache aparece marcada no log com a data de obtenção (NFR-06)
+- [x] Teste: o `log.md` refeito por `rebuild_log` tem a mesma linha de junção
+- [x] Teste: a busca gravada em `searches/` tem `params` com a consulta, o `max_results` e as fontes pedidas
+- [x] Teste pelo servidor (`Client(mcp)` em memória, com as três fontes trocadas por simuladas): `search_works` consulta as três e junta o resultado; `list_sources` mostra as três, com a nota da chave da Semantic Scholar
 
 ## Vem de
 
@@ -49,7 +49,7 @@ Depende de 02-02, 03-01 e 03-02.
   - Implementado em `src/rslapp/core/dedup.py`:
     - Normalização de DOI (minúsculas, remoção de prefixos `https://doi.org/`, `http://doi.org/`, `https://dx.doi.org/`, `http://dx.doi.org/`, `doi:` e barras finais).
     - Normalização de título (remoção de acentos e pontuação, minúsculas, espaços simples) com garantia de que título vazio nunca junta trabalhos sem DOI.
-    - Junção transitiva e agrupamento determinístico: todo registro que entra num grupo (inclusive por DOI) alimenta os índices de DOI e título normalizado + ano com os seus dados, e anos ausentes são completados por membros do mesmo grupo com ano definido. Registros sem DOI encontram o grupo por qualquer membro, independente da ordem de processamento das fontes (**FR-04**).
+    - Junção transitiva e agrupamento determinístico: todo registro que entra num grupo (inclusive por DOI) alimenta os índices de DOI e título normalizado + ano com os seus dados (cada registro só com o próprio ano: um ano ausente nunca é emprestado de outro membro, correção do Claude Code na integração). Registros sem DOI encontram o grupo por qualquer membro, independente da ordem de processamento das fontes (**FR-04**).
     - Regra estrita de DOIs: dois DOIs diferentes nunca se juntam mesmo se título e ano coincidirem. Se um registro casa com dois grupos distintos (um pelo DOI e outro pelo título), ele permanece no grupo do DOI (**FR-04**).
     - Prevalência de campos na ordem OpenAlex, Crossref, Semantic Scholar. Campos simples recebem o primeiro valor não vazio; `authors` e `keywords` vêm inteiros da primeira fonte não vazia (**FR-04**).
     - União de `references` sem repetição preservando a ordem e ids da primeira fonte; agregação de `citations` e `source_ids` sem somar valores de citações (**FR-14**).
@@ -94,3 +94,5 @@ Depende de 02-02, 03-01 e 03-02.
    - `src/rslapp/server.py` (`_build_sources`): verificar a instanciação incondicional das três fontes acadêmicas sem manipulação de stack frames.
    - `src/rslapp/core/search.py` (`run_search`): verificar que `asyncio.gather` dispara as consultas às fontes simultaneamente, e que `searches/` armazena `params` e `merge`.
    - `src/rslapp/store/log.py` (`_format_merge_line` e `format_log_entry`): conferir que a reconstrução do log via `rebuild_log()` reproduz fielmente a linha de junção salva no JSON da busca.
+
+**Acompanhamentos da revisão (não bloqueiam):** com dois DOIs de mesmo título e ano, um registro sem DOI vai para o grupo do DOI que chegou primeiro (na ordem padrão, o do OpenAlex). `asyncio.gather` sem `return_exceptions`: uma fonte que levantar exceção derruba a busca (hoje nenhuma levanta). `_WorkCluster` compara por valor; `eq=False` seria mais barato.
