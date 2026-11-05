@@ -101,3 +101,13 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Fontes:** research.md, seção "Quanto custa buscar referências e citações?"
 - **Situação:** decidida
 - **A testar:** T-005 (se o OpenAlex troca muitos ids por DOI numa chamada, e a que custo). Se o custo for maior que o previsto, volta ao Erick com novas opções
+
+## D-011 · Uso por link: modo HTTP e imagem Docker no próprio pacote, hospedados por quem quiser
+
+- **Decisão:** o próximo passo para usar o RSL.app como conector por link (sem instalar nada na máquina de quem usa) é um modo HTTP opcional no próprio `rslapp`, com uma imagem Docker. Quem hospeda é quem quiser: um laboratório, uma universidade ou a própria pessoa. O projeto não mantém servidor próprio por enquanto. O modo stdio continua sendo o padrão.
+- **Motivo:** o Erick escolheu a opção C, que eu recomendei. O modo HTTP é necessário em qualquer caminho de servidor remoto, não gera custo para o projeto e mantém os dados dos autores com quem hospeda (D-004). Um servidor do projeto traria custo, cota compartilhada ou login com chaves de terceiros, e dados pessoais num servidor.
+- **Alternativas:** (A) servidor do projeto com a chave do projeto: o mais simples para quem usa, mas com custo, cota e abuso por conta do Erick; (B) servidor do projeto com a chave de cada pessoa: justo, mas exige login e guardar chaves de terceiros. As duas ficam para depois da C, com pesquisa de preços de hospedagem.
+- **Decidido por:** Erick · **Data:** 2026-11-05
+- **Fontes:** conversa de 2026-11-05 (Claude Code)
+- **Situação:** decidida; entra no plano como próximo passo, sem spec ainda
+- **A pensar na spec:** como entregar as exportações a quem está do outro lado da rede (link temporário ou conteúdo na resposta, já que o arquivo fica no servidor); de onde vêm as chaves num servidor compartilhado; autenticação do link; separação de listas e log por pessoa; o que a LGPD pede quando os dados de autores ficam num servidor de terceiros (T-007)

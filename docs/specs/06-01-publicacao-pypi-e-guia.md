@@ -1,6 +1,6 @@
 # Publicação no PyPI e guia de instalação
 
-**Fase:** 6 · Publicação · **Situação:** para testar
+**Fase:** 6 · Publicação · **Situação:** pronta
 
 ## O que faz
 
@@ -12,10 +12,10 @@ Não faz o app desktop. Não cria servidor do projeto.
 
 ## Pronto quando
 
-- [x] Antes de escrever, conferir na documentação do uv e do PyPI como publicar o pacote e definir o comando de entrada (guia de pacotes do uv lido em 2026-11-05: `uv build --no-sources`, `uv publish` com `UV_PUBLISH_TOKEN`)
-- [x] Teste: numa máquina limpa, `uvx rslapp` inicia o servidor (conferido em 2026-11-05 com `uvx --isolated --refresh rslapp@1.0.0` vindo do PyPI, de outra pasta e sem chaves: 8 ferramentas, `list_sources` responde)
+- [X] Antes de escrever, conferir na documentação do uv e do PyPI como publicar o pacote e definir o comando de entrada (guia de pacotes do uv lido em 2026-11-05: `uv build --no-sources`, `uv publish` com `UV_PUBLISH_TOKEN`)
+- [X] Teste: numa máquina limpa, `uvx rslapp` inicia o servidor (conferido em 2026-11-05 com `uvx --isolated --refresh rslapp@1.0.0` vindo do PyPI, de outra pasta e sem chaves: 8 ferramentas, `list_sources` responde)
 - [ ] Teste manual do Erick: a configuração do guia, copiada, conecta o servidor ao Claude Desktop e `list_sources` responde
-- [x] O guia não pede mexer no código (FR-07) e não pede nenhum pagamento (NFR-01)
+- [X] O guia não pede mexer no código (FR-07) e não pede nenhum pagamento (NFR-01)
 - [ ] Teste manual do Erick (critério de aceite do projeto): uma busca por linguagem natural devolve lista sem duplicatas, registrada no log, e o arquivo abre no VOSviewer sem edição
 
 ## Vem de
@@ -43,6 +43,7 @@ Feita pelo Claude Code em 2026-11-05, a pedido do Erick ("escreve o readme", "fa
 3. **Guia (Erick):** no Claude Desktop, trocar o `--from <pasta>` da configuração atual por `rslapp`, reabrir e pedir "quais fontes do rslapp estão prontas?". Depois, uma busca por linguagem natural exportada em RIS e aberta no VOSviewer.
 
 **Onde olhar primeiro:**
+
 1. **O que foi publicado:** https://pypi.org/project/rslapp/1.0.0/ e a lista de arquivos do sdist (`tar -tzf dist/rslapp-1.0.0.tar.gz`): nada de `.playmaker/`, `.blueprint/` ou dados.
 2. **O token do PyPI:** foi criado com escopo da conta inteira, porque o projeto não existia. Trocar por um token só do projeto `rslapp` e apagar o da conta.
 3. **O README:** confere com o que o servidor faz (contrato em `docs/interface-contract.md`).
