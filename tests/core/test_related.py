@@ -440,3 +440,102 @@ async def test_d010_teto_incompleta_com_motivo(tmp_path: Path) -> None:
     # max_results em params
     saved_search = store.get_search(out["search_id"])
     assert saved_search["params"]["max_results"] == 1000
+
+
+# FR-13, FR-15, D-010: Semantic Scholar nas citações sem total e com next no teto deixa lista incomplete e log com total não informado
+@pytest.mark.anyio
+async def test_fr13_fr15_d010_s2_citacoes_sem_total_com_next_lista_incompleta_e_sem_next_completa(
+    tmp_path: Path,
+) -> None:
+    import httpx
+
+    from rslapp.sources.semantic_scholar import SemanticScholarSource, reset_rate_limiter
+
+    mock_time = 1000.0
+
+    def fake_clock() -> float:
+        nonlocal mock_time
+        mock_time += 1.5
+        return mock_time
+
+    async def fake_sleep(_: float) -> None:
+        pass
+
+    reset_rate_limiter(clock=fake_clock, sleep=fake_sleep)
+
+    store = Store(tmp_path)
+
+    def handler_com_next(request: httpx.Request) -> httpx.Response:
+        limit = int(request.url.params.get("limit", 10))
+        return httpx.Response(
+            200,
+            json={
+                "offset": 0,
+                "next": limit,
+                "data": [
+                    {
+                        "citingPaper": {
+                            "paperId": f"s2-{i}",
+                            "title": f"Citing {i}",
+                            "externalIds": {"DOI": f"10.1234/c.{i}"},
+                            "year": 2024,
+                        }
+                    }
+                    for i in range(limit)
+                ],
+            },
+        )
+
+    s2_com_next = SemanticScholarSource(
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler_com_next))
+    )
+    out_inc = await run_related(
+        store,
+        [s2_com_next],
+        direction="citations",
+        doi="10.1234/origem",
+        max_results=10,
+    )
+    assert out_inc["status"] == "incomplete"
+    assert out_inc["sources"][0]["found"] is None
+    assert out_inc["sources"][0]["fetched"] == 10
+    assert out_inc["sources"][0]["reason"] == "teto de 10 atingido"
+
+    def handler_sem_next(request: httpx.Request) -> httpx.Response:
+        limit = int(request.url.params.get("limit", 10))
+        return httpx.Response(
+            200,
+            json={
+                "offset": 0,
+                "data": [
+                    {
+                        "citingPaper": {
+                            "paperId": f"s2-ok-{i}",
+                            "title": f"Citing Ok {i}",
+                            "externalIds": {"DOI": f"10.1234/ok.{i}"},
+                            "year": 2024,
+                        }
+                    }
+                    for i in range(limit)
+                ],
+            },
+        )
+
+    s2_sem_next = SemanticScholarSource(
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler_sem_next))
+    )
+    out_comp = await run_related(
+        store,
+        [s2_sem_next],
+        direction="citations",
+        doi="10.1234/origem",
+        max_results=10,
+    )
+    assert out_comp["status"] == "complete"
+    assert out_comp["sources"][0]["found"] is None
+    assert out_comp["sources"][0]["fetched"] == 10
+    assert out_comp["sources"][0]["reason"] is None
+
+    log_text = store.read_log()
+    assert "total não informado, trazidos 10 · teto de 10 atingido" in log_text
+    assert "total não informado, trazidos 10 · cache: não" in log_text

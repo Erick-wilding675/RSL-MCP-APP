@@ -549,6 +549,7 @@ class SemanticScholarSource(Source):
         offset = 0
         batch_limit = min(effective_max, 1000)
         stopped_by_source_limit = False
+        stopped_by_ceiling = False
 
         try:
             async with self._get_client() as client:
@@ -610,6 +611,13 @@ class SemanticScholarSource(Source):
                                     break
 
                     if len(works) >= effective_max:
+                        next_offset = data.get("next")
+                        if (
+                            isinstance(next_offset, int)
+                            and not isinstance(next_offset, bool)
+                            and next_offset > offset
+                        ):
+                            stopped_by_ceiling = True
                         break
 
                     next_offset = data.get("next")
@@ -641,11 +649,21 @@ class SemanticScholarSource(Source):
                 works=works,
             )
 
+        # FR-15, D-010: Marca teto atingido mesmo sem total informado quando parou no teto com next presente
         reason: str | None = None
-        if (found is not None and found > len(works)) or stopped_by_source_limit:
+        if (
+            (found is not None and found > len(works))
+            or stopped_by_source_limit
+            or stopped_by_ceiling
+        ):
             if stopped_by_source_limit or len(works) >= 10_000:
                 reason = "limite de 10.000 da fonte"
-            elif (found is not None and found > max_results) or len(works) >= max_results or offset >= max_results:
+            elif (
+                stopped_by_ceiling
+                or (found is not None and found > max_results)
+                or len(works) >= max_results
+                or offset >= max_results
+            ):
                 reason = f"teto de {_format_number(max_results)} atingido"
 
         return SourceResult(

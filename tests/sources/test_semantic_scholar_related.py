@@ -280,3 +280,64 @@ async def test_d010_s2_limite_10k_fonte_next_9500() -> None:
     assert captured_calls[1] == (9500, 500)
     for off, lim in captured_calls:
         assert off + lim <= 10_000
+
+
+# FR-15, D-010: Citações na Semantic Scholar sem total na resposta: com next no teto devolve motivo; sem next, sem motivo
+@pytest.mark.anyio
+async def test_fr15_d010_s2_citacoes_sem_total_com_next_no_teto_e_sem_next() -> None:
+    def handler_com_next(request: httpx.Request) -> httpx.Response:
+        limit = int(request.url.params.get("limit", 100))
+        return httpx.Response(
+            200,
+            json={
+                "offset": 0,
+                "next": limit,
+                "data": [
+                    {
+                        "citingPaper": {
+                            "paperId": f"p-{i}",
+                            "title": f"Citing Paper {i}",
+                            "year": 2024,
+                        }
+                    }
+                    for i in range(limit)
+                ],
+            },
+        )
+
+    client_com_next = httpx.AsyncClient(transport=httpx.MockTransport(handler_com_next))
+    source_com_next = SemanticScholarSource(client=client_com_next)
+
+    res_com_next = await source_com_next.related("10.1234/exemplo", "citations", max_results=100)
+    assert res_com_next.status == "ok"
+    assert res_com_next.found is None
+    assert res_com_next.fetched == 100
+    assert res_com_next.reason == "teto de 100 atingido"
+
+    def handler_sem_next(request: httpx.Request) -> httpx.Response:
+        limit = int(request.url.params.get("limit", 100))
+        return httpx.Response(
+            200,
+            json={
+                "offset": 0,
+                "data": [
+                    {
+                        "citingPaper": {
+                            "paperId": f"p-{i}",
+                            "title": f"Citing Paper {i}",
+                            "year": 2024,
+                        }
+                    }
+                    for i in range(limit)
+                ],
+            },
+        )
+
+    client_sem_next = httpx.AsyncClient(transport=httpx.MockTransport(handler_sem_next))
+    source_sem_next = SemanticScholarSource(client=client_sem_next)
+
+    res_sem_next = await source_sem_next.related("10.1234/exemplo", "citations", max_results=100)
+    assert res_sem_next.status == "ok"
+    assert res_sem_next.found is None
+    assert res_sem_next.fetched == 100
+    assert res_sem_next.reason is None

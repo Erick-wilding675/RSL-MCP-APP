@@ -387,3 +387,39 @@ def test_nfr03_credenciais_nos_tres_pontos_sem_alterar_textos_de_consulta(tmp_pa
         for sec in secrets:
             assert sec not in p.name
             assert sec not in text
+
+
+# FR-13, FR-15: No log.md, fonte ok com found=None mostra "total não informado, trazidos N" e com found=0 mostra "encontrados 0"
+def test_fr13_fr15_log_md_total_nao_informado_quando_found_none_e_encontrados_0_quando_zero(
+    tmp_path: Path,
+) -> None:
+    store = Store(tmp_path / "data")
+    search_in = _search(
+        kind="related",
+        origin={"work": "10.1007/s11192-009-0146-3", "direction": "citations"},
+        sources=[
+            _src(
+                "semantic_scholar",
+                query="paper=DOI:10.1007/s11192-009-0146-3/citations · limit=100 · offset=0",
+                status="ok",
+                found=None,
+                fetched=45,
+            ),
+            _src(
+                "openalex",
+                query="filter=cites:W1",
+                status="ok",
+                found=0,
+                fetched=0,
+            ),
+        ],
+    )
+    store.record_search(search_in, _list(status="complete", total=45))
+    log_text = store.read_log()
+    assert (
+        "- semantic_scholar · ok · total não informado, trazidos 45 · cache: não · "
+        "string: `paper=DOI:10.1007/s11192-009-0146-3/citations · limit=100 · offset=0`\n"
+    ) in log_text
+    assert (
+        "- openalex · ok · encontrados 0, trazidos 0 · cache: não · string: `filter=cites:W1`\n"
+    ) in log_text

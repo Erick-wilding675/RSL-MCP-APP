@@ -64,8 +64,12 @@ def _format_source_line(src: Any) -> str:
     from_cache, fetched_at = bool(src.get("from_cache", False)), src.get("fetched_at")
 
     parts: list[str] = [name, status]
+    # FR-13, FR-15: Quando a fonte não informa o total (found is None), exibe "total não informado"
     if status == "ok" or (found is not None and fetched is not None):
-        parts.append(f"encontrados {found or 0}, trazidos {fetched or 0}")
+        if found is None:
+            parts.append(f"total não informado, trazidos {fetched or 0}")
+        else:
+            parts.append(f"encontrados {found}, trazidos {fetched or 0}")
     if reason:
         parts.append(_one_line(strip_url_credentials(str(reason))))
     if from_cache:
