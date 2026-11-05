@@ -1,6 +1,6 @@
 # Ajustes do teste real
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** não iniciada
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
 
 ## O que faz
 
