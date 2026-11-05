@@ -1,6 +1,6 @@
 # CSV, JSON, lista de DOIs e URL do OpenAlex
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** pronta
 
 ## O que faz
 
@@ -23,10 +23,10 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer. O que abre no VOSvi
 
 ## Pronto quando
 
-- [x] Teste: cada formato gera o arquivo esperado para a mesma lista de exemplo
-- [x] Teste: `openalex_url` numa lista que não veio do OpenAlex devolve `format_not_available`
-- [x] Teste: o JSON guarda tudo o que a lista guarda; o CSV, as colunas combinadas
-- [ ] Teste manual do Erick: o CSV e a lista de DOIs abrem no VOSviewer; a URL do OpenAlex funciona (T-008). Em 2026-11-05: a lista de DOIs abriu pela leitura por API e gerou um mapa de coautoria; a URL do OpenAlex abriu no navegador com `count: 50`; o CSV ainda não abriu
+- [X] Teste: cada formato gera o arquivo esperado para a mesma lista de exemplo
+- [X] Teste: `openalex_url` numa lista que não veio do OpenAlex devolve `format_not_available`
+- [X] Teste: o JSON guarda tudo o que a lista guarda; o CSV, as colunas combinadas
+- [x] Teste manual do Erick: o CSV e a lista de DOIs abrem no VOSviewer; a URL do OpenAlex funciona (T-008). Em 2026-11-05: a lista de DOIs abriu pela leitura por API e gerou um mapa de coautoria; a URL do OpenAlex abriu no navegador com `count: 50`; o CSV abriu pela aba Scopus. A proteção contra fórmula, decidida no mesmo dia, segue na 05-05
 
 ## Vem de
 
@@ -54,6 +54,7 @@ Tarefas 02-03 e 04-01 integradas.
 ## Como testar
 
 1. **Testes automatizados completos:**
+
    - Executar os gates do projeto:
      ```powershell
      uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
@@ -61,8 +62,8 @@ Tarefas 02-03 e 04-01 integradas.
      uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
      ```
    - Deve aparecer: `All checks passed!` no ruff e `186 passed` em ambos os testes do pytest.
-
 2. **Onde olhar primeiro (pontos de risco):**
+
    - `src/rslapp/exporters/csv.py` e `tests/exporters/test_csv.py`: verificar a gravação do BOM UTF-8 (`\xef\xbb\xbf`), a troca de referências do OpenAlex para DOI e a preservação de quebras de linha e aspas no resumo ao reler via módulo `csv`.
    - `src/rslapp/exporters/openalex_url.py` e `tests/exporters/test_openalex_url.py`: conferir que nenhuma URL contém credenciais/chaves, que o agrupamento respeita o limite de 100 IDs por filtro, e que listas sem trabalhos do OpenAlex levantam `format_not_available`.
    - `src/rslapp/exporters/__init__.py`: conferir a execução da resolução de referências dentro de `run_export` e o repasse de `warnings` e `url` sem quebrar o transporte síncrono do servidor MCP.

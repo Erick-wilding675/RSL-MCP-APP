@@ -58,6 +58,7 @@
 2. Ver uma lista e ver o log: ferramentas `get_list` e `get_search_log`. Spec: `specs/05-02-get-list-e-get-search-log.md`
 3. CSV, JSON, lista de DOIs e URL do OpenAlex: exportadores CSV, JSON completo, lista de DOIs e URL do OpenAlex. Spec: `specs/05-03-formatos-csv-json-dois-url.md`
 4. Prompt de planejamento e instruções: prompt `plan_search` e instruções de conexão revisadas. Spec: `specs/05-04-prompt-e-instrucoes.md`
+5. Ajustes do teste real: proteção do CSV contra fórmula, erro `empty_list` na exportação e total desconhecido da Semantic Scholar no log. Entrou em 2026-11-05, depois do teste real. Spec: `specs/05-05-ajustes-do-teste-real.md`
 
 ### 6 · Publicação
 

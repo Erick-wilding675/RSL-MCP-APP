@@ -85,7 +85,7 @@ get_related_works(doi="10.1234/exemplo", direction="citations", max_results=200)
 | `direction` | `references` (o que ele cita) ou `citations` (quem o cita) | sim | - |
 | `request_summary` | O pedido, resumido | não | vazio |
 | `sources` | As fontes a consultar | não | todas as configuradas |
-| `max_results` | O máximo de trabalhos a trazer | não | 1.000 (D-010) |
+| `max_results` | O máximo de trabalhos a trazer por fonte; a lista juntada pode passar disso (Erick, 2026-11-05) | não | 1.000 (D-010) |
 
 **Volta:** o mesmo formato de `search_works`. O log guarda o artigo de origem e a direção.
 **Quando falha:** uma fonte que não entrega referências ou citações aparece com `not_supported`.
@@ -104,7 +104,7 @@ export_list(list_id="l-0001", format="ris")
 **Volta:** `{"path": "…/l-0001.ris", "format": "ris", "count": 187}`. Em `openalex_url`, volta também `url`.
 Se o formato precisa de DOI nas referências, o servidor troca os ids por DOI nesse momento, o que pode gastar cota (T-005).
 O arquivo é gravado numa pasta configurável da máquina do usuário. O `json` é o formato completo, e foi deduzido para guardar o que RIS e CSV levam só em parte.
-**Quando falha:** `format_not_available` (por exemplo, `openalex_url` numa lista que não veio do OpenAlex) ou `export_folder_not_writable`.
+**Quando falha:** `format_not_available` (por exemplo, `openalex_url` numa lista que não veio do OpenAlex), `empty_list` (lista sem artigos; nenhum arquivo é gravado) ou `export_folder_not_writable`.
 
 ## As outras chamadas
 
@@ -126,6 +126,7 @@ O arquivo é gravado numa pasta configurável da máquina do usuário. O `json` 
 | `list_not_found`, `search_not_found`, `work_not_found` | O id não existe | Erro da chamada |
 | `format_not_available` | O formato não serve para aquela lista | Erro da chamada |
 | `export_folder_not_writable` | A pasta de exportação não aceita gravação | Erro da chamada |
+| `empty_list` | A lista não tem nenhum artigo, então não há o que exportar (Erick, 2026-11-05) | Erro da chamada |
 | `ok`, `failed`, `rate_limited`, `missing_key`, `not_supported` | O estado de uma fonte | Em `sources`, na resposta |
 
 ## O que não muda sem aviso
