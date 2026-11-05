@@ -223,3 +223,93 @@ def test_fr06_csv_list_data_invalido_levanta_type_error() -> None:
     exporter = CSVExporter()
     with pytest.raises(TypeError):
         exporter.render(None)  # type: ignore[arg-type]
+
+
+# FR-06: Proteção contra fórmula nos seis caracteres iniciais, sem alterar o meio nem Year e Cited by
+@pytest.mark.parametrize("prefix", ["=", "+", "-", "@", "\t", "\r"])
+def test_fr06_csv_protecao_contra_formula_seis_caracteres(prefix: str) -> None:
+    exporter = CSVExporter()
+    work_inicio = Work(
+        title=f"{prefix}Título com Fórmula",
+        doi="10.1000/182",
+        year=2024,
+        type=f"{prefix}article",
+        venue=f"{prefix}Journal of Formulas",
+        abstract=f"{prefix}Resumo que começa com caractere de fórmula.",
+        keywords=[f"{prefix}palavra-chave", "segunda"],
+        authors=[
+            Author(
+                name=f"{prefix}Turing, Alan",
+                affiliations=[Affiliation(name=f"{prefix}University of Manchester")],
+            ),
+            Author(name="Lovelace, Ada"),
+        ],
+        references=[f"{prefix}10.2000/ref.1"],
+        citations={"openalex": 42, "crossref": 10, "semantic_scholar": 15},
+        source_ids={
+            "openalex": "=W999",
+            "crossref": "+10.1000/182",
+            "semantic_scholar": "-S123",
+        },
+    )
+    work_meio = Work(
+        title=f"Título com {prefix} no meio",
+        doi="10.1000/183",
+        year=2023,
+        type=f"journal {prefix} article",
+        venue=f"Journal {prefix} Venue",
+        abstract=f"Resumo com {prefix} no meio da frase.",
+        keywords=["primeira", f"{prefix}segunda-palavra"],
+        authors=[
+            Author(
+                name="Lovelace, Ada",
+                affiliations=[Affiliation(name="Oxford")],
+            ),
+            Author(
+                name=f"{prefix}Turing, Alan",
+                affiliations=[Affiliation(name=f"{prefix}Cambridge")],
+            ),
+        ],
+        references=["10.2000/normal", f"{prefix}10.2000/ref.2"],
+        citations={"openalex": 7},
+        source_ids={"openalex": "W888"},
+    )
+
+    content = exporter.render({"works": [work_inicio, work_meio]})
+    reader = csv.DictReader(io.StringIO(content.lstrip("\ufeff")), delimiter=",")
+    rows = list(reader)
+    assert len(rows) == 2
+
+    row_inicio = rows[0]
+    assert row_inicio["Title"] == f"'{prefix}Título com Fórmula"
+    assert row_inicio["Abstract"] == f"'{prefix}Resumo que começa com caractere de fórmula."
+    assert row_inicio["Authors"] == f"'{prefix}Turing, Alan; Lovelace, Ada"
+    assert row_inicio["Author full names"] == f"'{prefix}Turing, Alan; Lovelace, Ada"
+    assert row_inicio["Author Keywords"] == f"'{prefix}palavra-chave; segunda"
+    assert row_inicio["Source title"] == f"'{prefix}Journal of Formulas"
+    assert row_inicio["Affiliations"] == f"'{prefix}University of Manchester"
+    assert row_inicio["Document Type"] == f"'{prefix}article"
+    assert row_inicio["References"] == f"'{prefix}10.2000/ref.1"
+    # Colunas de número e de id não mudam
+    assert row_inicio["Year"] == "2024"
+    assert row_inicio["Cited by"] == "42"
+    assert row_inicio["Citations OpenAlex"] == "42"
+    assert row_inicio["Citations Crossref"] == "10"
+    assert row_inicio["Citations Semantic Scholar"] == "15"
+    assert row_inicio["DOI"] == "10.1000/182"
+    assert row_inicio["OpenAlex ID"] == "=W999"
+    assert row_inicio["Crossref DOI"] == "+10.1000/182"
+    assert row_inicio["Semantic Scholar ID"] == "-S123"
+
+    row_meio = rows[1]
+    assert row_meio["Title"] == f"Título com {prefix} no meio"
+    assert row_meio["Abstract"] == f"Resumo com {prefix} no meio da frase."
+    assert row_meio["Authors"] == f"Lovelace, Ada; {prefix}Turing, Alan"
+    assert row_meio["Author full names"] == f"Lovelace, Ada; {prefix}Turing, Alan"
+    assert row_meio["Author Keywords"] == f"primeira; {prefix}segunda-palavra"
+    assert row_meio["Source title"] == f"Journal {prefix} Venue"
+    assert row_meio["Affiliations"] == f"Oxford; {prefix}Cambridge"
+    assert row_meio["Document Type"] == f"journal {prefix} article"
+    assert row_meio["References"] == f"10.2000/normal; {prefix}10.2000/ref.2"
+    assert row_meio["Year"] == "2023"
+    assert row_meio["Cited by"] == "7"

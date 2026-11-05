@@ -34,9 +34,9 @@ CSV_COLUMNS: tuple[str, ...] = (
 
 
 def _clean_doi(raw: Any) -> str | None:
-    if not isinstance(raw, str):
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    val = raw.strip()
+    val = raw.strip(" ")
     lower = val.lower()
     for prefix in (
         "https://doi.org/",
@@ -45,15 +45,26 @@ def _clean_doi(raw: Any) -> str | None:
         "http://dx.doi.org/",
     ):
         if lower.startswith(prefix):
-            val = val[len(prefix) :].strip()
+            val = val[len(prefix) :].strip(" ")
             break
     return val if val else None
+
+
+_FORMULA_PREFIXES: tuple[str, ...] = ("=", "+", "-", "@", "\t", "\r")
 
 
 def _clean_text(raw: Any) -> str:
     if not isinstance(raw, str):
         return ""
-    return " ".join(raw.split())
+    val = raw.strip(" ")
+    return val if val.strip() or val.startswith(("\t", "\r")) else ""
+
+
+# FR-06: Protege célula de texto contra injeção de fórmula em planilhas (Excel)
+def _protect_formula(value: str) -> str:
+    if value.startswith(_FORMULA_PREFIXES):
+        return f"'{value}"
+    return value
 
 
 # FR-06, FR-12, D-002, D-004: Exportador de listas no formato CSV Scopus para o VOSviewer
@@ -115,8 +126,9 @@ class CSVExporter(Exporter):
                 elif isinstance(author, str):
                     name = author
 
-                if name and isinstance(name, str) and name.strip():
-                    author_names.append(" ".join(name.split()))
+                clean_name = _clean_text(name)
+                if clean_name:
+                    author_names.append(clean_name)
 
                 for aff in affs:
                     aff_name = (
@@ -124,22 +136,21 @@ class CSVExporter(Exporter):
                         if isinstance(aff, Affiliation)
                         else (aff.get("name") if isinstance(aff, dict) else None)
                     )
-                    if aff_name and isinstance(aff_name, str) and aff_name.strip():
-                        clean_aff = " ".join(aff_name.split())
-                        if clean_aff not in affiliations_list:
-                            affiliations_list.append(clean_aff)
+                    clean_aff = _clean_text(aff_name)
+                    if clean_aff and clean_aff not in affiliations_list:
+                        affiliations_list.append(clean_aff)
 
                 for raw_aff in raw_affs:
-                    if raw_aff and isinstance(raw_aff, str) and raw_aff.strip():
-                        clean_raw = " ".join(raw_aff.split())
-                        if clean_raw not in affiliations_list:
-                            affiliations_list.append(clean_raw)
+                    clean_raw = _clean_text(raw_aff)
+                    if clean_raw and clean_raw not in affiliations_list:
+                        affiliations_list.append(clean_raw)
 
-            authors_str = "; ".join(author_names)
+            # FR-06: Proteção contra fórmula apenas no começo da célula das colunas de texto
+            authors_str = _protect_formula("; ".join(author_names))
             authors_full_str = authors_str
 
             # Title
-            title_str = _clean_text(w.get("title"))
+            title_str = _protect_formula(_clean_text(w.get("title")))
 
             # Year
             raw_year = w.get("year")
@@ -153,7 +164,7 @@ class CSVExporter(Exporter):
                     pass
 
             # Source title (venue)
-            source_title_str = _clean_text(w.get("venue"))
+            source_title_str = _protect_formula(_clean_text(w.get("venue")))
 
             # DOI
             clean_work_doi = _clean_doi(w.get("doi"))
@@ -161,15 +172,18 @@ class CSVExporter(Exporter):
 
             # Abstract (preserva pontuação, aspas e quebras de linha internas)
             abstract = w.get("abstract")
-            abstract_str = str(abstract) if abstract and isinstance(abstract, str) else ""
+            abstract_str = (
+                _protect_formula(str(abstract)) if abstract and isinstance(abstract, str) else ""
+            )
 
             # Author Keywords
             raw_keywords = w.get("keywords") or []
             clean_keywords: list[str] = []
             for kw in raw_keywords:
-                if kw and isinstance(kw, str) and kw.strip():
-                    clean_keywords.append(" ".join(kw.split()))
-            keywords_str = "; ".join(clean_keywords)
+                clean_kw = _clean_text(kw)
+                if clean_kw:
+                    clean_keywords.append(clean_kw)
+            keywords_str = _protect_formula("; ".join(clean_keywords))
 
             # References (trocadas por DOI quando OpenAlex, omitindo sem DOI)
             raw_refs = w.get("references") or []
@@ -202,7 +216,7 @@ class CSVExporter(Exporter):
                     ):
                         ref_dois.append(cleaned_direct)
 
-            references_str = "; ".join(ref_dois)
+            references_str = _protect_formula("; ".join(ref_dois))
 
             # Cited by (o maior número entre as fontes)
             raw_citations = w.get("citations") or {}
@@ -217,10 +231,10 @@ class CSVExporter(Exporter):
                     cited_by_str = str(max(valid_counts))
 
             # Affiliations
-            affiliations_str = "; ".join(affiliations_list)
+            affiliations_str = _protect_formula("; ".join(affiliations_list))
 
             # Document Type
-            doc_type_str = _clean_text(w.get("type"))
+            doc_type_str = _protect_formula(_clean_text(w.get("type")))
 
             # Source (RSL.app)
             source_str = "RSL.app"
