@@ -167,13 +167,14 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 
 ## Next question
 
-**Fases 1 a 5 prontas** (run `b20261102-221933` do Playmaker): 16 de 17 tarefas testadas e marcadas como prontas pelo Erick em 2026-11-05, incluindo a 05-05 (ajustes do teste real). Gates: ruff limpo e 455 testes em Python 3.10 e 3.14. O critério de aceite passou: busca real nas três fontes, lista sem duplicatas, log legível e RIS aberto no VOSviewer 1.6.21 sem edição.
+**v1 lançada em 2026-11-05:** `rslapp` 1.0.0 no PyPI e release v1.0.0 no GitHub, com README. As 17 tarefas do plano (run `b20261102-221933` do Playmaker) estão prontas, testadas pelo Erick. Gates: ruff limpo e 455 testes em Python 3.10 e 3.14. O critério de aceite passou.
 
-- **O que espera o Erick:** criar a conta no PyPI para a 06-01 (o token vai pelo Lore secrets, por `secret_request`).
-- **Depois:** a 06-01 (publicação no PyPI e guia de instalação com `uvx`). O guia pode partir da configuração do Claude Desktop testada em 2026-11-05: o servidor lançado por `lore secrets run --env prod --workspace erick-mendes --project RSL.app -- uvx ...`.
+- **Próximo passo decidido (D-011):** uso por link com modo HTTP e imagem Docker no próprio pacote, hospedado por quem quiser. Está em "Próximos passos" no `docs/plan.md`, ainda sem spec: escrever com o Erick quando ele quiser começar a v2.
+- **O que espera o Erick:** apagar no PyPI o token antigo, da conta inteira (o novo, só do projeto, já está no Lore como `UV_PUBLISH_TOKEN`); a LGPD (T-007) antes de divulgar.
 - **Proposta pendente:** uma tarefa pequena de tipos estritos nas ferramentas (o SDK converte `page=True` em 1 antes do miolo).
+- **Para publicar uma versão nova:** subir `version` no `pyproject.toml` e `__version__` em `src/rslapp/__init__.py`, `uv build --no-sources`, conferir o sdist (`tar -tzf`), `lore secrets run --env prod -- uv publish dist/*`, tag e `gh release create`.
 - **Acompanhamentos das revisões** estão no fim de cada spec; nenhum bloqueia.
 - **Testes de pé:** T-004, T-005 com o teto padrão de 1.000, T-006 (tempo de espera do cliente), T-007 (LGPD, Erick), T-008 (mapa de citação), T-010.
-- **`uv run --with .` usa wheel antiga** mesmo com `--reinstall-package`: para testar o código atual, rodar no modo projeto. O Claude Desktop do Erick roda uma cópia anterior à 05-05 até a 06-01.
-- As chaves no Lore secrets: `OPENALEX_API_KEY` e `SEMANTIC_SCHOLAR_API_KEY` (prod). Pasta dos testes reais: `C:\Users\hulkd\RSL-teste`.
+- **`uv run --with .` usa wheel antiga** mesmo com `--reinstall-package`: para testar o código atual, rodar no modo projeto (Lore: `gotchas/uv-wheel-antiga-no-gate.md`). O Claude Desktop do Erick usa o `rslapp` do PyPI, lançado por `lore secrets run`.
+- Segredos no Lore (prod): `OPENALEX_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY` e `UV_PUBLISH_TOKEN` (token do PyPI só do projeto). Pasta dos testes reais: `C:\Users\hulkd\RSL-teste`.
 - Pasta do projeto desde 2026-11-03: `C:\Users\hulkd\_Sintese-Labs-Projetos\RSL.app`; árvores do Playmaker em `..\RSL.app-playmaker`.

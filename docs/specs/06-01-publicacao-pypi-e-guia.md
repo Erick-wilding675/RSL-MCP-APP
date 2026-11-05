@@ -14,9 +14,9 @@ Não faz o app desktop. Não cria servidor do projeto.
 
 - [X] Antes de escrever, conferir na documentação do uv e do PyPI como publicar o pacote e definir o comando de entrada (guia de pacotes do uv lido em 2026-11-05: `uv build --no-sources`, `uv publish` com `UV_PUBLISH_TOKEN`)
 - [X] Teste: numa máquina limpa, `uvx rslapp` inicia o servidor (conferido em 2026-11-05 com `uvx --isolated --refresh rslapp@1.0.0` vindo do PyPI, de outra pasta e sem chaves: 8 ferramentas, `list_sources` responde)
-- [ ] Teste manual do Erick: a configuração do guia, copiada, conecta o servidor ao Claude Desktop e `list_sources` responde
+- [x] Teste manual do Erick: a configuração do guia, copiada, conecta o servidor ao Claude Desktop e `list_sources` responde (2026-11-05, com o `rslapp` do PyPI)
 - [X] O guia não pede mexer no código (FR-07) e não pede nenhum pagamento (NFR-01)
-- [ ] Teste manual do Erick (critério de aceite do projeto): uma busca por linguagem natural devolve lista sem duplicatas, registrada no log, e o arquivo abre no VOSviewer sem edição
+- [x] Teste manual do Erick (critério de aceite do projeto): uma busca por linguagem natural devolve lista sem duplicatas, registrada no log, e o arquivo abre no VOSviewer sem edição (2026-11-05)
 
 ## Vem de
 
@@ -45,5 +45,5 @@ Feita pelo Claude Code em 2026-11-05, a pedido do Erick ("escreve o readme", "fa
 **Onde olhar primeiro:**
 
 1. **O que foi publicado:** https://pypi.org/project/rslapp/1.0.0/ e a lista de arquivos do sdist (`tar -tzf dist/rslapp-1.0.0.tar.gz`): nada de `.playmaker/`, `.blueprint/` ou dados.
-2. **O token do PyPI:** foi criado com escopo da conta inteira, porque o projeto não existia. Trocar por um token só do projeto `rslapp` e apagar o da conta.
+2. **O token do PyPI:** o primeiro foi criado com escopo da conta inteira, porque o projeto não existia. Trocado em 2026-11-05 por um token só do projeto `rslapp`, guardado no Lore como `UV_PUBLISH_TOKEN`.
 3. **O README:** confere com o que o servidor faz (contrato em `docs/interface-contract.md`).
