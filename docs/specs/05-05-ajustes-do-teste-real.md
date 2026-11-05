@@ -1,6 +1,6 @@
 # Ajustes do teste real
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** pronta
 
 ## O que faz
 
@@ -24,13 +24,13 @@ Tomadas pelo Erick em 2026-11-05, baratas de desfazer:
 
 ## Pronto quando
 
-- [x] Teste: título, resumo, autor e palavra-chave começando com cada um dos seis caracteres saem com `'` na frente; o mesmo texto no meio da célula não muda; `Year` e `Cited by` não mudam
-- [x] Teste: `export_list` numa lista com `works` vazio devolve `empty_list` nos cinco formatos e não cria arquivo na pasta de exportação
-- [x] Teste: `empty_list` está em `ERROR_CODES` e chega à IA como erro da ferramenta, como os outros códigos
-- [x] Teste: no `log.md`, uma fonte `ok` com `found` vazio (`None`) mostra "total não informado, trazidos N"; com `found=0` continua "encontrados 0"
-- [x] Teste: a Semantic Scholar, nas citações, sem `total` na resposta e com `next` presente quando chegou ao teto, devolve o motivo "teto de N atingido" e a lista sai `incomplete`; sem `next`, sem motivo
-- [x] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
-- [ ] Teste manual do Erick: o CSV de uma busca real ainda abre no VOSviewer depois da proteção
+- [X] Teste: título, resumo, autor e palavra-chave começando com cada um dos seis caracteres saem com `'` na frente; o mesmo texto no meio da célula não muda; `Year` e `Cited by` não mudam
+- [X] Teste: `export_list` numa lista com `works` vazio devolve `empty_list` nos cinco formatos e não cria arquivo na pasta de exportação
+- [X] Teste: `empty_list` está em `ERROR_CODES` e chega à IA como erro da ferramenta, como os outros códigos
+- [X] Teste: no `log.md`, uma fonte `ok` com `found` vazio (`None`) mostra "total não informado, trazidos N"; com `found=0` continua "encontrados 0"
+- [X] Teste: a Semantic Scholar, nas citações, sem `total` na resposta e com `next` presente quando chegou ao teto, devolve o motivo "teto de N atingido" e a lista sai `incomplete`; sem `next`, sem motivo
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [x] Teste manual do Erick: o CSV de uma busca real ainda abre no VOSviewer depois da proteção. Feito em 2026-11-05 com o `l-0001.csv` regerado depois da 05-05
 
 ## Vem de
 
@@ -54,14 +54,15 @@ Um commit por item (três commits), cada um com o id no comentário e no nome do
 ## Como testar
 
 1. **Gates automatizados:**
+
    ```powershell
    uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
    uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
    uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
    ```
    Deve aparecer `All checks passed!` no ruff e todos os testes aprovados em Python 3.10 e 3.14.
-
 2. **Onde olhar primeiro (pontos mais arriscados, do mais difícil ao mais simples):**
+
    1. **Proteção do CSV sem quebrar a leitura do VOSviewer (`src/rslapp/exporters/csv.py`, `tests/exporters/test_csv.py`):** conferir que os seis prefixos (`=`, `+`, `-`, `@`, `\t`, `\r`) ganham `'` apenas no início da célula das nove colunas de texto, que os mesmos caracteres no meio da célula (incluindo o segundo autor ou segunda palavra-chave após `; `) não mudam, que `Year`, `Cited by` e colunas de ID não são alteradas, e testar manualmente abrir um CSV real no VOSviewer (aba Scopus).
    2. **Recusa de exportação em lista vazia (`src/rslapp/exporters/__init__.py`, `tests/test_server_export_list.py`):** conferir que `export_list` numa lista com `works: []` devolve `empty_list: a lista está vazia, não há o que exportar` nos cinco formatos (`ris`, `csv`, `json`, `dois`, `openalex_url`) — inclusive antes do erro `format_not_available` de `openalex_url` — e não cria arquivo nem pasta de exportação.
    3. **Corte pelo teto e log quando `total` não é informado (`src/rslapp/sources/semantic_scholar.py`, `src/rslapp/store/log.py`, `tests/core/test_related.py`):** conferir que em `SemanticScholarSource.related` sem `total` na resposta, a presença de `next` ao atingir `max_results` preenche `reason="teto de N atingido"` e marca a lista como `incomplete`, enquanto a ausência de `next` mantém `reason=None` e a lista `complete`, e o `log.md` registra `total não informado, trazidos N`.
