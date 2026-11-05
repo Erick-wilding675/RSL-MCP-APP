@@ -1,6 +1,6 @@
 # Modelos e fonte OpenAlex
 
-**Fase:** 2 · Fatia completa · **Situação:** para testar
+**Fase:** 2 · Fatia completa · **Situação:** pronta
 
 ## O que faz
 

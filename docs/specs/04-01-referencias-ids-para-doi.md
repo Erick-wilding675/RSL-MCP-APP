@@ -1,6 +1,6 @@
 # Troca de ids de referências por DOI
 
-**Fase:** 4 · Referências e citações · **Situação:** para testar
+**Fase:** 4 · Referências e citações · **Situação:** pronta
 
 ## O que faz
 

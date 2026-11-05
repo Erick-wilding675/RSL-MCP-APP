@@ -1,6 +1,6 @@
 # Servidor MCP mínimo
 
-**Fase:** 1 · Esqueleto · **Situação:** para testar
+**Fase:** 1 · Esqueleto · **Situação:** pronta
 
 ## O que faz
 

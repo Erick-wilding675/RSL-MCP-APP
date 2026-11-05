@@ -1,6 +1,6 @@
 # Fonte Semantic Scholar
 
-**Fase:** 3 · Mais fontes · **Situação:** para testar
+**Fase:** 3 · Mais fontes · **Situação:** pronta
 
 ## O que faz
 

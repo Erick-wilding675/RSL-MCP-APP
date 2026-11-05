@@ -1,6 +1,6 @@
 # Ver uma lista e ver o log
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** pronta
 
 ## O que faz
 

@@ -26,7 +26,7 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer. O que abre no VOSvi
 - [x] Teste: cada formato gera o arquivo esperado para a mesma lista de exemplo
 - [x] Teste: `openalex_url` numa lista que não veio do OpenAlex devolve `format_not_available`
 - [x] Teste: o JSON guarda tudo o que a lista guarda; o CSV, as colunas combinadas
-- [ ] Teste manual do Erick: o CSV e a lista de DOIs abrem no VOSviewer; a URL do OpenAlex funciona (T-008)
+- [ ] Teste manual do Erick: o CSV e a lista de DOIs abrem no VOSviewer; a URL do OpenAlex funciona (T-008). Em 2026-11-05: a lista de DOIs abriu pela leitura por API e gerou um mapa de coautoria; a URL do OpenAlex abriu no navegador com `count: 50`; o CSV ainda não abriu
 
 ## Vem de
 
