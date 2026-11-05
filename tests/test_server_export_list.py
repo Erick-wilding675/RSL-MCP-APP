@@ -13,7 +13,9 @@ from mcp import Client
 from mcp.server.mcpserver.exceptions import ToolError
 
 from rslapp import server
+from rslapp.core.errors import ERROR_CODES, RSLError
 from rslapp.core.models import Affiliation, Author, Work
+from rslapp.exporters import run_export
 from rslapp.store import Store
 
 ENV_VARS = (
@@ -388,3 +390,41 @@ async def test_d002_fr06_export_list_pasta_sem_permissao_volta_export_folder_not
         assert res.is_error is True
         err_msg = _extract_tool_error_payload(res)
         assert err_msg.startswith("export_folder_not_writable:")
+
+
+# FR-06, D-002: export_list numa lista com works vazio devolve empty_list nos cinco formatos e não cria arquivo
+@pytest.mark.anyio
+@pytest.mark.parametrize("fmt", ["ris", "csv", "json", "dois", "openalex_url"])
+async def test_fr06_d002_export_list_lista_vazia_volta_empty_list_sem_arquivo(
+    isolated_env: tuple[Path, Path],
+    fmt: str,
+) -> None:
+    assert "empty_list" in ERROR_CODES
+    data_dir, export_dir = isolated_env
+    store = Store(data_dir)
+    _search, saved_list = store.record_search(
+        {
+            "kind": "terms",
+            "query": "busca sem resultados",
+            "sources": [{"name": "openalex", "status": "ok", "query": "q", "found": 0, "fetched": 0}],
+        },
+        {"status": "complete", "works": []},
+    )
+    list_id = str(saved_list["id"])
+
+    with pytest.raises(RSLError) as rsl_exc:
+        run_export(store, list_id=list_id, export_format=fmt, export_dir=export_dir)
+    assert rsl_exc.value.code == "empty_list"
+    assert rsl_exc.value.message == "a lista está vazia, não há o que exportar"
+
+    with pytest.raises(ToolError) as exc_info:
+        server.export_list(list_id=list_id, format=fmt)
+    assert str(exc_info.value) == "empty_list: a lista está vazia, não há o que exportar"
+
+    async with Client(server.mcp) as client:
+        res = await client.call_tool("export_list", {"list_id": list_id, "format": fmt})
+        assert res.is_error is True
+        err_msg = _extract_tool_error_payload(res)
+        assert err_msg == "empty_list: a lista está vazia, não há o que exportar"
+
+    assert not export_dir.exists() or list(export_dir.iterdir()) == []

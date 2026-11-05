@@ -71,8 +71,9 @@ def test_fr03_fr14_modelos_opcionais_vazios_from_dict_to_dict() -> None:
     assert SourceResult.from_dict(res.to_dict()) == res
 
 
-# D-002: RSLError valida os códigos do contrato e preserva código e mensagem
-def test_d002_rsl_error_codigos_do_contrato() -> None:
+# FR-06, D-002: RSLError valida os códigos do contrato (incluindo empty_list) e preserva código e mensagem
+def test_fr06_d002_rsl_error_codigos_do_contrato() -> None:
+    assert "empty_list" in ERROR_CODES
     for code in ERROR_CODES:
         err = RSLError(code, "detalhe do erro")
         assert err.code == code

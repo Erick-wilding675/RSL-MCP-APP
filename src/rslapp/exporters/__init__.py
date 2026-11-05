@@ -98,6 +98,11 @@ def run_export(
     except (FileNotFoundError, ValueError) as err:
         raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
 
+    # FR-06: Lista vazia não exporta em nenhum formato e não grava arquivo
+    raw_works = list_data.get("works") if isinstance(list_data, dict) else None
+    if not isinstance(raw_works, list) or len(raw_works) == 0:
+        raise RSLError("empty_list", "a lista está vazia, não há o que exportar")
+
     warnings: list[str] = []
     extra_fields: dict[str, Any] = {}
     normalized_format = export_format.strip().lower()
