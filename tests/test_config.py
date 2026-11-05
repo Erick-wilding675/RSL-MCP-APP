@@ -33,7 +33,9 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
 # D-001, D-008: Metadados do pacote Python e ponto de entrada rslapp para uvx
 def test_d001_d008_pacote_e_entrypoint_instalados() -> None:
-    assert version("rslapp") == "0.1.0"
+    import rslapp
+
+    assert version("rslapp") == rslapp.__version__
     scripts = entry_points(group="console_scripts")
     rslapp_eps = [ep for ep in scripts if ep.name == "rslapp"]
     assert len(rslapp_eps) == 1

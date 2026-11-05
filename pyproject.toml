@@ -5,9 +5,25 @@ build-backend = "hatchling.build"
 [project]
 # D-008: Pacote publicado no PyPI para execução isolada via uvx
 name = "rslapp"
-version = "0.1.0"
+version = "1.0.0"
 description = "Servidor MCP em Python para busca acadêmica e exportação para revisão sistemática"
+readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Erick Cardoso Mendes" }]
+keywords = ["mcp", "systematic-review", "bibliometrics", "vosviewer", "openalex", "crossref", "semantic-scholar"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Portuguese (Brazilian)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 # D-001: Linguagem do projeto: Python 3.10 ou mais
 requires-python = ">=3.10"
 dependencies = [
@@ -15,6 +31,10 @@ dependencies = [
     "httpx",
     "typing_extensions",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Erick-wilding675/RSL-MCP-APP"
+Issues = "https://github.com/Erick-wilding675/RSL-MCP-APP/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -28,6 +48,11 @@ rslapp = "rslapp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rslapp"]
+
+# D-008: O pacote de código-fonte leva só o código, os testes, o README e a licença
+[tool.hatch.build.targets.sdist]
+include = ["src/rslapp", "tests", "README.md", "LICENSE", "pyproject.toml"]
+exclude = ["**/__pycache__"]
 
 [tool.ruff]
 target-version = "py310"
