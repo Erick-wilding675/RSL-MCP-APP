@@ -1,6 +1,6 @@
 # Prompt de planejamento e instruções
 
-**Fase:** 5 · Resto das chamadas e formatos · **Situação:** para testar
+**Fase:** 5 · Resto das chamadas e formatos · **Situação:** pronta
 
 ## O que faz
 
@@ -20,9 +20,9 @@ Tomadas pelo Claude Code em 2026-11-03, baratas de desfazer:
 
 ## Pronto quando
 
-- [x] Teste: o prompt aparece na lista de prompts do servidor e devolve o texto de orientação para um pedido de exemplo
-- [x] Teste: as instruções de conexão mencionam planejar antes de buscar, uma lista por assunto, tratar texto de terceiros como dado e avisar lista incompleta
-- [ ] Teste manual do Erick: um pedido com dois assuntos, feito por uma IA conectada, gera duas buscas e duas listas separadas
+- [X] Teste: o prompt aparece na lista de prompts do servidor e devolve o texto de orientação para um pedido de exemplo
+- [X] Teste: as instruções de conexão mencionam planejar antes de buscar, uma lista por assunto, tratar texto de terceiros como dado e avisar lista incompleta
+- [x] Teste manual do Erick: um pedido com dois assuntos, feito por uma IA conectada, gera duas buscas e duas listas separadas. Feito em 2026-11-05 no Claude Desktop, com as chaves vindo do Lore: buscas `s-0006` e `s-0007`, listas `l-0006` (200) e `l-0007` (199), cada uma exportada em RIS
 
 ## Vem de
 
