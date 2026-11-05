@@ -12,7 +12,7 @@ import pytest
 
 from rslapp.core.models import Affiliation, Author, Work
 from rslapp.exporters import get_exporter, run_export
-from rslapp.exporters.csv import CSV_COLUMNS, CSVExporter
+from rslapp.exporters.csv import CSV_COLUMNS, CSVExporter, _protect_formula
 from rslapp.sources.openalex import OpenAlexSource
 from rslapp.store import Store
 
@@ -228,6 +228,8 @@ def test_fr06_csv_list_data_invalido_levanta_type_error() -> None:
 # FR-06: Proteção contra fórmula nos seis caracteres iniciais, sem alterar o meio nem Year e Cited by
 @pytest.mark.parametrize("prefix", ["=", "+", "-", "@", "\t", "\r"])
 def test_fr06_csv_protecao_contra_formula_seis_caracteres(prefix: str) -> None:
+    assert _protect_formula(f"{prefix}valor") == f"'{prefix}valor"
+
     exporter = CSVExporter()
     work_inicio = Work(
         title=f"{prefix}Título com Fórmula",
@@ -281,15 +283,27 @@ def test_fr06_csv_protecao_contra_formula_seis_caracteres(prefix: str) -> None:
     assert len(rows) == 2
 
     row_inicio = rows[0]
-    assert row_inicio["Title"] == f"'{prefix}Título com Fórmula"
     assert row_inicio["Abstract"] == f"'{prefix}Resumo que começa com caractere de fórmula."
-    assert row_inicio["Authors"] == f"'{prefix}Turing, Alan; Lovelace, Ada"
-    assert row_inicio["Author full names"] == f"'{prefix}Turing, Alan; Lovelace, Ada"
-    assert row_inicio["Author Keywords"] == f"'{prefix}palavra-chave; segunda"
-    assert row_inicio["Source title"] == f"'{prefix}Journal of Formulas"
-    assert row_inicio["Affiliations"] == f"'{prefix}University of Manchester"
-    assert row_inicio["Document Type"] == f"'{prefix}article"
-    assert row_inicio["References"] == f"'{prefix}10.2000/ref.1"
+    if prefix in ("\t", "\r"):
+        # Com a normalização, colunas limpas por _clean_text/_clean_doi não começam com tab ou CR
+        assert row_inicio["Title"] == "Título com Fórmula"
+        assert row_inicio["Authors"] == "Turing, Alan; Lovelace, Ada"
+        assert row_inicio["Author full names"] == "Turing, Alan; Lovelace, Ada"
+        assert row_inicio["Author Keywords"] == "palavra-chave; segunda"
+        assert row_inicio["Source title"] == "Journal of Formulas"
+        assert row_inicio["Affiliations"] == "University of Manchester"
+        assert row_inicio["Document Type"] == "article"
+        assert row_inicio["References"] == "10.2000/ref.1"
+    else:
+        assert row_inicio["Title"] == f"'{prefix}Título com Fórmula"
+        assert row_inicio["Authors"] == f"'{prefix}Turing, Alan; Lovelace, Ada"
+        assert row_inicio["Author full names"] == f"'{prefix}Turing, Alan; Lovelace, Ada"
+        assert row_inicio["Author Keywords"] == f"'{prefix}palavra-chave; segunda"
+        assert row_inicio["Source title"] == f"'{prefix}Journal of Formulas"
+        assert row_inicio["Affiliations"] == f"'{prefix}University of Manchester"
+        assert row_inicio["Document Type"] == f"'{prefix}article"
+        assert row_inicio["References"] == f"'{prefix}10.2000/ref.1"
+
     # Colunas de número e de id não mudam
     assert row_inicio["Year"] == "2024"
     assert row_inicio["Cited by"] == "42"
@@ -302,14 +316,55 @@ def test_fr06_csv_protecao_contra_formula_seis_caracteres(prefix: str) -> None:
     assert row_inicio["Semantic Scholar ID"] == "-S123"
 
     row_meio = rows[1]
-    assert row_meio["Title"] == f"Título com {prefix} no meio"
     assert row_meio["Abstract"] == f"Resumo com {prefix} no meio da frase."
-    assert row_meio["Authors"] == f"Lovelace, Ada; {prefix}Turing, Alan"
-    assert row_meio["Author full names"] == f"Lovelace, Ada; {prefix}Turing, Alan"
-    assert row_meio["Author Keywords"] == f"primeira; {prefix}segunda-palavra"
-    assert row_meio["Source title"] == f"Journal {prefix} Venue"
-    assert row_meio["Affiliations"] == f"Oxford; {prefix}Cambridge"
-    assert row_meio["Document Type"] == f"journal {prefix} article"
-    assert row_meio["References"] == f"10.2000/normal; {prefix}10.2000/ref.2"
+    if prefix in ("\t", "\r"):
+        assert row_meio["Title"] == "Título com no meio"
+        assert row_meio["Authors"] == "Lovelace, Ada; Turing, Alan"
+        assert row_meio["Author full names"] == "Lovelace, Ada; Turing, Alan"
+        assert row_meio["Author Keywords"] == "primeira; segunda-palavra"
+        assert row_meio["Source title"] == "Journal Venue"
+        assert row_meio["Affiliations"] == "Oxford; Cambridge"
+        assert row_meio["Document Type"] == "journal article"
+        assert row_meio["References"] == "10.2000/normal; 10.2000/ref.2"
+    else:
+        assert row_meio["Title"] == f"Título com {prefix} no meio"
+        assert row_meio["Authors"] == f"Lovelace, Ada; {prefix}Turing, Alan"
+        assert row_meio["Author full names"] == f"Lovelace, Ada; {prefix}Turing, Alan"
+        assert row_meio["Author Keywords"] == f"primeira; {prefix}segunda-palavra"
+        assert row_meio["Source title"] == f"Journal {prefix} Venue"
+        assert row_meio["Affiliations"] == f"Oxford; {prefix}Cambridge"
+        assert row_meio["Document Type"] == f"journal {prefix} article"
+        assert row_meio["References"] == f"10.2000/normal; {prefix}10.2000/ref.2"
     assert row_meio["Year"] == "2023"
     assert row_meio["Cited by"] == "7"
+
+
+# FR-06: Normalização de título e DOI e proteção de resumo iniciando com espaço ou quebra antes de '='
+@pytest.mark.parametrize("leading_ws", [" ", "  ", "\n", "  \n", "\t", "\r\n"])
+def test_fr06_csv_normalizacao_titulo_doi_e_resumo_com_espaco_ou_quebra_antes_de_formula(
+    leading_ws: str,
+) -> None:
+    exporter = CSVExporter()
+    work_normalizado = Work(
+        title="Machine\n  learning   for\tschools",
+        doi="https://doi.org/10.1/X\n",
+        abstract=f"{leading_ws}=1+1",
+    )
+    work_titulo_formula = Work(
+        title="  \n=1+1",
+        doi="10.1000/clean\n",
+        abstract="Resumo normal\ncom duas linhas",
+    )
+
+    content = exporter.render({"works": [work_normalizado, work_titulo_formula]})
+    reader = csv.DictReader(io.StringIO(content.lstrip("\ufeff")), delimiter=",")
+    rows = list(reader)
+    assert len(rows) == 2
+
+    assert rows[0]["Title"] == "Machine learning for schools"
+    assert rows[0]["DOI"] == "10.1/X"
+    assert rows[0]["Abstract"] == "'=1+1"
+
+    assert rows[1]["Title"] == "'=1+1"
+    assert rows[1]["DOI"] == "10.1000/clean"
+    assert rows[1]["Abstract"] == "Resumo normal\ncom duas linhas"

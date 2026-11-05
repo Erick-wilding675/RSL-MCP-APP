@@ -34,9 +34,9 @@ CSV_COLUMNS: tuple[str, ...] = (
 
 
 def _clean_doi(raw: Any) -> str | None:
-    if not isinstance(raw, str) or not raw.strip():
+    if not isinstance(raw, str):
         return None
-    val = raw.strip(" ")
+    val = raw.strip()
     lower = val.lower()
     for prefix in (
         "https://doi.org/",
@@ -45,7 +45,7 @@ def _clean_doi(raw: Any) -> str | None:
         "http://dx.doi.org/",
     ):
         if lower.startswith(prefix):
-            val = val[len(prefix) :].strip(" ")
+            val = val[len(prefix) :].strip()
             break
     return val if val else None
 
@@ -56,8 +56,7 @@ _FORMULA_PREFIXES: tuple[str, ...] = ("=", "+", "-", "@", "\t", "\r")
 def _clean_text(raw: Any) -> str:
     if not isinstance(raw, str):
         return ""
-    val = raw.strip(" ")
-    return val if val.strip() or val.startswith(("\t", "\r")) else ""
+    return " ".join(raw.split())
 
 
 # FR-06: Protege célula de texto contra injeção de fórmula em planilhas (Excel)
@@ -172,9 +171,16 @@ class CSVExporter(Exporter):
 
             # Abstract (preserva pontuação, aspas e quebras de linha internas)
             abstract = w.get("abstract")
-            abstract_str = (
-                _protect_formula(str(abstract)) if abstract and isinstance(abstract, str) else ""
-            )
+            if abstract and isinstance(abstract, str):
+                abstract_clean = (
+                    abstract
+                    if abstract.startswith(("\t", "\r"))
+                    and not abstract.lstrip().startswith(_FORMULA_PREFIXES)
+                    else abstract.lstrip()
+                )
+                abstract_str = _protect_formula(abstract_clean)
+            else:
+                abstract_str = ""
 
             # Author Keywords
             raw_keywords = w.get("keywords") or []
