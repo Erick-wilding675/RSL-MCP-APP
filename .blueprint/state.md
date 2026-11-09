@@ -177,4 +177,4 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - **Testes de pé:** T-004, T-005 com o teto padrão de 1.000, T-006 (tempo de espera do cliente), T-007 (LGPD, Erick), T-008 (mapa de citação), T-010.
 - **`uv run --with .` usa wheel antiga** mesmo com `--reinstall-package`: para testar o código atual, rodar no modo projeto (Lore: `gotchas/uv-wheel-antiga-no-gate.md`). O Claude Desktop do Erick usa o `rslapp` do PyPI, lançado por `lore secrets run`.
 - Segredos no Lore (prod): `OPENALEX_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY` e `UV_PUBLISH_TOKEN` (token do PyPI só do projeto). Pasta dos testes reais: `C:\Users\hulkd\RSL-teste`.
-- Pasta do projeto desde 2026-11-03: `C:\Users\hulkd\_Sintese-Labs-Projetos\RSL.app`; árvores do Playmaker em `..\RSL.app-playmaker`.
+- Pasta do projeto desde 2026-11-03: `C:\Users\hulkd\Sintese-Labs-Projetos\RSL.app` (sem sublinhado; conferido em 2026-11-09); árvores do Playmaker em `..\RSL.app-playmaker`.
