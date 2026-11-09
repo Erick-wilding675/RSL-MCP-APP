@@ -1,6 +1,6 @@
 # Entradas numéricas sem verdadeiro/falso
 
-**Fase:** 7 · Manutenção depois da v1 · **Situação:** a fazer
+**Fase:** 7 · Manutenção depois da v1 · **Situação:** para testar
 
 ## O que faz
 
@@ -33,12 +33,12 @@ Tomadas pelo Claude em 2026-11-09, baratas de desfazer, dentro da proposta pende
 
 ## Pronto quando
 
-- [ ] Teste, pelo cliente MCP em memória (como em `tests/test_server_get_list.py`): cada uma das seis entradas com `true` e com `false` volta como erro da ferramenta (`isError`) com `invalid_input` no texto, e o miolo não é chamado (nenhuma lista nem entrada de log nova; nas ferramentas de busca, nenhuma fonte consultada)
-- [ ] Teste: `get_list` com `page="2"` e com `page=2.0` devolve a página 2, como hoje
-- [ ] Teste: `page=2.5` continua recusado
-- [ ] Teste: o `inputSchema` das seis entradas, em `list_tools`, continua `"type": "integer"` com o mesmo padrão de antes
-- [ ] Os testes que já existem passam sem mudança de comportamento
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] Teste, pelo cliente MCP em memória (como em `tests/test_server_get_list.py`): cada uma das seis entradas com `true` e com `false` volta como erro da ferramenta (`isError`) com `invalid_input` no texto, e o miolo não é chamado (nenhuma lista nem entrada de log nova; nas ferramentas de busca, nenhuma fonte consultada)
+- [X] Teste: `get_list` com `page="2"` e com `page=2.0` devolve a página 2, como hoje
+- [X] Teste: `page=2.5` continua recusado
+- [X] Teste: o `inputSchema` das seis entradas, em `list_tools`, continua `"type": "integer"` com o mesmo padrão de antes
+- [X] Os testes que já existem passam sem mudança de comportamento
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 
 ## Vem de
 
@@ -74,3 +74,7 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
   1. **Interação entre `pre_parse_json` do SDK e `BeforeValidator` (`src/rslapp/server.py`):** garantir que `NonBoolInt` barra `True`/`False` antes de o Pydantic converter booleano em `1`/`0`, mas deixa passar `"2"` (texto cru não convertido por `pre_parse_json`) e `2.0` para a validação normal de `int`, mantendo `2.5` recusado.
   2. **Não acionamento do miolo e ausência de efeitos colaterais (`tests/test_server_int_inputs.py`):** confirmar que falhas de validação em `max_results`, `page`, `page_size` e `limit` interrompem a execução na camada do SDK antes de instanciar fontes ou gravar arquivos de lista e log.
   3. **Preservação do contrato JSON Schema (`list_tools`):** verificar que `Annotated[int, BeforeValidator(_reject_bool)]` com `from __future__ import annotations` é avaliado por `func_metadata` mantendo `"type": "integer"` e os valores `default` originais nas seis entradas.
+
+**Revisão do Claude (2026-11-09):** aprovada. Gates refeitos na revisão: ruff limpo, 471 testes em 3.10 e em 3.14. O `input_schema` das oito ferramentas, comparado byte a byte com o da `main`, ficou idêntico. Acompanhamento, não bloqueia: o teste de `2.5` só confere `is_error`, sem olhar a mensagem.
+
+**Teste manual do Erick (opcional):** o Claude Desktop usa o `rslapp` do PyPI, então só vê a mudança depois de uma versão nova (1.0.1). Para conferir antes da versão nova, rode `uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q tests/test_server_int_inputs.py` e veja `16 passed`.
