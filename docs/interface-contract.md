@@ -122,7 +122,7 @@ O arquivo é gravado numa pasta configurável da máquina do usuário. O `json` 
 | Código | Quando | Onde aparece |
 |---|---|---|
 | `no_source_available` | Nenhuma fonte pode responder, por exemplo sem chave configurada | Erro da chamada |
-| `invalid_input` | Falta uma entrada obrigatória ou o valor não vale | Erro da chamada |
+| `invalid_input` | Falta uma entrada obrigatória ou o valor não vale, inclusive `true` ou `false` numa entrada numérica (`max_results`, `page`, `page_size`, `limit`); um número escrito como texto (`"2"`) é aceito | Erro da chamada |
 | `list_not_found`, `search_not_found`, `work_not_found` | O id não existe | Erro da chamada |
 | `format_not_available` | O formato não serve para aquela lista | Erro da chamada |
 | `export_folder_not_writable` | A pasta de exportação não aceita gravação | Erro da chamada |

@@ -69,7 +69,7 @@
 A v1 (fases 1 a 6) foi publicada em 2026-11-05 como `rslapp` 1.0.0 no PyPI. O que vem depois, ainda sem fases nem specs:
 
 1. **Uso por link, opção C (D-011):** modo HTTP opcional no `rslapp` e uma imagem Docker, para quem quiser hospedar a própria cópia (um laboratório, uma universidade) e passar o link aos usuários, que o adicionam como conector na IA. O modo stdio continua o padrão. Um servidor mantido pelo projeto (opções A e B da D-011) fica para depois, com pesquisa de hospedagem.
-2. **Tipos estritos nas ferramentas:** o SDK converte `page=True` em 1 antes do miolo (proposta pendente).
+2. **Entradas numéricas sem verdadeiro/falso:** o SDK converte `page=True` em 1 antes do miolo. Spec: `specs/07-01-inteiros-sem-booleano.md` (fase 7 · Manutenção depois da v1).
 3. **Do escopo combinado para depois** (`system-description.md`): app desktop para Windows e Linux; Scopus e Web of Science com a chave de cada usuário; PubMed e Europe PMC; Periódicos CAPES via CAFe; texto completo de acesso aberto; exportação para outras ferramentas além do VOSviewer.
 4. **Observabilidade:** Langfuse, quando o Erick pedir.
 
