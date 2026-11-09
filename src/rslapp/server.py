@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import BeforeValidator, ValidationInfo
 from typing_extensions import TypedDict
 
 from rslapp import config
@@ -25,6 +26,17 @@ from rslapp.store import Store
 
 SourceName = Literal["openalex", "crossref", "semantic_scholar"]
 SourceStatus = Literal["ok", "missing_key"]
+
+
+# D-002: Entradas numéricas inteiras das ferramentas recusam true/false com invalid_input
+def _reject_bool(v: Any, info: ValidationInfo) -> Any:
+    if isinstance(v, bool):
+        prefix = f"{info.field_name} " if info.field_name else ""
+        raise ValueError(f"invalid_input: {prefix}deve ser um número inteiro, não true/false")  # noqa: TRY004
+    return v
+
+
+NonBoolInt = Annotated[int, BeforeValidator(_reject_bool)]
 
 
 # D-002, FR-07, NFR-03: Estrutura de retorno de list_sources sem expor o valor de chaves
@@ -81,7 +93,7 @@ async def search_works(
     query: str,
     request_summary: str = "",
     sources: list[str] | None = None,
-    max_results: int = 100,
+    max_results: NonBoolInt = 100,
 ) -> dict[str, Any]:
     """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página."""
     cfg = config.load()
@@ -107,7 +119,7 @@ async def get_related_works(
     direction: str = "",
     request_summary: str = "",
     sources: list[str] | None = None,
-    max_results: int = 1000,
+    max_results: NonBoolInt = 1000,
 ) -> dict[str, Any]:
     """Busca referências ou citações de um artigo acadêmico nas fontes, deduplica e grava lista própria."""
     cfg = config.load()
@@ -133,7 +145,7 @@ async def find_work(
     doi: str | None = None,
     request_summary: str = "",
     sources: list[str] | None = None,
-    max_results: int = 10,
+    max_results: NonBoolInt = 10,
 ) -> dict[str, Any]:
     """Busca um artigo específico por título ou DOI nas fontes, deduplica candidatos e grava lista própria."""
     cfg = config.load()
@@ -191,8 +203,8 @@ def export_list(list_id: str, format: str) -> dict[str, Any]:
 @mcp.tool()
 def get_list(
     list_id: str,
-    page: int = 1,
-    page_size: int = 25,
+    page: NonBoolInt = 1,
+    page_size: NonBoolInt = 25,
     detail: str = "summary",
 ) -> dict[str, Any]:
     """Mostra uma lista salva por páginas, com nível de detalhe summary ou full."""
@@ -214,7 +226,7 @@ def get_list(
 @mcp.tool()
 def get_search_log(
     search_id: str | None = None,
-    limit: int = 20,
+    limit: NonBoolInt = 20,
 ) -> dict[str, Any]:
     """Mostra entradas do log de buscas em ordem cronológica e o caminho do arquivo legível."""
     cfg = config.load()

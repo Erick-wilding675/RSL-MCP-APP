@@ -52,8 +52,25 @@ Um commit só, com D-002 no comentário e no nome dos testes. Cabe em menos de 4
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **O que mudou:**
+  - `src/rslapp/server.py`: criado o validador `_reject_bool(v, info)` e o tipo `NonBoolInt = Annotated[int, BeforeValidator(_reject_bool)]` (marcado com `# D-002`), recusando valores `bool` com `ValueError("invalid_input: ...")` antes da coerção de `int` pelo Pydantic e aplicando `NonBoolInt` às seis entradas (`search_works.max_results`, `get_related_works.max_results`, `find_work.max_results`, `get_list.page`, `get_list.page_size` e `get_search_log.limit`).
+  - `tests/test_server_int_inputs.py`: suíte de testes via `Client(server.mcp)` cobrindo a recusa de `True` e `False` nas seis entradas sem acionar o miolo nem criar listas/logs, a aceitação de `"2"` e `2.0` em `page`, a recusa de `2.5` em `page` e a preservação de `"type": "integer"` e `default` no `input_schema` de `list_tools`.
+- **Requisito servido:** D-002.
+- **O que foi assumido:** o uso de `ValidationInfo` do Pydantic no `BeforeValidator` permite incluir o nome do campo na mensagem de erro (`invalid_input: <campo> deve ser um número inteiro, não true/false`) sem alterar o esquema JSON gerado pelo SDK.
+- **O que não deu para verificar:** nada; todos os cenários da spec foram verificados em memória.
 
 ## Como testar
 
-(preenche quem entrega: os comandos dos três gates, o que deve aparecer e os pontos mais arriscados, o mais difícil primeiro)
+Rode os três gates na raiz do repositório:
+
+```bash
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+```
+
+- **O que deve aparecer:** `All checks passed!` no `ruff check .` e todos os testes passando (`471 passed`, incluindo os 16 novos casos em `tests/test_server_int_inputs.py`) tanto no Python 3.10 quanto no Python 3.14.
+- **Onde olhar primeiro (pontos mais arriscados, do mais difícil para o mais simples):**
+  1. **Interação entre `pre_parse_json` do SDK e `BeforeValidator` (`src/rslapp/server.py`):** garantir que `NonBoolInt` barra `True`/`False` antes de o Pydantic converter booleano em `1`/`0`, mas deixa passar `"2"` (texto cru não convertido por `pre_parse_json`) e `2.0` para a validação normal de `int`, mantendo `2.5` recusado.
+  2. **Não acionamento do miolo e ausência de efeitos colaterais (`tests/test_server_int_inputs.py`):** confirmar que falhas de validação em `max_results`, `page`, `page_size` e `limit` interrompem a execução na camada do SDK antes de instanciar fontes ou gravar arquivos de lista e log.
+  3. **Preservação do contrato JSON Schema (`list_tools`):** verificar que `Annotated[int, BeforeValidator(_reject_bool)]` com `from __future__ import annotations` é avaliado por `func_metadata` mantendo `"type": "integer"` e os valores `default` originais nas seis entradas.
