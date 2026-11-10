@@ -106,6 +106,14 @@ Se o formato precisa de DOI nas referências, o servidor troca os ids por DOI ne
 O arquivo é gravado numa pasta configurável da máquina do usuário. O `json` é o formato completo, e foi deduzido para guardar o que RIS e CSV levam só em parte.
 **Quando falha:** `format_not_available` (por exemplo, `openalex_url` numa lista que não veio do OpenAlex), `empty_list` (lista sem artigos; nenhum arquivo é gravado) ou `export_folder_not_writable`.
 
+## Modo HTTP (v2, fase 8)
+
+O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos nomes, entradas e campos, por HTTP em `/mcp`, com login OAuth (D-015). As diferenças:
+
+- **Login:** toda chamada a `/mcp` precisa de um token de acesso OAuth. Sem token, ou com um token inválido ou de pessoa revogada, a resposta é 401, antes de qualquer ferramenta.
+- **Dados por pessoa:** cada pessoa logada vê só as próprias buscas, listas e log. Um `list_id` de outra pessoa dá `list_not_found` (D-012).
+- **`export_list`:** devolve `download_url` (link que vale 1 hora) e `expires_at`, e não devolve `path` (D-014). No stdio, nada muda.
+
 ## As outras chamadas
 
 | Chamada | Entrada | Volta |

@@ -64,12 +64,30 @@
 
 1. Publicação no PyPI e guia de instalação: pacote no PyPI e guia de instalação com `uvx`. Spec: `specs/06-01-publicacao-pypi-e-guia.md`
 
+### 7 · Manutenção depois da v1
+
+1. Entradas numéricas sem verdadeiro/falso: as seis entradas inteiras das ferramentas recusam `true` e `false`. Publicada na 1.0.1. Spec: `specs/07-01-inteiros-sem-booleano.md`
+
+### 8 · Uso por link (v2)
+
+Decidida com o Erick em 2026-11-10 (D-011 a D-018). Um servidor hospedado por quem quiser, com login OAuth por código pessoal, dados separados por pessoa, exportação por link temporário e uma imagem Docker com HTTPS pelo Caddy. O modo stdio continua o padrão e não muda. Pronto quando: o Erick sobe o compose num domínio, adiciona o link como conector no Claude, entra com o código dele, faz uma busca e baixa o RIS pelo link, e outra pessoa, com outro código, não vê as listas dele.
+
+1. Modo HTTP: comando `rslapp serve`, que serve as mesmas ferramentas por HTTP, com host, porta e URL pública configuráveis. Spec: `specs/08-01-modo-http.md`
+2. Pessoas e códigos: comandos `rslapp token add`, `token list`, `token revoke` e `user purge`, com só o hash do código guardado. Spec: `specs/08-02-pessoas-e-codigos.md`
+3. Login OAuth: servidor de autorização no mesmo processo, com registro automático de clientes, tela de login pelo código pessoal, tokens renovados sem prazo e revogação. Spec: `specs/08-03-login-oauth.md`
+4. Dados separados por pessoa: cada pessoa logada tem as próprias listas, log e exportações; o cache das APIs é compartilhado. Spec: `specs/08-04-dados-por-pessoa.md`
+5. Exportação por link temporário: no modo HTTP, `export_list` devolve um link de download assinado que vale 1 hora. Spec: `specs/08-05-exportacao-por-link.md`
+6. Docker, Caddy e guia de hospedagem: Dockerfile, docker-compose com Caddy, imagem no ghcr.io a cada tag e guia em português com o aviso da LGPD. Spec: `specs/08-06-docker-e-guia.md`
+7. Publicação da 1.1.0 e teste real: versão no PyPI e no ghcr.io, e o teste de ponta a ponta do Erick num conector do Claude. Spec: `specs/08-07-publicacao-e-teste-real.md`
+
+As tarefas andam nessa ordem: cada uma usa a anterior. A 08-02 não depende da 08-01 e pode rodar em paralelo com ela. Antes de anunciar o modo hospedado, a LGPD (T-007) precisa ser conferida (D-018).
+
 ## Próximos passos (depois da v1)
 
-A v1 (fases 1 a 6) foi publicada em 2026-11-05 como `rslapp` 1.0.0 no PyPI. O que vem depois, ainda sem fases nem specs:
+A v1 (fases 1 a 6) foi publicada em 2026-11-05 como `rslapp` 1.0.0 no PyPI. O que vem depois:
 
-1. **Uso por link, opção C (D-011):** modo HTTP opcional no `rslapp` e uma imagem Docker, para quem quiser hospedar a própria cópia (um laboratório, uma universidade) e passar o link aos usuários, que o adicionam como conector na IA. O modo stdio continua o padrão. Um servidor mantido pelo projeto (opções A e B da D-011) fica para depois, com pesquisa de hospedagem.
-2. **Entradas numéricas sem verdadeiro/falso:** o SDK converte `page=True` em 1 antes do miolo. Spec: `specs/07-01-inteiros-sem-booleano.md` (fase 7 · Manutenção depois da v1).
+1. **Uso por link, opção C (D-011):** virou a fase 8, acima. Um servidor mantido pelo projeto (opções A e B da D-011) fica para depois, com pesquisa de hospedagem.
+2. **Entradas numéricas sem verdadeiro/falso:** feita na fase 7 e publicada na 1.0.1.
 3. **Do escopo combinado para depois** (`system-description.md`): app desktop para Windows e Linux; Scopus e Web of Science com a chave de cada usuário; PubMed e Europe PMC; Periódicos CAPES via CAFe; texto completo de acesso aberto; exportação para outras ferramentas além do VOSviewer.
 4. **Observabilidade:** Langfuse, quando o Erick pedir.
 
