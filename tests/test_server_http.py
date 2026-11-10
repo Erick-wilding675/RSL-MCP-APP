@@ -17,6 +17,7 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+import rslapp
 from rslapp import config, server
 
 ENV_VARS = (
@@ -242,3 +243,19 @@ def test_d011_run_http_recusa_host_fora_de_loopback(monkeypatch: pytest.MonkeyPa
     )
     with pytest.raises(ValueError, match="loopback"):
         server.run_http(host="0.0.0.0", port=8000)
+
+
+# D-011, D-017: GET /health devolve 200 com status e version e nenhum outro dado
+@pytest.mark.anyio
+async def test_d011_d017_health_devolve_200_com_status_e_version_e_nada_mais(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123")
+    with _running_http_server() as port:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"http://127.0.0.1:{port}/health")
+            assert resp.status_code == 200
+            dados = resp.json()
+            assert set(dados.keys()) == {"status", "version"}
+            assert dados == {"status": "ok", "version": rslapp.__version__}
+            assert "fake-key-123" not in resp.text

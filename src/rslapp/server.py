@@ -11,9 +11,11 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BeforeValidator, ValidationInfo
 from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from typing_extensions import TypedDict
 
-from rslapp import config
+from rslapp import __version__, config
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
 from rslapp.core.related import run_related
@@ -250,6 +252,13 @@ def get_search_log(
 def plan_search(request: str) -> str:
     """Orienta a IA a planejar antes de buscar, dividir assuntos e tratar dados de fontes com segurança."""
     return render_plan_search(request)
+
+
+# D-011, D-017: Rota /health para verificação do servidor HTTP e healthcheck do Docker
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(_request: Request) -> Response:
+    """Devolve 200 com status e version, sem nenhum outro dado."""
+    return JSONResponse({"status": "ok", "version": __version__})
 
 
 # D-011, D-017: Proteção contra DNS rebinding aceitando o host de RSL_PUBLIC_URL (puro e :*) e loopback

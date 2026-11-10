@@ -54,8 +54,44 @@ Cerca de 300 linhas. Um commit por item do "O que faz" que for grande (comandos;
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **O que mudou:**
+  - `src/rslapp/config.py`: adicionada a dataclass imutável `HttpConfig` e as funções `load_http(host, port)`, `is_loopback_host(host)` e `parse_public_url_host(public_url)` para ler `RSL_HTTP_HOST` (padrão `127.0.0.1`), `RSL_HTTP_PORT` (padrão `8000`), `RSL_PUBLIC_URL` (padrão `http://127.0.0.1:<porta>`) e `RSL_FORWARDED_ALLOW_IPS` (padrão `127.0.0.1`), aplicando a sobreposição de `--host` e `--port` e mantendo segredos fora do `repr` e de mensagens de erro (**D-011**, **D-017**, **NFR-03**).
+  - `src/rslapp/cli.py`: criado o módulo de linha de comando com `argparse` em português; `rslapp` sem argumentos inicia direto `rslapp.server:main` por stdio sem escrever nada em `stdout`, e `rslapp serve [--host HOST] [--port PORTA]` valida o host de loopback (recusando hosts externos com mensagem clara no `stderr` e saída `!= 0`) e inicia o servidor HTTP (**D-008**, **D-011**).
+  - `src/rslapp/server.py`: adicionada a rota `@mcp.custom_route("/health", methods=["GET"])` devolvendo `{"status": "ok", "version": __version__}`, e as funções `build_transport_security`, `create_http_app`, `build_uvicorn_config` (com `proxy_headers=True` e `forwarded_allow_ips`) e `run_http` servindo as mesmas oito ferramentas e o prompt `plan_search` em `/mcp` num processo único (**D-011**, **D-006**, **D-017**).
+  - `pyproject.toml` e `tests/test_config.py`: atualizado `[project.scripts]` de `rslapp = "rslapp.server:main"` para `rslapp = "rslapp.cli:main"` (mantendo `rslapp.server:main` funcional) e ajustado o valor esperado do entry point no teste `test_d001_d008_pacote_e_entrypoint_instalados`.
+  - `tests/test_cli.py` e `tests/test_server_http.py`: 16 novos testes cobrindo a CLI (`--help`, `serve --help`, `serve --host 0.0.0.0`, sobreposição de variáveis), `HttpConfig`, handshake HTTP real em porta livre com listagem das oito ferramentas, do prompt `plan_search` e chamada de `list_sources`, proteção contra DNS rebinding (`421` para host estranho e `200` para o host de `RSL_PUBLIC_URL`), cabeçalhos de proxy no `uvicorn.Config` e rota `GET /health`.
+- **Ids servidos:** D-011, D-006, D-017 (além de D-002, D-008 e NFR-03 preservados).
+- **O que foi assumido:**
+  - A configuração do modo HTTP foi estruturada em `HttpConfig` e `load_http()` dentro de `rslapp.config`, preservando intactos os campos de `Config` retornados por `config.load()` nas ferramentas e permitindo que `--port` atualize também a porta padrão de `RSL_PUBLIC_URL` (`http://127.0.0.1:<porta>`) quando `RSL_PUBLIC_URL` não está definida no ambiente.
+  - Em `TransportSecuritySettings`, além de `allowed_hosts` com os endereços de loopback (`127.0.0.1`, `localhost`, `[::1]`, puros e com `:*`) e o host de `RSL_PUBLIC_URL` (puro e com `:*`), `allowed_origins` também inclui loopback e a origem de `RSL_PUBLIC_URL` (pura e com `:*`) para não bloquear clientes que enviem cabeçalho `Origin` legítimo.
+- **O que não deu para verificar:** nada; todos os itens de "Pronto quando" foram verificados com testes automatizados locais em `127.0.0.1`.
 
 ## Como testar
 
-(preenche quem entrega: os comandos dos três gates, como subir o servidor HTTP à mão e conectar um cliente, o que deve aparecer e os pontos mais arriscados, o mais difícil primeiro)
+1. **Rode os três gates na raiz do repositório:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+   - **O que deve aparecer:** `All checks passed!` no `ruff check .` e `487 passed` nas duas execuções do `pytest` (Python 3.10 e Python 3.14).
+
+2. **Como subir o servidor HTTP à mão e conectar um cliente:**
+   - Num terminal, suba o servidor HTTP local numa porta livre (por exemplo, `8765`):
+     ```powershell
+     uv run rslapp serve --host 127.0.0.1 --port 8765
+     ```
+   - Noutro terminal, consulte `/health` e conecte um cliente MCP do SDK em `/mcp`:
+     ```powershell
+     uv run python -c "import httpx; print(httpx.get('http://127.0.0.1:8765/health').json())"
+     uv run python -c "import asyncio; from mcp import Client; exec('async def main():\n async with Client(\"http://127.0.0.1:8765/mcp\") as c:\n  print([t.name for t in (await c.list_tools()).tools])\n  print([p.name for p in (await c.list_prompts()).prompts])\n  print((await c.call_tool(\"list_sources\", {})).structured_content)\nasyncio.run(main())')"
+     ```
+   - **O que deve aparecer:**
+     - Em `GET /health`: `{'status': 'ok', 'version': '1.0.1'}`.
+     - Na conexão ao `/mcp`: as oito ferramentas (`search_works`, `find_work`, `get_related_works`, `repeat_search`, `get_list`, `get_search_log`, `export_list`, `list_sources`), o prompt `plan_search` e o retorno de `list_sources` idêntico ao modo stdio.
+     - Ao rodar `uv run rslapp serve --host 0.0.0.0`: mensagem de erro no `stderr` informando que o modo HTTP sem login só escuta em loopback e código de saída `1`.
+
+3. **Onde olhar primeiro (pontos mais arriscados, do mais difícil para o mais simples):**
+   1. **Proteção contra DNS rebinding e extração do host de `RSL_PUBLIC_URL` (`src/rslapp/server.py` — `build_transport_security` e `src/rslapp/config.py` — `parse_public_url_host`):** conferir que `TransportSecuritySettings` inclui exclusivamente os hosts de loopback (`127.0.0.1`, `localhost`, `[::1]`) e o host extraído de `RSL_PUBLIC_URL` (nas formas pura e `:*`), recusando qualquer outro cabeçalho `Host` com HTTP `421`.
+   2. **Bloqueio de escuta fora de loopback sem login e preservação de segredos (`src/rslapp/cli.py`, `src/rslapp/server.py` — `run_http` e `src/rslapp/config.py` — `load_http`):** garantir que tanto a CLI quanto `server.run_http` recusam hosts diferentes de `127.0.0.1`, `localhost` e `::1` antes de abrir socket no `uvicorn`, e que `HttpConfig` e erros de validação nunca expõem chaves de API no `repr` ou em exceções.
+   3. **Pureza do canal `stdout` no modo stdio padrão (`src/rslapp/cli.py` — `main`):** confirmar que `rslapp` chamado sem argumentos desvia imediatamente para `server.main()` sem acionar impressão do `argparse` nem tocar no `stdout`.
