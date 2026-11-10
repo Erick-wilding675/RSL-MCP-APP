@@ -6,10 +6,10 @@ import argparse
 import sys
 from collections.abc import Sequence
 
-from rslapp import config, server
+from rslapp import config, people, server
 
 
-# D-011: Monta o parser de linha de comando em português com o subcomando serve
+# D-011, D-016: Monta o parser de linha de comando em português com serve e token
 def build_parser() -> argparse.ArgumentParser:
     """Cria o parser de argumentos do comando rslapp em português."""
     parser = argparse.ArgumentParser(
@@ -45,7 +45,67 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PORTA",
         help="Porta em que o servidor HTTP escuta (sobrepõe RSL_HTTP_PORT; padrão: 8000)",
     )
+
+    # D-016: Subcomando token (add, list, revoke)
+    token_parser = subparsers.add_parser(
+        "token",
+        help="Gerencia pessoas e códigos pessoais de acesso (add, list, revoke)",
+        description="Gerencia o cadastro de pessoas e seus códigos pessoais de acesso.",
+    )
+    token_sub = token_parser.add_subparsers(
+        dest="token_command",
+        title="ações de token",
+        metavar="<ação>",
+        required=True,
+    )
+
+    token_add = token_sub.add_parser(
+        "add",
+        help="Cadastra uma pessoa e exibe o código pessoal uma única vez",
+    )
+    token_add.add_argument("id", type=str, help="Identificador da pessoa (1..40 caracteres)")
+    token_add.add_argument(
+        "--replace",
+        action="store_true",
+        help="Gera um código novo para pessoa existente ou revogada e a reativa",
+    )
+
+    token_sub.add_parser(
+        "list",
+        help="Lista as pessoas cadastradas sem exibir código nem hash",
+    )
+
+    token_revoke = token_sub.add_parser(
+        "revoke",
+        help="Marca uma pessoa como revogada sem apagar seus dados",
+    )
+    token_revoke.add_argument("id", type=str, help="Identificador da pessoa a revogar")
+
     return parser
+
+
+def _run_token_command(args: argparse.Namespace) -> None:
+    try:
+        if args.token_command == "add":
+            code = people.replace_code(args.id) if args.replace else people.add(args.id)
+            print(f"Pessoa: {args.id}")
+            print(f"Código pessoal: {code}")
+            print("Guarde este código agora: ele é mostrado uma vez só e não aparece de novo.")
+            return
+        if args.token_command == "list":
+            for person in people.list_people():
+                print(
+                    f"{person.id}\t{person.created_at}\t"
+                    f"{person.code_created_at}\t{person.status}"
+                )
+            return
+        if args.token_command == "revoke":
+            person = people.revoke(args.id)
+            print(f"Pessoa '{person.id}' marcada como {person.status}.")
+            return
+    except ValueError as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
 
 
 # D-008, D-011: Ponto de entrada principal do comando rslapp (stdio sem argumentos; HTTP em serve)
@@ -77,6 +137,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             raise SystemExit(1) from None
 
         server.run_http(host=http_cfg.host, port=http_cfg.port)
+        return
+
+    if args.command == "token":
+        _run_token_command(args)
         return
 
     server.main()
