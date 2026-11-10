@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
+import sys
 import threading
 from pathlib import Path
 
@@ -210,3 +212,49 @@ def test_d007_d016_token_add_concorrente_em_threads_nao_perde_pessoas(
     for pid, code in codes.items():
         found = people.find_by_code(code, data_dir=isolated_data_dir)
         assert found is not None and found.id == pid
+
+
+# D-016, D-004: user purge --yes apaga cadastro e people/maria/ sem tocar em joao; sem --yes cancela se outro texto
+def test_d016_user_purge_apaga_cadastro_e_pasta_e_cancela_sem_confirmacao(
+    isolated_data_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code_maria = people.add("maria")
+    code_joao = people.add("joao")
+
+    maria_dir = isolated_data_dir / "people" / "maria"
+    joao_dir = isolated_data_dir / "people" / "joao"
+    (maria_dir / "lists").mkdir(parents=True)
+    (maria_dir / "lists" / "l-0001.json").write_text("{}", encoding="utf-8")
+    (joao_dir / "lists").mkdir(parents=True)
+    (joao_dir / "lists" / "l-0001.json").write_text("{}", encoding="utf-8")
+
+    # Sem --yes, digitar outro texto cancela sem apagar nada
+    monkeypatch.setattr(sys, "stdin", io.StringIO("outro-texto\n"))
+    with pytest.raises(SystemExit) as exc_cancel:
+        cli.main(["user", "purge", "maria"])
+    assert exc_cancel.value.code != 0
+    capsys.readouterr()
+    assert people.get("maria") is not None
+    assert people.find_by_code(code_maria) is not None
+    assert (maria_dir / "lists" / "l-0001.json").exists()
+
+    # Com --yes, apaga o cadastro e a pasta de maria sem tocar em joao
+    cli.main(["user", "purge", "maria", "--yes"])
+    capsys.readouterr()
+    assert people.get("maria") is None
+    assert people.find_by_code(code_maria) is None
+    assert not maria_dir.exists()
+
+    assert people.get("joao") is not None
+    assert people.find_by_code(code_joao) is not None
+    assert (joao_dir / "lists" / "l-0001.json").exists()
+
+    # Sem --yes, digitar o id exato confirma e apaga
+    monkeypatch.setattr(sys, "stdin", io.StringIO("joao\n"))
+    cli.main(["user", "purge", "joao"])
+    capsys.readouterr()
+    assert people.get("joao") is None
+    assert not joao_dir.exists()
+

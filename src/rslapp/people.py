@@ -7,6 +7,7 @@ import hmac
 import json
 import re
 import secrets
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -185,6 +186,28 @@ def revoke(person_id: str, *, data_dir: Path | str | None = None) -> Person:
         current[idx] = updated
         _write_people(base_dir, current)
     return updated
+
+
+# D-016, D-004: Apaga a pessoa do cadastro e remove a pasta <RSL_DATA_DIR>/people/<id>/
+def purge(person_id: str, *, data_dir: Path | str | None = None) -> None:
+    """Apaga o cadastro da pessoa e a pasta people/<id>/ sem tocar nas demais."""
+    validate_person_id(person_id)
+    base_dir = _resolve_data_dir(data_dir)
+    people_root = (base_dir / "people").resolve()
+    person_dir = (people_root / person_id).resolve()
+    if person_dir.parent != people_root:
+        raise ValueError("Identificador inválido para exclusão de pasta.")
+    with file_lock(_lock_file(base_dir)):
+        current = _read_people(base_dir)
+        remaining = [p for p in current if p.id != person_id]
+        found_in_registry = len(remaining) != len(current)
+        dir_exists = person_dir.exists()
+        if not found_in_registry and not dir_exists:
+            raise ValueError(f"Pessoa '{person_id}' não encontrada.")
+        if found_in_registry:
+            _write_people(base_dir, remaining)
+        if dir_exists:
+            shutil.rmtree(person_dir)
 
 
 # D-016: Lista todas as pessoas cadastradas sem expor código nem hash

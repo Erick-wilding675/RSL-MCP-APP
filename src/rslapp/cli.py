@@ -81,6 +81,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     token_revoke.add_argument("id", type=str, help="Identificador da pessoa a revogar")
 
+    # D-016: Subcomando user (purge)
+    user_parser = subparsers.add_parser(
+        "user",
+        help="Gerencia os dados das pessoas cadastradas (purge)",
+        description="Gerencia os dados salvos das pessoas no servidor.",
+    )
+    user_sub = user_parser.add_subparsers(
+        dest="user_command",
+        title="ações de usuário",
+        metavar="<ação>",
+        required=True,
+    )
+    user_purge = user_sub.add_parser(
+        "purge",
+        help="Apaga a pessoa do cadastro e a pasta de dados dela",
+    )
+    user_purge.add_argument("id", type=str, help="Identificador da pessoa a apagar")
+    user_purge.add_argument(
+        "--yes",
+        action="store_true",
+        help="Pula a confirmação interativa e apaga imediatamente",
+    )
+
     return parser
 
 
@@ -103,6 +126,27 @@ def _run_token_command(args: argparse.Namespace) -> None:
             person = people.revoke(args.id)
             print(f"Pessoa '{person.id}' marcada como {person.status}.")
             return
+    except ValueError as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
+
+
+def _run_user_command(args: argparse.Namespace) -> None:
+    try:
+        people.validate_person_id(args.id)
+        if not args.yes:
+            try:
+                confirmed = input(f"Digite '{args.id}' para confirmar a exclusão: ")
+            except EOFError:
+                confirmed = ""
+            if confirmed.strip() != args.id:
+                print(
+                    "Operação cancelada: confirmação não confere. Nada foi apagado.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+        people.purge(args.id)
+        print(f"Pessoa '{args.id}' e sua pasta de dados foram apagadas.")
     except ValueError as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         raise SystemExit(1) from None
@@ -141,6 +185,10 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     if args.command == "token":
         _run_token_command(args)
+        return
+
+    if args.command == "user":
+        _run_user_command(args)
         return
 
     server.main()
