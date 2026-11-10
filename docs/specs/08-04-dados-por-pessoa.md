@@ -67,5 +67,5 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
 3. **Cache compartilhado separado da pasta da pessoa (`src/rslapp/store/__init__.py`, `Store.__init__`):** `self.cache_dir` aponta para `<RSL_DATA_DIR>/cache/` quando informado, mantendo o `.lock`, `lists/`, `searches/` e `log.md` dentro de `<RSL_DATA_DIR>/people/<id>/`.
 
 **Revisão do Claude (2026-11-10, run `b20261110-163816` do Playmaker):** aprovada numa rodada e integrada com os gates refeitos pelo `board integrate`. Conferido: a pasta da pessoa sai do id validado e não sai de `people/`; no modo HTTP sem pessoa, a ferramenta falha antes de gravar; o cache fica na raiz e o `Store` sem `cache_dir` continua igual; o stdio não muda. Acompanhamentos, não bloqueiam:
-- `_get_current_person_id` em `server.py` confere se `current_person_id` foi trocado por um teste (`_orig_current_person_id`). É indireção desnecessária: chamar `current_person_id()` direto já deixa o teste trocá-la. Limpar numa tarefa futura que mexa no `server.py`.
+- ~~`_get_current_person_id` com `_orig_current_person_id`~~: resolvido na 08-05.
 - O modo HTTP é marcado em dois lugares (`_HostOriginProtectionASGIApp` e `_HttpMCPServer.call_tool`); o segundo é o que vale dentro das ferramentas.

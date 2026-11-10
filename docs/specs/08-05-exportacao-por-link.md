@@ -1,6 +1,6 @@
 # Exportação por link temporário
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** a fazer
+**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
 
 ## O que faz
 
@@ -21,14 +21,14 @@ No modo HTTP, o arquivo exportado fica no servidor, longe de quem usa. Então `e
 
 ## Pronto quando
 
-- [ ] Teste: no modo HTTP, `export_list` em RIS devolve `download_url` e `expires_at` e não devolve `path`; baixar o link devolve exatamente o arquivo gravado, com `Content-Disposition: attachment`
-- [ ] Teste: o link baixa nos cinco formatos, com o tipo de conteúdo certo
-- [ ] Teste: link vencido (relógio adiantado no teste) recebe 410; link com um caractere trocado recebe 404
-- [ ] Teste: um token assinado direito mas apontando para `../`, para um caminho absoluto ou para a pasta de outra pessoa recebe 404
-- [ ] Teste: depois de `token revoke` da pessoa, os links dela deixam de baixar
-- [ ] Teste: sem `RSL_SECRET_KEY`, a chave é criada uma vez e reaproveitada depois de reiniciar (um link feito antes continua valendo)
-- [ ] Teste: no stdio, a resposta de `export_list` continua com `path` e sem `download_url` (os testes que já existem passam)
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] Teste: no modo HTTP, `export_list` em RIS devolve `download_url` e `expires_at` e não devolve `path`; baixar o link devolve exatamente o arquivo gravado, com `Content-Disposition: attachment`
+- [X] Teste: o link baixa nos cinco formatos, com o tipo de conteúdo certo
+- [X] Teste: link vencido (relógio adiantado no teste) recebe 410; link com um caractere trocado recebe 404
+- [X] Teste: um token assinado direito mas apontando para `../`, para um caminho absoluto ou para a pasta de outra pessoa recebe 404
+- [X] Teste: depois de `token revoke` da pessoa, os links dela deixam de baixar
+- [X] Teste: sem `RSL_SECRET_KEY`, a chave é criada uma vez e reaproveitada depois de reiniciar (um link feito antes continua valendo)
+- [X] Teste: no stdio, a resposta de `export_list` continua com `path` e sem `download_url` (os testes que já existem passam)
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 
 ## Vem de
 
@@ -78,3 +78,5 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
 1. **Assinatura HMAC-SHA256, chave secreta e confinamento à pasta da pessoa (`src/rslapp/downloads.py`, `load_secret_key`, `_is_safe_export_filename` e `handle_download`):** valida a assinatura em tempo constante (`hmac.compare_digest`) sobre o payload base64url canônico antes de decodificá-lo, recusa qualquer `..`, barra, drive ou caminho absoluto e confere `target_path.parent == exports_dir` dentro de `<RSL_DATA_DIR>/people/<id>/exports/`, além de exigir pessoa ativa (`person.is_active`) e proteger `auth/secret.key` com `0600` sem jamais expor a chave em logs, erros ou `repr`.
 2. **Resposta de `export_list` no modo HTTP vs stdio (`src/rslapp/server.py`, `export_list` e `_resolve_public_url`):** remove `path` apenas quando há pessoa autenticada no modo HTTP (`person_id is not None`), acrescentando `download_url` e `expires_at` e mantendo `url` em `openalex_url`, enquanto o modo stdio continua devolvendo `path` inalterado.
 3. **Respostas HTTP 410 vs 404 e tipos MIME dos cinco formatos (`src/rslapp/downloads.py`, `_MEDIA_TYPES` e `handle_download`):** devolve 410 com mensagem curta em português quando o link vence e 404 genérico nos demais casos de recusa, entregando os bytes exatos gravados em disco nos cinco formatos.
+
+**Revisão do Claude (2026-11-10, run `b20261110-163816` do Playmaker):** aprovada numa rodada e integrada com os gates refeitos pelo `board integrate`. Conferido: assinatura HMAC-SHA256 comparada com `compare_digest`; link vencido dá 410 e qualquer adulteração dá 404 sem dizer o motivo; o arquivo tem de estar em `people/<id>/exports/` da pessoa do token, e a pessoa tem de estar ativa; a chave é criada uma vez e reaproveitada; no stdio, `export_list` continua com `path`. O worker também tirou a indireção `_orig_current_person_id` que a revisão da 08-04 tinha anotado. Acompanhamentos, não bloqueiam: `handle_download` lê o atributo privado `_clock` do `AuthStore` para os testes; o `is_symlink()` depois do `resolve()` nunca é verdadeiro (a contenção já é garantida pela comparação de pastas).

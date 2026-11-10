@@ -70,6 +70,11 @@ curl https://rsl.seu-laboratorio.org/health
 
 A resposta esperada é `{"status":"ok","version":"..."}`.
 
+### Cuidados com a rede
+
+- **Não publique a porta 8000 do `rslapp`.** No compose, só o Caddy alcança o `rslapp`, e por isso o `RSL_FORWARDED_ALLOW_IPS=*` é seguro. Se alguém publicar a porta 8000 para fora, qualquer pessoa pode mandar um `X-Forwarded-For` falso e driblar o limite de tentativas de login por IP.
+- **Atrás de outro proxy** (o da universidade, um balanceador), configure `RSL_FORWARDED_ALLOW_IPS` com o IP desse proxy e confira que ele repassa o IP real de quem acessa. Se não repassar, todos parecem vir do mesmo IP, e 20 códigos errados de qualquer pessoa bloqueiam o login de todos por 15 minutos.
+
 ---
 
 ## 3. Cadastrar e gerenciar as pessoas
