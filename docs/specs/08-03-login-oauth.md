@@ -1,6 +1,6 @@
 # Login OAuth
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** a fazer
+**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
 
 ## O que faz
 
@@ -18,6 +18,10 @@ Coloca login no modo HTTP: o `rslapp serve` passa a ser, no mesmo processo, um s
 - **Quem é a pessoa:** a ferramenta descobre a pessoa do token da chamada (por `get_access_token()` do SDK ou pelo que o verificador devolve). Esta tarefa deixa uma função `current_person_id() -> str | None` pronta para a 08-04. No stdio, ela devolve `None`.
 - **Host de escuta:** com o login, `rslapp serve` passa a aceitar host fora do loopback (por exemplo, `0.0.0.0` no Docker), desde que `RSL_PUBLIC_URL` comece com `https://`. Com `RSL_PUBLIC_URL` em `http://`, só loopback, como na 08-01. No loopback, o login também vale: não existe modo HTTP sem login.
 
+## Decisões tomadas na revisão
+
+- **Segredo do cliente OAuth em texto no `clients.json`** (Claude, 2026-11-10, barata de desfazer): a primeira rodada guardava só o hash do `client_secret` e o segredo numa variável em memória, e a sessão caía a cada reinício, o que quebrava a D-016. Ficou como no exemplo oficial `simple-auth` do SDK: o segredo em `<RSL_DATA_DIR>/auth/clients.json`. Sozinho ele não dá acesso: os tokens de acesso e de renovação continuam só como hash, e o código de autorização exige PKCE.
+
 ## O que não faz
 
 - Não usa `auth_server_provider=` no `MCPServer` (legado, pela documentação do SDK).
@@ -29,16 +33,16 @@ Coloca login no modo HTTP: o `rslapp serve` passa a ser, no mesmo processo, um s
 
 ## Pronto quando
 
-- [ ] Teste, com o app ASGI e o `httpx.ASGITransport` (sem rede): o fluxo inteiro passa, com `GET /.well-known/oauth-protected-resource/mcp`, os metadados do servidor de autorização, `POST /register`, `GET /authorize` (redireciona para `/login`), `POST /login` com o código certo (redireciona com `code` e `state`), `POST /token` com PKCE, e uma chamada a `/mcp` com o token de acesso que lista as ferramentas
-- [ ] Teste: `/mcp` sem token recebe 401 com `WWW-Authenticate` apontando os metadados; com token inventado, 401
-- [ ] Teste: depois de `token revoke` da pessoa, o token de acesso e o de renovação dela deixam de valer na hora; depois de `token add --replace`, os tokens emitidos antes também
-- [ ] Teste: a renovação devolve um par novo, e o token de renovação antigo é recusado
-- [ ] Teste: o token de acesso vencido (relógio adiantado no teste) é recusado, e a renovação continua funcionando
-- [ ] Teste: o código de autorização vale uma vez só e vence em 5 minutos
-- [ ] Teste: 5 códigos errados no mesmo pedido levam a 429; a página com código errado não diz se a pessoa existe
-- [ ] Teste: nenhum arquivo de `auth/` contém um token ou código em texto; só hashes
-- [ ] Teste: `rslapp serve --host 0.0.0.0` com `RSL_PUBLIC_URL=https://exemplo.org` inicia; com `http://`, recusa
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] Teste, com o app ASGI e o `httpx.ASGITransport` (sem rede): o fluxo inteiro passa, com `GET /.well-known/oauth-protected-resource/mcp`, os metadados do servidor de autorização, `POST /register`, `GET /authorize` (redireciona para `/login`), `POST /login` com o código certo (redireciona com `code` e `state`), `POST /token` com PKCE, e uma chamada a `/mcp` com o token de acesso que lista as ferramentas
+- [X] Teste: `/mcp` sem token recebe 401 com `WWW-Authenticate` apontando os metadados; com token inventado, 401
+- [X] Teste: depois de `token revoke` da pessoa, o token de acesso e o de renovação dela deixam de valer na hora; depois de `token add --replace`, os tokens emitidos antes também
+- [X] Teste: a renovação devolve um par novo, e o token de renovação antigo é recusado
+- [X] Teste: o token de acesso vencido (relógio adiantado no teste) é recusado, e a renovação continua funcionando
+- [X] Teste: o código de autorização vale uma vez só e vence em 5 minutos
+- [X] Teste: 5 códigos errados no mesmo pedido levam a 429; a página com código errado não diz se a pessoa existe
+- [X] Teste: nenhum arquivo de `auth/` contém um token ou código em texto; só hashes
+- [X] Teste: `rslapp serve --host 0.0.0.0` com `RSL_PUBLIC_URL=https://exemplo.org` inicia; com `http://`, recusa
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 
 ## Vem de
 
@@ -109,3 +113,11 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
    - `RSLOAuthProvider.handle_login_post` lê o formulário antes de checar o limite por IP (sem `await` entre checar e contar a falha), nunca distingue pessoa inexistente de pessoa revogada na resposta HTML, envia `X-Frame-Options: DENY` e `Content-Security-Policy: frame-ancestors 'none'` e consome o pedido pendente ao emitir um `RSLAuthorizationCode` de uso único válido por 5 minutos.
 3. **Construção do `MCPServer` HTTP pelo construtor e regra de host (`src/rslapp/server.py`, `src/rslapp/config.py`, `src/rslapp/cli.py`):**
    - `_build_http_mcp_server` constrói o `MCPServer` passando `token_verifier=` e `auth=AuthSettings(validate_token_resource=True)` diretamente ao construtor (sem `auth_server_provider=` e sem tocar em atributos privados da instância global `mcp`), preserva a verificação de `Host`/`Origin` (`421`) antes de `RequireAuthMiddleware` (`401`) e `validate_http_host` exige `https://` em `RSL_PUBLIC_URL` para qualquer host fora de loopback.
+
+**Revisão do Claude (2026-11-10, run `b20261110-163816` do Playmaker):** duas rodadas. A primeira foi devolvida pelo gerente com o parecer do agente revisor: segredo do cliente só em memória (sessão caía ao reiniciar), código de teste no caminho de produção (`_install_asgi_transport_fallback`, mexendo em partes internas do SDK), `tokens.json` sem limpeza, limite por IP com corrida entre pedidos simultâneos, `/authorize` aceitando outro `resource`, sem teto de pedidos pendentes e sem proteção contra a página ser embutida. A segunda corrigiu tudo, com um teste que reinicia o servidor e renova o token de um cliente com `client_secret_post`. Integrada com os gates refeitos pelo `board integrate`. Conferido e certo: escape do HTML, redirecionamento só para o `redirect_uri` validado com o `state` original, código de uso único em 5 minutos, PKCE e `resource` presos ao código, rotação do token de renovação, verificação a cada pedido (hash, validade, `resource`, pessoa ativa, emitido depois do `code_created_at`), nada de segredo em log ou `repr`, stdio sem mudança.
+
+Acompanhamentos, não bloqueiam:
+- O servidor HTTP registra as oito ferramentas numa lista em `_build_http_mcp_server`. Uma ferramenta nova precisa entrar nos dois lugares; o teste da 08-01 que compara as ferramentas do HTTP com as do stdio falha se alguém esquecer.
+- Para o guia (08-06): se alguém publicar a porta 8000 do `rslapp` com `RSL_FORWARDED_ALLOW_IPS=*`, o IP do limite de tentativas pode ser falsificado; e atrás de um proxy sem essa variável, todos dividem o mesmo IP, e 20 códigos errados de qualquer pessoa bloqueiam o login de todos por 15 minutos.
+- O registro de clientes é aberto (como o Claude espera): qualquer um pode registrar um cliente com o nome "Claude". A tela mostra o nome do conector, mas não o endereço para onde volta.
+
