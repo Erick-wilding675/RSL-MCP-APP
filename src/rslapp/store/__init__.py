@@ -45,18 +45,24 @@ def _clean_sources(sources: Any) -> Any:
     return cleaned
 
 
-# D-007, FR-05, FR-09, FR-12, FR-13, NFR-03, NFR-06: Armazenamento somente em arquivos
+# D-007, D-012, D-013, FR-05, FR-09, FR-12, FR-13, NFR-03, NFR-06: Armazenamento somente em arquivos
 class Store:
     """Gerencia buscas, listas, log legível e cache na pasta de dados."""
 
-    def __init__(self, data_dir: Path | str, cache_days: int = 7) -> None:
+    def __init__(
+        self,
+        data_dir: Path | str,
+        cache_days: int = 7,
+        cache_dir: Path | str | None = None,
+    ) -> None:
         if type(cache_days) is not int or cache_days <= 0:
             raise ValueError("cache_days deve ser um inteiro positivo")
         self.data_dir: Path = Path(data_dir)
         self.cache_days: int = cache_days
         self.lists_dir: Path = self.data_dir / "lists"
         self.searches_dir: Path = self.data_dir / "searches"
-        self.cache_dir: Path = self.data_dir / "cache"
+        # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
+        self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
         self.lock_path: Path = self.data_dir / ".lock"
 
