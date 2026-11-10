@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-10T12:00:00Z
+updated: 2026-11-10T21:00:00Z
 updated_by: Claude Code
 ---
 
@@ -169,8 +169,10 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 
 **v1 lançada em 2026-11-05:** `rslapp` 1.0.0 no PyPI e release v1.0.0 no GitHub, com README. As 17 tarefas do plano (run `b20261102-221933` do Playmaker) estão prontas, testadas pelo Erick. Gates: ruff limpo e 455 testes em Python 3.10 e 3.14. O critério de aceite passou.
 
-- **Próximo passo decidido (D-011):** uso por link com modo HTTP e imagem Docker no próprio pacote, hospedado por quem quiser. Está em "Próximos passos" no `docs/plan.md`, ainda sem spec: escrever com o Erick quando ele quiser começar a v2.
-- **O que espera o Erick:** a LGPD (T-007) antes de divulgar.
+- **v2, fase 8 · Uso por link (2026-11-10): código pronto, 08-01 a 08-06 "para testar".** Decidida com o Erick (D-012 a D-018): login OAuth com código pessoal por pessoa (`rslapp token add|list|revoke`, `user purge`), sessão sem prazo, dados separados por pessoa com cache compartilhado, chaves de quem hospeda, exportação por link assinado de 1 hora, Docker com Caddy e imagem no ghcr.io, LGPD conferida antes de anunciar. 08-01 e 08-02 com o `agy` direto; 08-03 a 08-06 pela run `b20261110-163816` do Playmaker (08-03 em duas rodadas). 531 testes em 3.10 e 3.14. Teste à mão do servidor local: `/health`, 401 com metadados OAuth em `/mcp`, download falso 404.
+- **Falta a 08-07:** publicar a 1.1.0 (PyPI e ghcr.io; o pacote do ghcr.io nasce privado e o Erick precisa torná-lo público), os itens de Docker que ficaram da 08-06 (o Docker Desktop estava desligado) e o teste real do Erick num conector do Claude. **Antes, o Erick escolhe onde hospedar o teste** (pode ter custo).
+- **Acompanhamentos da v2** (no fim das specs 08-0x): a proteção de host (421) vale só para `/mcp`; `/health`, `/login`, `/authorize`, os metadados OAuth e `/downloads` respondem a qualquer `Host` (sem cookie nem sessão, risco baixo). O servidor HTTP registra as ferramentas numa lista em `_build_http_mcp_server`.
+- **O que espera o Erick:** a LGPD (T-007) antes de divulgar; escolher onde hospedar o teste da 08-07.
 - **07-01 · Entradas numéricas sem verdadeiro/falso (2026-11-09): pronta.** Feita pelo Gemini 4 Argon via `agy --dangerously-skip-permissions`, revisada e integrada na `main` e enviada ao GitHub. 471 testes em 3.10 e 3.14. Publicada como `rslapp` 1.0.1 no PyPI em 2026-11-09 (tag e release `v1.0.1`); testada pelo Erick no Claude Desktop em 2026-11-10.
 - **Para publicar uma versão nova:** subir `version` no `pyproject.toml` e `__version__` em `src/rslapp/__init__.py`, `uv build --no-sources`, conferir o sdist (`tar -tzf`), `lore secrets run --env prod -- uv publish dist/*`, tag e `gh release create`.
 - **Acompanhamentos das revisões** estão no fim de cada spec; nenhum bloqueia.
