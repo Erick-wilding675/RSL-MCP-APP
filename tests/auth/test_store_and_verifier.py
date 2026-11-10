@@ -22,12 +22,12 @@ from rslapp.auth import (
 )
 
 
-# D-016, NFR-03: Apenas hashes SHA-256 são gravados em <RSL_DATA_DIR>/auth/, nunca tokens nem segredos em claro
+# D-016, NFR-03: Tokens ficam só como hash SHA-256 em <RSL_DATA_DIR>/auth/, e client_secret persiste em clients.json
 def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Path) -> None:
     personal_code = people.add("ana", data_dir=tmp_path)
     store = AuthStore(data_dir=tmp_path)
 
-    client_secret_plain = "segredo-super-confidencial-do-cliente-123"
+    client_secret_plain = "fake-client-secret-123"
     client_info = OAuthClientInformationFull(
         client_id="client-1",
         client_secret=client_secret_plain,
@@ -35,6 +35,12 @@ def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Pat
         client_name="Claude",
     )
     store.save_client(client_info)
+
+    # Novo AuthStore na mesma pasta recupera o client_secret (sobrevive a reinício do servidor)
+    restarted_store = AuthStore(data_dir=tmp_path)
+    reloaded_client = restarted_store.get_client("client-1")
+    assert reloaded_client is not None
+    assert reloaded_client.client_secret == client_secret_plain
 
     oauth_token = store.issue_token_pair(
         person_id="ana",
@@ -54,11 +60,75 @@ def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Pat
             assert oauth_token.access_token not in content
             assert oauth_token.refresh_token not in content
             assert personal_code not in content
-            assert client_secret_plain not in content
 
     tokens_content = (auth_dir / "tokens.json").read_text(encoding="utf-8")
     assert hash_token(oauth_token.access_token) in tokens_content
     assert hash_token(oauth_token.refresh_token) in tokens_content
+
+
+# D-016, D-007: Ao gravar tokens.json, apaga tokens de acesso vencidos e tokens de pessoas revogadas ou inexistentes
+def test_d016_tokens_json_prunes_expired_access_tokens_and_revoked_or_missing_people(
+    tmp_path: Path,
+) -> None:
+    now_box = [datetime.now(timezone.utc) + timedelta(seconds=5)]
+    people.add("ana", data_dir=tmp_path)
+    people.add("beto", data_dir=tmp_path)
+    people.add("carlos", data_dir=tmp_path)
+
+    store = AuthStore(
+        data_dir=tmp_path,
+        access_token_minutes=60,
+        clock=lambda: now_box[0],
+    )
+
+    ana_t1 = store.issue_token_pair(
+        person_id="ana",
+        client_id="c1",
+        scopes=["rsl"],
+        resource="http://127.0.0.1:8000/mcp",
+    )
+    beto_t1 = store.issue_token_pair(
+        person_id="beto",
+        client_id="c1",
+        scopes=["rsl"],
+        resource="http://127.0.0.1:8000/mcp",
+    )
+    carlos_t1 = store.issue_token_pair(
+        person_id="carlos",
+        client_id="c1",
+        scopes=["rsl"],
+        resource="http://127.0.0.1:8000/mcp",
+    )
+    assert ana_t1.refresh_token is not None
+    assert beto_t1.refresh_token is not None
+    assert carlos_t1.refresh_token is not None
+
+    # Avança 61 minutos (access token de ana vence), revoga beto e remove carlos
+    now_box[0] = now_box[0] + timedelta(minutes=61)
+    people.revoke("beto", data_dir=tmp_path)
+    people.purge("carlos", data_dir=tmp_path)
+
+    # Ao gravar novamente (por exemplo, emitindo novo par para ana), tokens.json é limpo
+    ana_t2 = store.issue_token_pair(
+        person_id="ana",
+        client_id="c1",
+        scopes=["rsl"],
+        resource="http://127.0.0.1:8000/mcp",
+    )
+    assert ana_t2.refresh_token is not None
+
+    tokens_content = (tmp_path / "auth" / "tokens.json").read_text(encoding="utf-8")
+    # Access token vencido de ana foi apagado do arquivo
+    assert hash_token(ana_t1.access_token) not in tokens_content
+    # Refresh token válido de ana (sem vencimento) e o novo par de ana permanecem
+    assert hash_token(ana_t1.refresh_token) in tokens_content
+    assert hash_token(ana_t2.access_token) in tokens_content
+    assert hash_token(ana_t2.refresh_token) in tokens_content
+    # Todos os tokens de beto (revogado) e carlos (inexistente) foram apagados do arquivo
+    assert hash_token(beto_t1.access_token) not in tokens_content
+    assert hash_token(beto_t1.refresh_token) not in tokens_content
+    assert hash_token(carlos_t1.access_token) not in tokens_content
+    assert hash_token(carlos_t1.refresh_token) not in tokens_content
 
 
 # D-015, D-016: Verificação por requisição valida hash, vencimento, resource e vínculo com a pessoa

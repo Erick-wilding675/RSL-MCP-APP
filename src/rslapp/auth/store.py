@@ -23,9 +23,6 @@ CLIENTS_FILENAME = "clients.json"
 TOKENS_FILENAME = "tokens.json"
 LOCK_FILENAME = ".lock"
 
-# Mapa apenas em memória para reidratar client_secret na sessão atual sem gravá-lo em texto puro no disco (NFR-03)
-_RUNTIME_CLIENT_SECRETS: dict[str, str] = {}
-
 
 def _now_utc() -> datetime:
     """Devolve o instante atual em UTC."""
@@ -233,10 +230,28 @@ class AuthStore:
             return []
         return [StoredToken.from_dict(item) for item in items if isinstance(item, dict)]
 
+    def _is_token_expired(self, record: StoredToken, now_dt: datetime) -> bool:
+        """Indica se um registro de token com data de validade já venceu."""
+        if record.expires_at is None:
+            return False
+        return now_dt >= _parse_utc(record.expires_at)
+
+    def _prune_invalid_tokens(self, tokens: list[StoredToken]) -> list[StoredToken]:
+        """Remove tokens de acesso vencidos e tokens de pessoas inexistentes, revogadas ou com código trocado."""
+        now_dt = self.now()
+        return [
+            item
+            for item in tokens
+            if not self._is_token_expired(item, now_dt)
+            and self._is_token_record_valid_for_person(item)
+        ]
+
+    # D-016, D-007: Ao gravar tokens.json, apaga tokens de acesso vencidos e tokens de pessoas revogadas/inexistentes
     def _write_tokens_unlocked(self, tokens: list[StoredToken]) -> None:
+        active_tokens = self._prune_invalid_tokens(tokens)
         payload = (
             json.dumps(
-                {"tokens": [t.to_dict() for t in tokens]},
+                {"tokens": [t.to_dict() for t in active_tokens]},
                 ensure_ascii=False,
                 indent=2,
             )
@@ -244,18 +259,10 @@ class AuthStore:
         )
         atomic_write_replace(self._tokens_path(), payload)
 
-    # D-015, NFR-03: Registro dinâmico de cliente sem salvar client_secret em texto puro no disco
+    # D-015, D-016, D-007: Registro dinâmico de cliente persistido em <RSL_DATA_DIR>/auth/clients.json
     def save_client(self, client_info: OAuthClientInformationFull) -> None:
-        """Persiste os metadados de um cliente OAuth guardando apenas o hash do segredo em disco."""
+        """Persiste os metadados de um cliente OAuth (incluindo client_secret, como no simple-auth do SDK)."""
         data = client_info.model_dump(mode="json")
-        raw_secret = data.pop("client_secret", None)
-        if raw_secret:
-            secret_hash = hash_token(str(raw_secret))
-            data["client_secret_hash"] = secret_hash
-            _RUNTIME_CLIENT_SECRETS[secret_hash] = str(raw_secret)
-        else:
-            data["client_secret_hash"] = None
-
         with file_lock(self._lock_path()):
             clients = self._read_clients_unlocked()
             clients[client_info.client_id] = data
@@ -268,14 +275,7 @@ class AuthStore:
             raw = clients.get(client_id)
             if raw is None:
                 return None
-
-        data = dict(raw)
-        secret_hash = data.pop("client_secret_hash", None)
-        if secret_hash and secret_hash in _RUNTIME_CLIENT_SECRETS:
-            data["client_secret"] = _RUNTIME_CLIENT_SECRETS[secret_hash]
-        else:
-            data["client_secret"] = None
-        return OAuthClientInformationFull.model_validate(data)
+        return OAuthClientInformationFull.model_validate(raw)
 
     def _compute_issued_at(self, person_id: str) -> datetime:
         """Calcula o timestamp de emissão garantindo monotonicidade após code_created_at atual."""

@@ -14,6 +14,7 @@ from starlette.applications import Starlette
 
 from rslapp import people
 from rslapp.auth import AuthStore, RSLOAuthProvider, build_auth_routes
+from rslapp.auth.provider import MAX_PENDING_AUTH_REQUESTS
 
 
 def _pkce_pair(verifier: str = "verificador-pkce-de-teste-com-tamanho-suficiente-12345") -> tuple[str, str]:
@@ -94,6 +95,8 @@ async def test_d015_login_page_is_self_contained_portuguese_and_shows_connector(
         )
         page_resp = await client.get("/login", params={"req": req_id})
         assert page_resp.status_code == 200
+        assert page_resp.headers.get("x-frame-options") == "DENY"
+        assert page_resp.headers.get("content-security-policy") == "frame-ancestors 'none'"
         html_body = page_resp.text
 
         assert 'lang="pt-BR"' in html_body
@@ -271,3 +274,85 @@ async def test_d015_twenty_wrong_codes_per_ip_in_15_minutes_returns_429_in_memor
         _, fresh_req, _ = await _register_and_start_authorize(client)
         get_fresh = await client.get("/login", params={"req": fresh_req})
         assert get_fresh.status_code == 200
+
+
+# D-015: /authorize com resource diferente de <RSL_PUBLIC_URL>/mcp é recusado com invalid_target
+@pytest.mark.anyio
+async def test_d015_authorize_rejects_mismatched_resource_with_invalid_target(
+    tmp_path: Path,
+) -> None:
+    time_box = [time.time()]
+    app, _ = _create_auth_test_app(tmp_path, time_box=time_box, public_url="http://127.0.0.1:8000")
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
+        reg_resp = await client.post(
+            "/register",
+            json={
+                "client_name": "Claude",
+                "redirect_uris": ["http://localhost:3030/callback"],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        assert reg_resp.status_code == 201
+        client_id = reg_resp.json()["client_id"]
+        _, challenge = _pkce_pair()
+
+        bad_resp = await client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": client_id,
+                "redirect_uri": "http://localhost:3030/callback",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "state": "st-bad",
+                "scope": "rsl",
+                "resource": "https://outro.servidor.org/mcp",
+            },
+        )
+        assert bad_resp.status_code == 302
+        parsed = urlsplit(bad_resp.headers["location"])
+        qs = parse_qs(parsed.query)
+        assert qs["error"] == ["invalid_target"]
+        assert qs["state"] == ["st-bad"]
+
+
+# D-015: Teto em _pending_requests recusa novos pedidos de autorização acima do limite
+@pytest.mark.anyio
+async def test_d015_authorize_enforces_pending_requests_cap(
+    tmp_path: Path,
+) -> None:
+    time_box = [time.time()]
+    app, provider = _create_auth_test_app(tmp_path, time_box=time_box)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
+        client_info, first_req_id, _ = await _register_and_start_authorize(client)
+        first_pending = provider._pending_requests[first_req_id]
+
+        # Preenche _pending_requests até o teto MAX_PENDING_AUTH_REQUESTS
+        for idx in range(len(provider._pending_requests), MAX_PENDING_AUTH_REQUESTS):
+            provider._pending_requests[f"req-lotado-{idx}"] = first_pending
+        assert len(provider._pending_requests) == MAX_PENDING_AUTH_REQUESTS
+
+        _, challenge = _pkce_pair()
+        overflow_resp = await client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": client_info["client_id"],
+                "redirect_uri": "http://localhost:3030/callback",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "state": "st-overflow",
+                "scope": "rsl",
+            },
+        )
+        assert overflow_resp.status_code == 302
+        qs = parse_qs(urlsplit(overflow_resp.headers["location"]).query)
+        assert qs["error"] == ["temporarily_unavailable"]
+        assert qs["state"] == ["st-overflow"]
+        assert len(provider._pending_requests) == MAX_PENDING_AUTH_REQUESTS

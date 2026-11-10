@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 
 from mcp.server.auth.provider import (
     AuthorizationParams,
+    AuthorizeError,
     OAuthAuthorizationServerProvider,
     TokenError,
     construct_redirect_uri,
@@ -34,6 +35,7 @@ from rslapp.auth.store import (
 )
 
 PENDING_AUTH_TTL_SECONDS = 600
+MAX_PENDING_AUTH_REQUESTS = 1000
 AUTH_CODE_TTL_SECONDS = 300
 MAX_WRONG_CODES_PER_REQUEST = 5
 MAX_WRONG_CODES_PER_IP = 20
@@ -42,6 +44,8 @@ IP_RATE_LIMIT_WINDOW_SECONDS = 900
 _NO_STORE_HEADERS = {
     "Cache-Control": "no-store",
     "Pragma": "no-cache",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "frame-ancestors 'none'",
 }
 
 
@@ -335,13 +339,23 @@ class RSLOAuthProvider(
         now_ts = self._now_ts()
         self._prune_expired_memory_state(now_ts)
 
+        if params.resource is not None:
+            normalized_resource = normalize_resource_url(params.resource)
+            if normalized_resource != self._resource_server_url:
+                raise AuthorizeError(
+                    error="invalid_target",
+                    error_description="O recurso solicitado não corresponde ao endpoint /mcp deste servidor",
+                )
+        resource = self._resource_server_url
+
+        if len(self._pending_requests) >= MAX_PENDING_AUTH_REQUESTS:
+            raise AuthorizeError(
+                error="temporarily_unavailable",
+                error_description="Muitos pedidos de autorização pendentes; tente novamente em instantes",
+            )
+
         req_id = secrets.token_urlsafe(24)
         scopes = list(params.scopes) if params.scopes else ["rsl"]
-        resource = (
-            normalize_resource_url(params.resource)
-            if params.resource
-            else self._resource_server_url
-        ) or self._resource_server_url
 
         self._pending_requests[req_id] = PendingAuthRequest(
             req_id=req_id,
@@ -508,6 +522,10 @@ class RSLOAuthProvider(
     # D-015, D-012: Validação do código pessoal em POST /login com limite de tentativas em memória
     async def handle_login_post(self, request: Request) -> Response:
         """Valida o código pessoal informado e redireciona com o código de autorização OAuth."""
+        form_data: dict[str, Any] = dict(await request.form())
+        req_id = str(form_data.get("req") or request.query_params.get("req") or "").strip()
+        submitted_code = str(form_data.get("code") or "")
+
         now_ts = self._now_ts()
         self._prune_expired_memory_state(now_ts)
 
@@ -524,10 +542,6 @@ class RSLOAuthProvider(
                 status_code=429,
                 headers=_NO_STORE_HEADERS,
             )
-
-        form_data: dict[str, Any] = dict(await request.form())
-        req_id = str(form_data.get("req") or request.query_params.get("req") or "").strip()
-        submitted_code = str(form_data.get("code") or "")
 
         pending = self._pending_requests.get(req_id)
         if pending is None or now_ts >= pending.expires_at:
