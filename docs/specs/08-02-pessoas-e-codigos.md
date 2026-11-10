@@ -1,6 +1,6 @@
 # Pessoas e códigos
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** a fazer
+**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
 
 ## O que faz
 
@@ -29,14 +29,14 @@ Dá a quem hospeda os comandos para cadastrar as pessoas que vão usar o servido
 
 ## Pronto quando
 
-- [ ] Teste: `token add maria` cria a pessoa, mostra um código que começa com `rsl_`, e o `people.json` não contém o código em texto, só o hash
-- [ ] Teste: `find_by_code` acha a pessoa com o código certo e devolve `None` com um código errado, com um código de pessoa revogada e com texto vazio
-- [ ] Teste: `token add maria` de novo é recusado; `token add maria --replace` gera outro código, o antigo deixa de valer e `code_created_at` muda
-- [ ] Teste: `token revoke maria` deixa a pessoa revogada e mantém a pasta `people/maria/`; `token list` mostra `revogada` e não mostra código nem hash
-- [ ] Teste: `user purge maria --yes` apaga o cadastro e a pasta `people/maria/`, e não toca em `people/joao/`; sem `--yes`, digitar outro texto cancela sem apagar nada
-- [ ] Teste: `token add "../x"`, `token add Maria`, `token add ""` e um id com 41 caracteres são recusados
-- [ ] Teste: duas chamadas de `token add` ao mesmo tempo (threads) não perdem nenhuma das pessoas
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] Teste: `token add maria` cria a pessoa, mostra um código que começa com `rsl_`, e o `people.json` não contém o código em texto, só o hash
+- [X] Teste: `find_by_code` acha a pessoa com o código certo e devolve `None` com um código errado, com um código de pessoa revogada e com texto vazio
+- [X] Teste: `token add maria` de novo é recusado; `token add maria --replace` gera outro código, o antigo deixa de valer e `code_created_at` muda
+- [X] Teste: `token revoke maria` deixa a pessoa revogada e mantém a pasta `people/maria/`; `token list` mostra `revogada` e não mostra código nem hash
+- [X] Teste: `user purge maria --yes` apaga o cadastro e a pasta `people/maria/`, e não toca em `people/joao/`; sem `--yes`, digitar outro texto cancela sem apagar nada
+- [X] Teste: `token add "../x"`, `token add Maria`, `token add ""` e um id com 41 caracteres são recusados
+- [X] Teste: duas chamadas de `token add` ao mesmo tempo (threads) não perdem nenhuma das pessoas
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 
 ## Vem de
 
@@ -92,3 +92,5 @@ Cerca de 300 linhas, testes incluídos. Um commit para o cadastro e os comandos,
    1. **Proteção do código pessoal e comparação em tempo constante (`src/rslapp/people.py` — `Person`, `add`, `replace_code`, `find_by_code`):** conferir que o código `rsl_...` nunca é gravado em `people.json` nem exposto em `repr`, logs ou mensagens de erro, e que `find_by_code` compara apenas o SHA-256 via `hmac.compare_digest` e exige `person.is_active`.
    2. **Validação estrita de `<id>` e contenção de caminho no `purge` (`src/rslapp/people.py` — `validate_person_id` e `purge`):** confirmar que qualquer valor fora de `^[a-z0-9][a-z0-9_-]{0,39}$` (como `../x`, `Maria`, vazio ou 41 caracteres) é recusado antes de tocar no disco e que `shutil.rmtree` só remove subpastas diretas de `<RSL_DATA_DIR>/people/`.
    3. **Concorrência na gravação de `auth/people.json` (`src/rslapp/people.py` — `add`, `replace_code`, `revoke`, `purge`):** verificar que leitura, alteração e escrita atômica (`atomic_write_replace`) ocorrem inteiramente dentro de `file_lock(<RSL_DATA_DIR>/auth/.lock)`.
+
+**Revisão do Claude (2026-11-10):** aprovada. Gates refeitos: ruff limpo, 500 testes em 3.10 e em 3.14. Conferido à mão numa pasta temporária: o código aparece uma vez, o `people.json` não contém nenhum `rsl_`, o `purge` cancela quando a confirmação não confere e `token add ../x` é recusado. Acompanhamentos, não bloqueiam: `token list` sai sem linha de cabeçalho; `Person.__getitem__` é dispensável.
