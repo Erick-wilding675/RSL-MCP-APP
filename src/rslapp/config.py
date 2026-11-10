@@ -13,6 +13,7 @@ DEFAULT_CACHE_DAYS = 7
 DEFAULT_HTTP_HOST = "127.0.0.1"
 DEFAULT_HTTP_PORT = 8000
 DEFAULT_FORWARDED_ALLOW_IPS = "127.0.0.1"
+DEFAULT_ACCESS_TOKEN_MINUTES = 60
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
@@ -82,7 +83,7 @@ def load() -> Config:
     )
 
 
-# D-011, D-017, NFR-03: Configuração imutável do modo HTTP sem expor valores secretos no repr
+# D-011, D-015, D-017, NFR-03: Configuração imutável do modo HTTP sem expor valores secretos no repr
 @dataclass(frozen=True)
 class HttpConfig:
     """Configuração imutável do modo HTTP carregada do ambiente e da linha de comando."""
@@ -91,6 +92,7 @@ class HttpConfig:
     port: int = DEFAULT_HTTP_PORT
     public_url: str = f"http://{DEFAULT_HTTP_HOST}:{DEFAULT_HTTP_PORT}"
     forwarded_allow_ips: str = DEFAULT_FORWARDED_ALLOW_IPS
+    access_token_minutes: int = DEFAULT_ACCESS_TOKEN_MINUTES
 
 
 # D-011: Verifica se o host de escuta é um endereço de loopback permitido sem login
@@ -124,7 +126,26 @@ def _parse_http_port(raw_value: str | None) -> int:
     return port
 
 
-# D-011, D-017: Lê a configuração do modo HTTP com sobreposição por --host e --port
+# D-015, D-016: Prazo em minutos do token de acesso OAuth (RSL_ACCESS_TOKEN_MINUTES, padrão 60)
+def _parse_access_token_minutes(raw_value: str | None) -> int:
+    """Valida e converte RSL_ACCESS_TOKEN_MINUTES para inteiro positivo."""
+    if raw_value is None or not raw_value.strip():
+        return DEFAULT_ACCESS_TOKEN_MINUTES
+    try:
+        minutes = int(raw_value.strip())
+    except ValueError:
+        raise ValueError("RSL_ACCESS_TOKEN_MINUTES deve ser um inteiro positivo") from None
+    if minutes <= 0:
+        raise ValueError("RSL_ACCESS_TOKEN_MINUTES deve ser um inteiro positivo")
+    return minutes
+
+
+def load_access_token_minutes() -> int:
+    """Lê RSL_ACCESS_TOKEN_MINUTES do ambiente (padrão 60)."""
+    return _parse_access_token_minutes(os.environ.get("RSL_ACCESS_TOKEN_MINUTES"))
+
+
+# D-011, D-015, D-017: Lê a configuração do modo HTTP com sobreposição por --host e --port
 def load_http(*, host: str | None = None, port: int | None = None) -> HttpConfig:
     """Lê as variáveis de ambiente do modo HTTP, aplicando --host e --port quando informados."""
     if host is not None:
@@ -155,9 +176,12 @@ def load_http(*, host: str | None = None, port: int | None = None) -> HttpConfig
     else:
         resolved_forwarded = DEFAULT_FORWARDED_ALLOW_IPS
 
+    access_token_minutes = load_access_token_minutes()
+
     return HttpConfig(
         host=resolved_host,
         port=resolved_port,
         public_url=resolved_public_url,
         forwarded_allow_ips=resolved_forwarded,
+        access_token_minutes=access_token_minutes,
     )
