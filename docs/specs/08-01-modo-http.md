@@ -1,6 +1,6 @@
 # Modo HTTP
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** a fazer
+**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
 
 ## O que faz
 
@@ -32,13 +32,13 @@ Cria o comando `rslapp serve`, que serve as mesmas oito ferramentas e o mesmo pr
 
 ## Pronto quando
 
-- [ ] Teste: `rslapp` sem argumento continua servindo por stdio (o teste de handshake por stdio que já existe passa sem mudança)
-- [ ] Teste: com o servidor HTTP de pé numa porta livre (uvicorn numa thread ou num subprocesso), um cliente do SDK conectado por HTTP em `/mcp` lista as oito ferramentas e o prompt, e `list_sources` responde igual ao stdio
-- [ ] Teste: uma chamada com o cabeçalho `Host` de um domínio que não é o de `RSL_PUBLIC_URL` recebe 421; com `Host` igual ao domínio de `RSL_PUBLIC_URL`, passa
-- [ ] Teste: `GET /health` devolve 200 com `status` e `version`, e nada mais
-- [ ] Teste: `rslapp serve --host 0.0.0.0` sai com erro e mensagem clara, sem abrir a porta
-- [ ] Teste: `rslapp --help` e `rslapp serve --help` mostram os comandos em português, sem iniciar servidor nenhum
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] Teste: `rslapp` sem argumento continua servindo por stdio (o teste de handshake por stdio que já existe passa sem mudança)
+- [X] Teste: com o servidor HTTP de pé numa porta livre (uvicorn numa thread ou num subprocesso), um cliente do SDK conectado por HTTP em `/mcp` lista as oito ferramentas e o prompt, e `list_sources` responde igual ao stdio
+- [X] Teste: uma chamada com o cabeçalho `Host` de um domínio que não é o de `RSL_PUBLIC_URL` recebe 421; com `Host` igual ao domínio de `RSL_PUBLIC_URL`, passa
+- [X] Teste: `GET /health` devolve 200 com `status` e `version`, e nada mais
+- [X] Teste: `rslapp serve --host 0.0.0.0` sai com erro e mensagem clara, sem abrir a porta
+- [X] Teste: `rslapp --help` e `rslapp serve --help` mostram os comandos em português, sem iniciar servidor nenhum
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 
 ## Vem de
 
@@ -95,3 +95,5 @@ Cerca de 300 linhas. Um commit por item do "O que faz" que for grande (comandos;
    1. **Proteção contra DNS rebinding e extração do host de `RSL_PUBLIC_URL` (`src/rslapp/server.py` — `build_transport_security` e `src/rslapp/config.py` — `parse_public_url_host`):** conferir que `TransportSecuritySettings` inclui exclusivamente os hosts de loopback (`127.0.0.1`, `localhost`, `[::1]`) e o host extraído de `RSL_PUBLIC_URL` (nas formas pura e `:*`), recusando qualquer outro cabeçalho `Host` com HTTP `421`.
    2. **Bloqueio de escuta fora de loopback sem login e preservação de segredos (`src/rslapp/cli.py`, `src/rslapp/server.py` — `run_http` e `src/rslapp/config.py` — `load_http`):** garantir que tanto a CLI quanto `server.run_http` recusam hosts diferentes de `127.0.0.1`, `localhost` e `::1` antes de abrir socket no `uvicorn`, e que `HttpConfig` e erros de validação nunca expõem chaves de API no `repr` ou em exceções.
    3. **Pureza do canal `stdout` no modo stdio padrão (`src/rslapp/cli.py` — `main`):** confirmar que `rslapp` chamado sem argumentos desvia imediatamente para `server.main()` sem acionar impressão do `argparse` nem tocar no `stdout`.
+
+**Revisão do Claude (2026-11-10):** aprovada. A rodada do Gemini foi interrompida pelo Claude Code por falta de memória na máquina, depois dos três commits e durante a conferência final; os gates foram refeitos na revisão: ruff limpo, 487 testes em 3.10 e em 3.14. A entrega passou de 400 linhas (851, das quais cerca de 550 de testes), dividida em três commits. Acompanhamentos, não bloqueiam: a recusa de host fora do loopback está repetida em `cli.py` e em `server.run_http` (a 08-03 troca essa regra nos dois lugares); `allowed_origins` aceita só `http://` no loopback, o que basta porque os clientes MCP não mandam `Origin`.
