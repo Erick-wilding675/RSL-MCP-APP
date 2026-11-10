@@ -1,0 +1,43 @@
+# D-011, D-013, D-017: Compose para hospedar o RSL.app com HTTPS automático pelo Caddy.
+services:
+  rslapp:
+    image: ghcr.io/erick-wilding675/rsl-mcp-app:latest
+    restart: unless-stopped
+    # D-017: Sem porta publicada para fora; apenas o Caddy na rede interna alcança rslapp:8000.
+    expose:
+      - "8000"
+    environment:
+      RSL_DATA_DIR: /data
+      RSL_HTTP_HOST: 0.0.0.0
+      RSL_HTTP_PORT: "8000"
+      RSL_PUBLIC_URL: ${RSL_PUBLIC_URL:-https://rsl.exemplo.org}
+      # D-017: RSL_FORWARDED_ALLOW_IPS=* é seguro somente neste arranjo, porque o serviço
+      # rslapp não publica porta no host e apenas o container do Caddy alcança rslapp:8000.
+      RSL_FORWARDED_ALLOW_IPS: "*"
+      # D-013: Chaves de API configuradas por quem hospeda
+      OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
+      SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
+      RSL_CONTACT_EMAIL: ${RSL_CONTACT_EMAIL:-}
+    volumes:
+      - rsl_data:/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - rslapp
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      RSL_DOMAIN: ${RSL_DOMAIN:-rsl.exemplo.org}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  rsl_data:
+  caddy_data:
+  caddy_config:

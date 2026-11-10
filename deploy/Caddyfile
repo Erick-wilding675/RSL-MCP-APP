@@ -1,0 +1,4 @@
+# D-011, D-017: HTTPS automático pelo Caddy encaminhando para o container interno do rslapp
+{$RSL_DOMAIN} {
+	reverse_proxy rslapp:8000
+}
