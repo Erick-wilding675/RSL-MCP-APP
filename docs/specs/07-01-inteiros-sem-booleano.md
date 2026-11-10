@@ -78,3 +78,5 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
 **Revisão do Claude (2026-11-09):** aprovada. Gates refeitos na revisão: ruff limpo, 471 testes em 3.10 e em 3.14. O `input_schema` das oito ferramentas, comparado byte a byte com o da `main`, ficou idêntico. Acompanhamento, não bloqueia: o teste de `2.5` só confere `is_error`, sem olhar a mensagem.
 
 **Teste manual do Erick (opcional):** o Claude Desktop usa o `rslapp` do PyPI, então só vê a mudança depois de uma versão nova (1.0.1). Para conferir antes da versão nova, rode `uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q tests/test_server_int_inputs.py` e veja `16 passed`.
+
+**Publicação (2026-11-09):** `rslapp` 1.0.1 no PyPI (wheel e sdist, token do Lore), conferido com `uvx --no-cache --from rslapp==1.0.1`. Tag `v1.0.1` e release no GitHub. Falta o teste do Erick no Claude Desktop para marcar como pronta.
