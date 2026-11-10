@@ -111,3 +111,67 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Fontes:** conversa de 2026-11-05 (Claude Code)
 - **Situação:** decidida; entra no plano como próximo passo, sem spec ainda
 - **A pensar na spec:** como entregar as exportações a quem está do outro lado da rede (link temporário ou conteúdo na resposta, já que o arquivo fica no servidor); de onde vêm as chaves num servidor compartilhado; autenticação do link; separação de listas e log por pessoa; o que a LGPD pede quando os dados de autores ficam num servidor de terceiros (T-007)
+
+## D-012 · v2: acesso por token de cada pessoa, que também separa os dados
+
+- **Decisão:** no modo HTTP, quem hospeda gera um token para cada pessoa e pode revogá-lo. O token identifica a pessoa, e as listas, o log e as exportações de cada uma ficam separados.
+- **Motivo:** o Erick escolheu a opção que eu recomendei. É pouco código, deixa tirar uma pessoa sem afetar as outras e resolve a separação dos dados sem login de verdade.
+- **Alternativas:** um token para todos (sem separação nem revogação individual); OAuth completo (funciona em qualquer cliente, mas é bem mais código e configuração); sem login (só numa rede fechada).
+- **A conferir na spec:** pela documentação do Claude (claude.com/docs/connectors/custom/remote-mcp, lida em 2026-11-10), os cabeçalhos fixos ("Request headers") dos conectores estão em beta, só para algumas organizações; no plano Team ou Enterprise o Owner adiciona o conector e o cabeçalho vale para todos; para credencial por pessoa, a página recomenda OAuth. O Claude Code aceita `--header`. Por isso a spec precisa de um meio de levar o token que funcione sem cabeçalho.
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code)
+- **Situação:** decidida
+
+## D-013 · v2: as chaves de API são de quem hospeda
+
+- **Decisão:** no modo HTTP, as chaves do OpenAlex e da Semantic Scholar ficam no servidor, configuradas por quem hospeda, e valem para todos os usuários do link.
+- **Motivo:** o Erick escolheu a opção que eu recomendei. Quem usa o link não precisa criar chave nenhuma, que é o objetivo do uso por link. A cota do OpenAlex (10.000 créditos por dia; um dia de testes gastou 36) folga para um laboratório.
+- **Alternativas:** cada pessoa manda a própria chave (mais justo com a cota, mas cada um precisa criar chave); as duas (mais código e teste).
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code)
+- **Situação:** decidida
+
+## D-014 · v2: exportação por link temporário
+
+- **Decisão:** no modo HTTP, `export_list` grava o arquivo no servidor e devolve um link de download que vale 1 hora, ajustável por quem hospeda. A pessoa clica e baixa o arquivo para abrir no VOSviewer.
+- **Motivo:** o Erick escolheu a opção que eu recomendei. A resposta à IA fica pequena, mesmo numa lista de 1.000 artigos, e o arquivo chega igual ao do modo stdio.
+- **Alternativas:** o conteúdo do arquivo na resposta (sem rota extra, mas pesa no contexto da IA); os dois.
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code)
+- **Situação:** decidida
+
+## D-015 · v2: login por OAuth, com o código pessoal na tela de login
+
+- **Decisão:** o modo HTTP é um servidor OAuth completo, com o SDK `mcp` 2.x: registro automático de clientes, autorização, token, renovação e revogação. Na tela de login, a pessoa digita o código pessoal que quem hospeda gerou para ela (D-016). O token por pessoa da D-012 vira esse código; a separação dos dados por pessoa continua.
+- **Motivo:** o Erick escolheu OAuth contra a minha recomendação (token no cabeçalho ou na URL), porque a documentação do Claude diz que os cabeçalhos fixos dos conectores estão em beta e valem para a organização inteira no Team e no Enterprise, e recomenda OAuth para credencial por pessoa. Para a tela de login, escolheu o código pessoal, que eu recomendei: não depende de serviço de fora nem guarda e-mail.
+- **Alternativas:** token no cabeçalho ou dentro da URL (pouco código, mas não funciona por pessoa em todos os planos do Claude, e o link pode vazar); só cabeçalho; login pelo Google ou pelo SSO da universidade (exige registrar app e guardar e-mails).
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code); claude.com/docs/connectors/custom/remote-mcp, lida em 2026-11-10
+- **Situação:** decidida
+
+## D-016 · v2: códigos pessoais criados e revogados por comando, sem prazo de sessão
+
+- **Decisão:** quem hospeda gerencia as pessoas pelo comando `rslapp` (por exemplo, `token add`, `token list` e `token revoke`). O código aparece uma vez só, e o servidor guarda só o hash dele, em arquivo na pasta de dados (D-007). Depois do login, a sessão não tem prazo: vale até a pessoa ser revogada. Revogar só corta o acesso; apagar os dados da pessoa é um comando à parte, com confirmação.
+- **Motivo:** o Erick escolheu o comando e a revogação sem apagar, que eu recomendei. Escolheu a sessão sem prazo contra a minha recomendação (30 dias renovando), por comodidade. Na spec, o token de acesso continua curto e renovado sozinho, sem prazo para a renovação, o que mantém a escolha dele e limita o estrago de um token de acesso vazado.
+- **Alternativas:** códigos numa variável de ambiente (texto puro e reinício para revogar); sessão de 30 dias ou de 1 dia; revogar apagando tudo (um corte por engano perde a metodologia da pessoa).
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code)
+- **Situação:** decidida
+
+## D-017 · v2: imagem no ghcr.io e HTTPS pelo Caddy num docker-compose
+
+- **Decisão:** o `rslapp` fala HTTP simples no modo hospedado. O projeto entrega um Dockerfile, um docker-compose com o Caddy na frente, que obtém e renova o certificado HTTPS para o domínio de quem hospeda, e publica a imagem no GitHub Container Registry (ghcr.io) por um GitHub Action a cada tag de versão.
+- **Motivo:** o Erick escolheu as opções que eu recomendei. O Claude só aceita conector com link HTTPS, e o Caddy resolve o certificado sem código de segurança no projeto. O ghcr.io fica ao lado do código e dos releases e é gratuito para projeto público.
+- **Alternativas:** só a imagem, com o HTTPS por conta de quem hospeda; HTTPS no próprio `rslapp`; imagem no Docker Hub (outra conta, limite de downloads); só o Dockerfile.
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code)
+- **Situação:** decidida
+
+## D-018 · v2: a LGPD (T-007) é conferida antes de divulgar o modo hospedado, não antes de codar
+
+- **Decisão:** a v2 é escrita e testada sem esperar a T-007. Conferir a LGPD vira condição para anunciar o modo hospedado. O guia de hospedagem avisa que quem hospeda passa a tratar nomes, ORCID e afiliações de autores das buscas de outras pessoas, e mostra o comando que apaga os dados de uma pessoa (D-016).
+- **Motivo:** o Erick escolheu a opção que eu recomendei: o código não depende da resposta jurídica, e travar a v2 até a consulta pararia o projeto.
+- **Alternativas:** conferir a LGPD antes de escrever a spec da v2.
+- **Decidido por:** Erick · **Data:** 2026-11-10
+- **Fontes:** conversa de 2026-11-10 (Claude Code)
+- **Situação:** decidida
