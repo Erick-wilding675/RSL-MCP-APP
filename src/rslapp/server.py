@@ -1,12 +1,16 @@
-"""Servidor MCP do RSL.app (transporte stdio)."""
+"""Servidor MCP do RSL.app (transporte stdio e streamable HTTP)."""
 
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
+import anyio
+import uvicorn
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BeforeValidator, ValidationInfo
+from starlette.applications import Starlette
 from typing_extensions import TypedDict
 
 from rslapp import config
@@ -246,6 +250,80 @@ def get_search_log(
 def plan_search(request: str) -> str:
     """Orienta a IA a planejar antes de buscar, dividir assuntos e tratar dados de fontes com segurança."""
     return render_plan_search(request)
+
+
+# D-011, D-017: Proteção contra DNS rebinding aceitando o host de RSL_PUBLIC_URL (puro e :*) e loopback
+def build_transport_security(public_url: str) -> TransportSecuritySettings:
+    """Monta TransportSecuritySettings com os hosts de loopback e o host de RSL_PUBLIC_URL."""
+    scheme, public_host = config.parse_public_url_host(public_url)
+    allowed_hosts = [
+        "127.0.0.1",
+        "127.0.0.1:*",
+        "localhost",
+        "localhost:*",
+        "[::1]",
+        "[::1]:*",
+    ]
+    for candidate in (public_host, f"{public_host}:*"):
+        if candidate not in allowed_hosts:
+            allowed_hosts.append(candidate)
+
+    allowed_origins = [
+        "http://127.0.0.1",
+        "http://127.0.0.1:*",
+        "http://localhost",
+        "http://localhost:*",
+        "http://[::1]",
+        "http://[::1]:*",
+    ]
+    for origin_candidate in (f"{scheme}://{public_host}", f"{scheme}://{public_host}:*"):
+        if origin_candidate not in allowed_origins:
+            allowed_origins.append(origin_candidate)
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+    )
+
+
+# D-011, D-006: Cria a aplicação ASGI Starlette do modo HTTP reutilizando as mesmas ferramentas e prompt
+def create_http_app(http_cfg: config.HttpConfig | None = None) -> Starlette:
+    """Cria a aplicação ASGI Streamable HTTP (/mcp) com proteção de host configurada."""
+    cfg = http_cfg if http_cfg is not None else config.load_http()
+    security = build_transport_security(cfg.public_url)
+    return mcp.streamable_http_app(
+        transport_security=security,
+        host=cfg.host,
+    )
+
+
+# D-011, D-017: Configura o uvicorn em processo único com proxy_headers e forwarded_allow_ips
+def build_uvicorn_config(http_cfg: config.HttpConfig) -> uvicorn.Config:
+    """Monta o uvicorn.Config com cabeçalhos de proxy ligados para uso atrás do Caddy."""
+    app = create_http_app(http_cfg)
+    return uvicorn.Config(
+        app,
+        host=http_cfg.host,
+        port=http_cfg.port,
+        proxy_headers=True,
+        forwarded_allow_ips=http_cfg.forwarded_allow_ips,
+        log_level=mcp.settings.log_level.lower(),
+    )
+
+
+# D-011, D-017: Inicia o servidor MCP em modo HTTP recusando hosts fora de loopback enquanto não há login
+def run_http(*, host: str | None = None, port: int | None = None) -> None:
+    """Valida o host de escuta e executa o servidor HTTP com uvicorn num processo único."""
+    http_cfg = config.load_http(host=host, port=port)
+    if not config.is_loopback_host(http_cfg.host):
+        raise ValueError(
+            "O modo HTTP sem login só pode escutar em endereço de loopback "
+            f"(127.0.0.1, localhost ou ::1); recebido {http_cfg.host!r}."
+        )
+    uvicorn_cfg = build_uvicorn_config(http_cfg)
+    uv_server = uvicorn.Server(uvicorn_cfg)
+    anyio.run(uv_server.serve)
 
 
 # D-006, NFR-02: Ponto de entrada do comando rslapp via transporte stdio
