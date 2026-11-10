@@ -24,7 +24,7 @@ from rslapp.auth import (
 
 # D-016, NFR-03: Apenas hashes SHA-256 são gravados em <RSL_DATA_DIR>/auth/, nunca tokens nem segredos em claro
 def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Path) -> None:
-    created = people.add("Ana", data_dir=tmp_path)
+    personal_code = people.add("ana", data_dir=tmp_path)
     store = AuthStore(data_dir=tmp_path)
 
     client_secret_plain = "segredo-super-confidencial-do-cliente-123"
@@ -37,7 +37,7 @@ def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Pat
     store.save_client(client_info)
 
     oauth_token = store.issue_token_pair(
-        person_id=created.person.id,
+        person_id="ana",
         client_id="client-1",
         scopes=["rsl"],
         resource="http://127.0.0.1:8000/mcp",
@@ -53,7 +53,7 @@ def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Pat
             content = file_path.read_text(encoding="utf-8")
             assert oauth_token.access_token not in content
             assert oauth_token.refresh_token not in content
-            assert created.code not in content
+            assert personal_code not in content
             assert client_secret_plain not in content
 
     tokens_content = (auth_dir / "tokens.json").read_text(encoding="utf-8")
@@ -65,7 +65,7 @@ def test_d016_nfr03_auth_store_persists_only_sha256_hashes_on_disk(tmp_path: Pat
 @pytest.mark.anyio
 async def test_d015_d016_token_verifier_checks_expiry_and_resource(tmp_path: Path) -> None:
     now_box = [datetime(2026, 11, 10, 12, 0, 0, tzinfo=timezone.utc)]
-    created = people.add("Ana", data_dir=tmp_path)
+    people.add("ana", data_dir=tmp_path)
 
     # Ajusta o relógio simulado para após o cadastro da pessoa
     now_box[0] = datetime.now(timezone.utc) + timedelta(seconds=5)
@@ -77,7 +77,7 @@ async def test_d015_d016_token_verifier_checks_expiry_and_resource(tmp_path: Pat
     verifier = RSLTokenVerifier(store, resource_server_url="http://127.0.0.1:8000/mcp")
 
     oauth_token = store.issue_token_pair(
-        person_id=created.person.id,
+        person_id="ana",
         client_id="client-1",
         scopes=["rsl"],
         resource="http://127.0.0.1:8000/mcp",
@@ -85,8 +85,7 @@ async def test_d015_d016_token_verifier_checks_expiry_and_resource(tmp_path: Pat
 
     verified = await verifier.verify_token(oauth_token.access_token)
     assert verified is not None
-    assert verified.person_id == created.person.id
-    assert verified.subject == created.person.id
+    assert verified.person_id == "ana"
     assert verified.scopes == ["rsl"]
 
     # Resource divergente é recusado
@@ -101,12 +100,12 @@ async def test_d015_d016_token_verifier_checks_expiry_and_resource(tmp_path: Pat
 # D-016: Refresh token não tem vencimento e gira a cada uso, invalidando o anterior
 @pytest.mark.anyio
 async def test_d016_refresh_token_rotates_and_invalidates_previous(tmp_path: Path) -> None:
-    created = people.add("Ana", data_dir=tmp_path)
+    people.add("ana", data_dir=tmp_path)
     store = AuthStore(data_dir=tmp_path)
     verifier = RSLTokenVerifier(store, resource_server_url="http://127.0.0.1:8000/mcp")
 
     initial = store.issue_token_pair(
-        person_id=created.person.id,
+        person_id="ana",
         client_id="client-1",
         scopes=["rsl"],
         resource="http://127.0.0.1:8000/mcp",
@@ -144,12 +143,12 @@ async def test_d016_refresh_token_rotates_and_invalidates_previous(tmp_path: Pat
 # D-016: Revogar ou trocar o código pessoal corta imediatamente o acesso e a renovação
 @pytest.mark.anyio
 async def test_d016_revoke_and_replace_code_invalidate_tokens_immediately(tmp_path: Path) -> None:
-    created = people.add("Ana", data_dir=tmp_path)
+    people.add("ana", data_dir=tmp_path)
     store = AuthStore(data_dir=tmp_path)
     verifier = RSLTokenVerifier(store, resource_server_url="http://127.0.0.1:8000/mcp")
 
     first_tokens = store.issue_token_pair(
-        person_id=created.person.id,
+        person_id="ana",
         client_id="client-1",
         scopes=["rsl"],
         resource="http://127.0.0.1:8000/mcp",
@@ -170,7 +169,7 @@ async def test_d016_revoke_and_replace_code_invalidate_tokens_immediately(tmp_pa
 
     # Um novo token emitido após a troca de código volta a funcionar
     second_tokens = store.issue_token_pair(
-        person_id=created.person.id,
+        person_id="ana",
         client_id="client-1",
         scopes=["rsl"],
         resource="http://127.0.0.1:8000/mcp",

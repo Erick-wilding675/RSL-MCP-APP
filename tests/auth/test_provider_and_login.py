@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -82,7 +83,7 @@ async def _register_and_start_authorize(
 async def test_d015_login_page_is_self_contained_portuguese_and_shows_connector(
     tmp_path: Path,
 ) -> None:
-    time_box = [1_700_000_000.0]
+    time_box = [time.time()]
     app, _ = _create_auth_test_app(tmp_path, time_box=time_box)
 
     transport = httpx.ASGITransport(app=app)
@@ -110,8 +111,8 @@ async def test_d015_login_page_is_self_contained_portuguese_and_shows_connector(
 async def test_d015_d016_authorization_code_is_single_use_and_expires_in_5_minutes(
     tmp_path: Path,
 ) -> None:
-    created = people.add("Ana", data_dir=tmp_path)
-    time_box = [1_700_000_000.0]
+    ana_code = people.add("ana", data_dir=tmp_path)
+    time_box = [time.time()]
     app, _ = _create_auth_test_app(tmp_path, time_box=time_box)
 
     transport = httpx.ASGITransport(app=app)
@@ -120,7 +121,7 @@ async def test_d015_d016_authorization_code_is_single_use_and_expires_in_5_minut
         client_info, req_id, verifier = await _register_and_start_authorize(client)
         login_resp = await client.post(
             "/login",
-            data={"req": req_id, "code": created.code},
+            data={"req": req_id, "code": ana_code},
         )
         assert login_resp.status_code == 302
         cb_parsed = urlsplit(login_resp.headers["location"])
@@ -157,7 +158,7 @@ async def test_d015_d016_authorization_code_is_single_use_and_expires_in_5_minut
         client_info_2, req_id_2, verifier_2 = await _register_and_start_authorize(client)
         login_resp_2 = await client.post(
             "/login",
-            data={"req": req_id_2, "code": created.code},
+            data={"req": req_id_2, "code": ana_code},
         )
         assert login_resp_2.status_code == 302
         auth_code_2 = parse_qs(urlsplit(login_resp_2.headers["location"]).query)["code"][0]
@@ -183,11 +184,11 @@ async def test_d015_d016_authorization_code_is_single_use_and_expires_in_5_minut
 async def test_d015_five_wrong_codes_return_429_and_error_does_not_leak_person_existence(
     tmp_path: Path,
 ) -> None:
-    active_person = people.add("Ana", data_dir=tmp_path)
-    revoked_person = people.add("Beto", data_dir=tmp_path)
+    active_code = people.add("ana", data_dir=tmp_path)
+    revoked_code = people.add("beto", data_dir=tmp_path)
     people.revoke("beto", data_dir=tmp_path)
 
-    time_box = [1_700_000_000.0]
+    time_box = [time.time()]
     app, _ = _create_auth_test_app(tmp_path, time_box=time_box)
 
     transport = httpx.ASGITransport(app=app)
@@ -199,18 +200,19 @@ async def test_d015_five_wrong_codes_return_429_and_error_does_not_leak_person_e
         resp_1 = await client.post("/login", data={"req": req_id, "code": wrong_unknown})
         assert resp_1.status_code == 200
 
-        # Tentativa 2: código de pessoa revogada (Beto)
-        resp_2 = await client.post("/login", data={"req": req_id, "code": revoked_person.code})
+        # Tentativa 2: código de pessoa revogada (beto)
+        resp_2 = await client.post("/login", data={"req": req_id, "code": revoked_code})
         assert resp_2.status_code == 200
 
         # A página de erro é idêntica nos dois casos e não revela se a pessoa existe nem ecoa o código
         assert resp_1.text == resp_2.text
         assert "Código inválido" in resp_1.text
         assert wrong_unknown not in resp_1.text
-        assert revoked_person.code not in resp_1.text
+        assert revoked_code not in resp_1.text
         assert "Beto" not in resp_1.text
         assert "beto" not in resp_1.text
         assert "Ana" not in resp_1.text
+        assert "ana" not in resp_1.text
 
         # Tentativas 3 e 4 erradas continuam mostrando a página de erro
         resp_3 = await client.post("/login", data={"req": req_id, "code": "errado-3"})
@@ -224,7 +226,7 @@ async def test_d015_five_wrong_codes_return_429_and_error_does_not_leak_person_e
         assert "tentativas" in resp_5.text.lower()
 
         # Mesmo com o código certo depois disso, o pedido bloqueado continua em 429
-        resp_6 = await client.post("/login", data={"req": req_id, "code": active_person.code})
+        resp_6 = await client.post("/login", data={"req": req_id, "code": active_code})
         assert resp_6.status_code == 429
 
 
@@ -233,8 +235,8 @@ async def test_d015_five_wrong_codes_return_429_and_error_does_not_leak_person_e
 async def test_d015_twenty_wrong_codes_per_ip_in_15_minutes_returns_429_in_memory_only(
     tmp_path: Path,
 ) -> None:
-    people.add("Ana", data_dir=tmp_path)
-    time_box = [1_700_000_000.0]
+    people.add("ana", data_dir=tmp_path)
+    time_box = [time.time()]
     app, _ = _create_auth_test_app(tmp_path, time_box=time_box)
 
     transport = httpx.ASGITransport(app=app, client=("198.51.100.42", 54321))

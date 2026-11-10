@@ -18,7 +18,8 @@ from mcp.client.streamable_http import streamable_http_client
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import rslapp
-from rslapp import config, server
+from rslapp import config, people, server
+from rslapp.auth import AuthStore
 
 ENV_VARS = (
     "RSL_DATA_DIR",
@@ -31,6 +32,7 @@ ENV_VARS = (
     "RSL_HTTP_PORT",
     "RSL_PUBLIC_URL",
     "RSL_FORWARDED_ALLOW_IPS",
+    "RSL_ACCESS_TOKEN_MINUTES",
 )
 
 EXPECTED_TOOLS = {
@@ -59,6 +61,19 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setenv("HOME", str(fake_home))
     monkeypatch.setenv("USERPROFILE", str(fake_home))
     return fake_home
+
+
+def _issue_test_bearer_token(resource_url: str) -> str:
+    """Cadastra uma pessoa ativa e emite um access token válido para o resource_url informado."""
+    people.add("ana")
+    store = AuthStore()
+    tokens = store.issue_token_pair(
+        person_id="ana",
+        client_id="test-client",
+        scopes=["rsl"],
+        resource=resource_url,
+    )
+    return tokens.access_token
 
 
 @contextlib.contextmanager
@@ -104,14 +119,19 @@ def _running_http_server(
         sock.close()
 
 
-# D-011, D-006, D-002: Servidor HTTP em porta livre lista as 8 ferramentas, o prompt e responde list_sources igual ao stdio
+# D-011, D-015, D-006, D-002: Servidor HTTP em porta livre lista as 8 ferramentas, o prompt e responde list_sources igual ao stdio
 @pytest.mark.anyio
 async def test_d011_serve_lista_ferramentas_por_http(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with _running_http_server() as port:
         url = f"http://127.0.0.1:{port}/mcp"
-        async with Client(url) as http_client, Client(server.mcp) as stdio_client:
+        token = _issue_test_bearer_token(url)
+        async with (
+            httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as auth_http,
+            Client(streamable_http_client(url, http_client=auth_http)) as http_client,
+            Client(server.mcp) as stdio_client,
+        ):
             assert http_client.instructions == server.INSTRUCTIONS
             assert http_client.instructions == stdio_client.instructions
 
@@ -145,7 +165,9 @@ async def test_d011_serve_lista_ferramentas_por_http(
 # D-011, D-017: Chamada com Host estranho a RSL_PUBLIC_URL recebe 421; com Host igual a RSL_PUBLIC_URL passa
 @pytest.mark.anyio
 async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_rsl_public_url() -> None:
-    with _running_http_server(public_url="https://rsl.exemplo.org") as port:
+    public_url = "https://rsl.exemplo.org"
+    token = _issue_test_bearer_token(f"{public_url}/mcp")
+    with _running_http_server(public_url=public_url) as port:
         url = f"http://127.0.0.1:{port}/mcp"
         init_payload = {
             "jsonrpc": "2.0",
@@ -165,6 +187,7 @@ async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_
                 json=init_payload,
                 headers={
                     "Host": "intruso.exemplo.com",
+                    "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
                     "Accept": "application/json, text/event-stream",
                 },
@@ -176,6 +199,7 @@ async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_
                 json=init_payload,
                 headers={
                     "Host": "intruso.exemplo.com:8000",
+                    "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
                     "Accept": "application/json, text/event-stream",
                 },
@@ -188,6 +212,7 @@ async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_
                 json=init_payload,
                 headers={
                     "Host": "rsl.exemplo.org",
+                    "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
                     "Accept": "application/json, text/event-stream",
                 },
@@ -199,6 +224,7 @@ async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_
                 json=init_payload,
                 headers={
                     "Host": "rsl.exemplo.org:8443",
+                    "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
                     "Accept": "application/json, text/event-stream",
                 },
@@ -207,7 +233,12 @@ async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_
 
         # Cliente MCP completo enviando Host igual ao domínio de RSL_PUBLIC_URL conecta e lista ferramentas
         async with (
-            httpx2.AsyncClient(headers={"Host": "rsl.exemplo.org"}) as custom_http,
+            httpx2.AsyncClient(
+                headers={
+                    "Host": "rsl.exemplo.org",
+                    "Authorization": f"Bearer {token}",
+                }
+            ) as custom_http,
             Client(streamable_http_client(url, http_client=custom_http)) as mcp_client,
         ):
             tools = await mcp_client.list_tools()
@@ -234,7 +265,7 @@ def test_d011_d017_build_uvicorn_config_habilita_proxy_headers_e_forwarded_allow
     assert isinstance(uv_cfg.loaded_app, ProxyHeadersMiddleware)
 
 
-# D-011: server.run_http recusa diretamente hosts fora de loopback sem iniciar uvicorn
+# D-011, D-015: server.run_http recusa hosts fora de loopback quando RSL_PUBLIC_URL usa http://
 def test_d011_run_http_recusa_host_fora_de_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         uvicorn,
@@ -243,6 +274,25 @@ def test_d011_run_http_recusa_host_fora_de_loopback(monkeypatch: pytest.MonkeyPa
     )
     with pytest.raises(ValueError, match="loopback"):
         server.run_http(host="0.0.0.0", port=8000)
+
+
+# D-015, D-017: server.run_http aceita host 0.0.0.0 quando RSL_PUBLIC_URL começa com https://
+def test_d015_run_http_aceita_host_0000_quando_rsl_public_url_usa_https(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RSL_PUBLIC_URL", "https://exemplo.org")
+    started_hosts: list[tuple[str, int]] = []
+
+    class _FakeUvicornServer:
+        def __init__(self, cfg: uvicorn.Config) -> None:
+            started_hosts.append((cfg.host, cfg.port))
+
+        async def serve(self) -> None:
+            return None
+
+    monkeypatch.setattr(uvicorn, "Server", _FakeUvicornServer)
+    server.run_http(host="0.0.0.0", port=8000)
+    assert started_hosts == [("0.0.0.0", 8000)]
 
 
 # D-011, D-017: GET /health devolve 200 com status e version e nenhum outro dado

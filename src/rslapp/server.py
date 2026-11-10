@@ -7,15 +7,19 @@ from typing import Annotated, Any, Literal
 import anyio
 import uvicorn
 from mcp.server import MCPServer
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.exceptions import ToolError
-from mcp.server.transport_security import TransportSecuritySettings
-from pydantic import BeforeValidator, ValidationInfo
+from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
+from pydantic import AnyHttpUrl, BeforeValidator, ValidationInfo
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 from typing_extensions import TypedDict
 
 from rslapp import __version__, config
+from rslapp.auth import AuthStore, RSLOAuthProvider, RSLTokenVerifier, build_auth_routes
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
 from rslapp.core.related import run_related
@@ -55,8 +59,27 @@ class SourceInfo(TypedDict):
     status: SourceStatus
 
 
-# D-006, NFR-02: Servidor MCP usando MCPServer do SDK oficial mcp 2.x para execução local
-mcp = MCPServer("rslapp", instructions=INSTRUCTIONS)
+_default_public_url = f"http://{config.DEFAULT_HTTP_HOST}:{config.DEFAULT_HTTP_PORT}"
+_default_resource_url = f"{_default_public_url}/mcp"
+_default_auth_store = AuthStore()
+_default_token_verifier = RSLTokenVerifier(
+    _default_auth_store,
+    resource_server_url=_default_resource_url,
+)
+_default_auth_settings = AuthSettings(
+    issuer_url=AnyHttpUrl(_default_public_url),
+    resource_server_url=AnyHttpUrl(_default_resource_url),
+    required_scopes=["rsl"],
+    validate_token_resource=True,
+)
+
+# D-006, D-015, D-016, NFR-02: Servidor MCP com token_verifier e AuthSettings (sem auth_server_provider legado)
+mcp = MCPServer(
+    "rslapp",
+    instructions=INSTRUCTIONS,
+    token_verifier=_default_token_verifier,
+    auth=_default_auth_settings,
+)
 
 
 # D-002, FR-07, NFR-03: Lista as fontes acadêmicas indicando se estão configuradas e prontas
@@ -296,15 +319,115 @@ def build_transport_security(public_url: str) -> TransportSecuritySettings:
     )
 
 
-# D-011, D-006: Cria a aplicação ASGI Starlette do modo HTTP reutilizando as mesmas ferramentas e prompt
-def create_http_app(http_cfg: config.HttpConfig | None = None) -> Starlette:
-    """Cria a aplicação ASGI Streamable HTTP (/mcp) com proteção de host configurada."""
+class _HostOriginProtectionASGIApp:
+    """Valida Host e Origin contra DNS rebinding antes do middleware de autenticação OAuth."""
+
+    def __init__(self, app: ASGIApp, security: TransportSecuritySettings) -> None:
+        self._app = app
+        self._validator = TransportSecurityMiddleware(security)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            request = Request(scope, receive)
+            error_resp = await self._validator.validate_request(request, is_post=False)
+            if error_resp is not None:
+                await error_resp(scope, receive, send)
+                return
+        await self._app(scope, receive, send)
+
+
+def _install_asgi_transport_fallback(session_manager: Any) -> None:
+    """Permite chamadas diretas via httpx.ASGITransport sem exigir lifespan explícito."""
+    original_handle_request = session_manager._handle_request
+    fallback_lock = anyio.Lock()
+
+    async def _wrapped_handle_request(scope: Scope, receive: Receive, send: Send) -> None:
+        if session_manager._task_group is not None:
+            await original_handle_request(scope, receive, send)
+            return
+
+        async with fallback_lock:
+            if session_manager._task_group is not None:
+                await original_handle_request(scope, receive, send)
+                return
+
+            prev_stateless = session_manager.stateless
+            async with (
+                session_manager.app.lifespan(session_manager.app) as lifespan_state,
+                anyio.create_task_group() as tg,
+            ):
+                session_manager.stateless = True
+                session_manager._lifespan_state = lifespan_state
+                session_manager._task_group = tg
+                try:
+                    await original_handle_request(scope, receive, send)
+                finally:
+                    session_manager._task_group = None
+                    session_manager._lifespan_state = None
+                    session_manager.stateless = prev_stateless
+
+    session_manager._handle_request = _wrapped_handle_request
+    if hasattr(session_manager, "asgi_app") and hasattr(session_manager.asgi_app, "app"):
+        session_manager.asgi_app.app = _wrapped_handle_request
+
+
+# D-011, D-015, D-016, D-006: Cria a aplicação ASGI unificando Resource Server MCP e Authorization Server OAuth 2.1
+def create_http_app(
+    http_cfg: config.HttpConfig | None = None,
+    *,
+    auth_store: AuthStore | None = None,
+    oauth_provider: RSLOAuthProvider | None = None,
+) -> Starlette:
+    """Cria a aplicação ASGI Streamable HTTP (/mcp) protegida por OAuth 2.1 e com rotas /login."""
     cfg = http_cfg if http_cfg is not None else config.load_http()
     security = build_transport_security(cfg.public_url)
-    return mcp.streamable_http_app(
+
+    public_url = cfg.public_url.rstrip("/")
+    resource_server_url = f"{public_url}/mcp"
+    store = (
+        auth_store
+        if auth_store is not None
+        else AuthStore(access_token_minutes=cfg.access_token_minutes)
+    )
+    verifier = RSLTokenVerifier(store, resource_server_url=resource_server_url)
+    auth_settings = AuthSettings(
+        issuer_url=AnyHttpUrl(public_url),
+        resource_server_url=AnyHttpUrl(resource_server_url),
+        required_scopes=["rsl"],
+        validate_token_resource=True,
+    )
+    provider = (
+        oauth_provider
+        if oauth_provider is not None
+        else RSLOAuthProvider(store, public_url=public_url)
+    )
+
+    mcp.settings.auth = auth_settings
+    mcp._token_verifier = verifier
+    mcp._auth_server_provider = None
+
+    app = mcp.streamable_http_app(
         transport_security=security,
         host=cfg.host,
     )
+
+    session_manager = getattr(mcp._lowlevel_server, "_session_manager", None)
+    if session_manager is not None:
+        _install_asgi_transport_fallback(session_manager)
+
+    for idx, route in enumerate(app.router.routes):
+        if isinstance(route, Route) and route.path == "/mcp":
+            app.router.routes[idx] = Route(
+                "/mcp",
+                endpoint=_HostOriginProtectionASGIApp(route.app, security),
+            )
+            break
+
+    app.router.routes.extend(build_auth_routes(provider, issuer_url=public_url))
+    app.state.auth_store = store
+    app.state.oauth_provider = provider
+    app.state.token_verifier = verifier
+    return app
 
 
 # D-011, D-017: Configura o uvicorn em processo único com proxy_headers e forwarded_allow_ips
@@ -321,15 +444,11 @@ def build_uvicorn_config(http_cfg: config.HttpConfig) -> uvicorn.Config:
     )
 
 
-# D-011, D-017: Inicia o servidor MCP em modo HTTP recusando hosts fora de loopback enquanto não há login
+# D-011, D-015, D-017: Inicia o servidor MCP em modo HTTP aceitando host não-loopback apenas com https://
 def run_http(*, host: str | None = None, port: int | None = None) -> None:
-    """Valida o host de escuta e executa o servidor HTTP com uvicorn num processo único."""
+    """Valida o host de escuta conforme RSL_PUBLIC_URL e executa o servidor HTTP num processo único."""
     http_cfg = config.load_http(host=host, port=port)
-    if not config.is_loopback_host(http_cfg.host):
-        raise ValueError(
-            "O modo HTTP sem login só pode escutar em endereço de loopback "
-            f"(127.0.0.1, localhost ou ::1); recebido {http_cfg.host!r}."
-        )
+    config.validate_http_host(http_cfg.host, http_cfg.public_url)
     uvicorn_cfg = build_uvicorn_config(http_cfg)
     uv_server = uvicorn.Server(uvicorn_cfg)
     anyio.run(uv_server.serve)

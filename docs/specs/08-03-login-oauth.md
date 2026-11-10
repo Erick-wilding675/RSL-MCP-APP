@@ -52,8 +52,56 @@ Ler por inteiro: a página "Authorization" do SDK v2 (py.sdk.modelcontextprotoco
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+O modo HTTP (`rslapp serve`) passou a operar simultaneamente como Authorization Server OAuth 2.1 e Resource Server MCP protegido no mesmo processo ASGI, seguindo a separação recomendada pela documentação de "Authorization" do SDK `mcp` 2.3.0 (sem usar `auth_server_provider=` no `MCPServer`):
+
+1. **Commit 1 — Armazenamento de clientes e tokens e verificador (`src/rslapp/auth/store.py`, `src/rslapp/auth/verifier.py`, `src/rslapp/config.py`, `tests/auth/test_store_and_verifier.py`):**
+   - `AuthStore` grava clientes registrados e tokens em `<RSL_DATA_DIR>/auth/clients.json` e `<RSL_DATA_DIR>/auth/tokens.json` usando `atomic_write_replace` e `file_lock`.
+   - Em disco são gravados exclusivamente hashes SHA-256 (`token_hash` e `client_secret_hash`), nunca tokens, códigos pessoais, códigos de autorização ou segredos de cliente em texto puro.
+   - `RSLTokenVerifier` verifica a cada requisição `/mcp` se o hash existe, se não venceu (`RSL_ACCESS_TOKEN_MINUTES`, padrão 60), se o campo `resource` bate com `<RSL_PUBLIC_URL>/mcp`, se a pessoa continua ativa em `people.json` e se `issued_at > person.code_created_at`, garantindo corte imediato em `rslapp token revoke` e `rslapp token add --replace`.
+   - `current_person_id()` lê `get_access_token()` do contexto de autenticação do SDK e devolve o `person_id` autenticado no modo HTTP ou `None` no modo `stdio`.
+
+2. **Commit 2 — Provedor OAuth 2.1, rotas de autorização e tela de login (`src/rslapp/auth/provider.py`, `tests/auth/test_provider_and_login.py`):**
+   - `RSLOAuthProvider` implementa `OAuthAuthorizationServerProvider` com pedidos pendentes em memória (validade de 10 minutos) e códigos de autorização de uso único (validade de 5 minutos).
+   - `build_auth_routes` monta as rotas de `create_auth_routes(...)` do SDK (`/.well-known/oauth-authorization-server`, `/authorize`, `/token`, `/register` com escopo `rsl` válido e padrão, `/revoke`) junto com `GET /login` e `POST /login`.
+   - A página `/login` é HTML autocontido em português do Brasil (sem CDN, fontes externas ou scripts), mostra o nome do conector e valida o código pessoal via `people.find_by_code`, exibindo mensagem genérica (`"Código inválido..."`) sem revelar se a pessoa existe e aplicando limite em memória de 5 erros por pedido e 20 erros por IP a cada 15 minutos (HTTP `429`).
+   - **Nota sobre Client ID Metadata Document:** o SDK `mcp` 2.3.0 suporta `client_metadata_url` apenas no lado cliente (`OAuthClientProvider`), deixando `client_id_metadata_document_supported=None` no servidor; o registro de conectores usa Dynamic Client Registration (`POST /register`), conforme previsto para a opção "Register automatically" no Claude.
+
+3. **Commit 3 — Ligação no `rslapp serve` e regra do host (`src/rslapp/server.py`, `src/rslapp/cli.py`, `src/rslapp/config.py`, `tests/auth/test_oauth_flow_http.py`, `tests/test_server_http.py`, `tests/test_cli.py`):**
+   - `MCPServer` recebe `token_verifier=` e `auth=AuthSettings(issuer_url=..., resource_server_url=.../mcp, required_scopes=["rsl"], validate_token_resource=True)`, e `create_http_app` monta as rotas do Authorization Server e `/login` no mesmo app Starlette, mantendo proteção contra DNS rebinding (`421`) antes da exigência de token (`401`).
+   - `config.validate_http_host` permite hosts fora do loopback (como `0.0.0.0`) quando `RSL_PUBLIC_URL` começa com `https://` e continua recusando quando `RSL_PUBLIC_URL` usa `http://`.
 
 ## Como testar
 
-(preenche quem entrega: os comandos dos três gates, como fazer o login à mão no navegador com o servidor local, o que deve aparecer e os pontos mais arriscados, o mais difícil primeiro)
+### 1. Executar os três gates (um após o outro, nunca em paralelo)
+
+```powershell
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+```
+
+### 2. Testar o login à mão no navegador com o servidor local
+
+1. Cadastre uma pessoa e anote o código pessoal exibido:
+   ```powershell
+   uv run rslapp token add erick
+   ```
+2. Em um terminal, inicie o servidor HTTP local:
+   ```powershell
+   uv run rslapp serve
+   ```
+3. Em outro terminal, confira que `/mcp` sem token devolve `401` com `WWW-Authenticate` apontando para `/.well-known/oauth-protected-resource/mcp`, e registre um cliente de teste para abrir a tela de login no navegador:
+   ```powershell
+   curl -i http://127.0.0.1:8000/mcp
+   ```
+   Ou conecte pelo conector MCP HTTP (ou chame `POST http://127.0.0.1:8000/register` seguido de `GET http://127.0.0.1:8000/authorize?...` no navegador): o navegador será redirecionado para `http://127.0.0.1:8000/login?req=...`, exibindo o nome do conector e o campo **"Código pessoal"** em português. Digite o código de `erick` para autorizar ou um código errado para ver a mensagem `"Código inválido"` (e o bloqueio `429` na 5ª tentativa errada).
+
+### 3. Onde olhar primeiro na revisão (do ponto mais arriscado para o mais simples)
+
+1. **Verificação por requisição, rotação e revogação imediata sem vazamento em disco (`src/rslapp/auth/store.py` e `src/rslapp/auth/verifier.py`):**
+   - `AuthStore.save_client`, `AuthStore.issue_token_pair` e `AuthStore.rotate_refresh_token` gravam em `<RSL_DATA_DIR>/auth/` exclusivamente hashes SHA-256 (`hash_token`), nunca tokens, códigos pessoais ou `client_secret` em texto puro, e `RSLAccessToken`/`RSLRefreshToken`/`RSLAuthorizationCode` ocultam qualquer segredo ou hash em `__repr__`/`__str__`.
+   - `AuthStore._is_token_record_valid_for_person` confere a cada chamada se `person.is_active` é verdadeiro e se `issued_at > person.code_created_at`, fazendo `token revoke` e `token add --replace` invalidarem imediatamente tanto o `access_token` quanto o `refresh_token`.
+2. **Validação do código pessoal, código de autorização de uso único e limites de tentativas em `/login` (`src/rslapp/auth/provider.py`):**
+   - `RSLOAuthProvider.handle_login_post` valida o código com `people.find_by_code`, nunca distingue pessoa inexistente de pessoa revogada na resposta HTML, mantém IPs e contadores apenas em memória (5 erros por `req` e 20 por IP a cada 15 minutos -> HTTP `429`) e consome o pedido pendente ao emitir um `RSLAuthorizationCode` de uso único válido por 5 minutos.
+3. **Unificação de Resource Server e Authorization Server no ASGI e regra de host (`src/rslapp/server.py`, `src/rslapp/config.py`, `src/rslapp/cli.py`):**
+   - `create_http_app` configura `token_verifier` e `AuthSettings(validate_token_resource=True)` no `MCPServer` (sem `auth_server_provider=`), preserva a verificação de `Host`/`Origin` (`421`) antes de `RequireAuthMiddleware` (`401`) e `validate_http_host` exige `https://` em `RSL_PUBLIC_URL` para qualquer host fora de loopback.

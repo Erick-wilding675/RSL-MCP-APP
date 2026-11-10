@@ -240,6 +240,32 @@ def test_d011_d017_load_http_padroes_variaveis_e_sobreposicao(
     assert cfg_pub.public_url == "https://rsl.exemplo.org"
 
 
+# D-011, D-015, D-017: rslapp serve --host 0.0.0.0 inicia quando RSL_PUBLIC_URL usa https:// e recusa com http://
+def test_d015_serve_host_0000_inicia_com_https_e_recusa_com_http(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    recebido: list[tuple[str | None, int | None]] = []
+    monkeypatch.setattr(
+        server,
+        "run_http",
+        lambda *, host=None, port=None: recebido.append((host, port)),
+        raising=False,
+    )
+
+    monkeypatch.setenv("RSL_PUBLIC_URL", "https://exemplo.org")
+    cli.main(["serve", "--host", "0.0.0.0", "--port", "8080"])
+    assert recebido == [("0.0.0.0", 8080)]
+
+    recebido.clear()
+    monkeypatch.setenv("RSL_PUBLIC_URL", "http://exemplo.org")
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["serve", "--host", "0.0.0.0", "--port", "8080"])
+    assert exc_info.value.code != 0
+    assert recebido == []
+    assert "https://" in capsys.readouterr().err
+
+
 # D-011: rslapp serve repassa --host e --port que sobrepõem as variáveis para server.run_http
 def test_d011_cli_serve_repassa_host_e_port_sobrepondo_variaveis(
     monkeypatch: pytest.MonkeyPatch,

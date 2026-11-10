@@ -95,10 +95,22 @@ class HttpConfig:
     access_token_minutes: int = DEFAULT_ACCESS_TOKEN_MINUTES
 
 
-# D-011: Verifica se o host de escuta é um endereço de loopback permitido sem login
+# D-011, D-015: Verifica se o host de escuta pertence ao loopback local
 def is_loopback_host(host: str) -> bool:
     """Indica se o endereço de escuta pertence ao loopback local (127.0.0.1, localhost ou ::1)."""
     return host.strip().lower() in LOOPBACK_HOSTS
+
+
+# D-011, D-015, D-017: Com login OAuth, host fora de loopback é aceito quando RSL_PUBLIC_URL usa https://
+def validate_http_host(host: str, public_url: str) -> None:
+    """Valida que endereços fora do loopback só sejam usados quando RSL_PUBLIC_URL começa com https://."""
+    scheme, _ = parse_public_url_host(public_url)
+    if not is_loopback_host(host) and scheme != "https":
+        raise ValueError(
+            "Para escutar fora de loopback (127.0.0.1, localhost ou ::1), "
+            f"RSL_PUBLIC_URL deve começar com https://; recebido {host!r} com {public_url!r}."
+        )
+
 
 
 # D-011, D-017: Extrai esquema e host (com colchetes em IPv6) de RSL_PUBLIC_URL para proteção de host

@@ -82,11 +82,6 @@ class RSLAccessToken(AccessToken):
     person_id: str
     _token_hash: str = PrivateAttr(default="")
 
-    @property
-    def subject(self) -> str:
-        """Identificador da pessoa autenticada (id estável)."""
-        return self.person_id
-
     def __repr__(self) -> str:
         return (
             f"RSLAccessToken(client_id={self.client_id!r}, "
@@ -216,11 +211,14 @@ class AuthStore:
         return clients if isinstance(clients, dict) else {}
 
     def _write_clients_unlocked(self, clients: dict[str, dict[str, Any]]) -> None:
-        payload = json.dumps(
-            {"clients": clients},
-            ensure_ascii=False,
-            indent=2,
-        ).encode("utf-8")
+        payload = (
+            json.dumps(
+                {"clients": clients},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n"
+        )
         atomic_write_replace(self._clients_path(), payload)
 
     def _read_tokens_unlocked(self) -> list[StoredToken]:
@@ -236,11 +234,14 @@ class AuthStore:
         return [StoredToken.from_dict(item) for item in items if isinstance(item, dict)]
 
     def _write_tokens_unlocked(self, tokens: list[StoredToken]) -> None:
-        payload = json.dumps(
-            {"tokens": [t.to_dict() for t in tokens]},
-            ensure_ascii=False,
-            indent=2,
-        ).encode("utf-8")
+        payload = (
+            json.dumps(
+                {"tokens": [t.to_dict() for t in tokens]},
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n"
+        )
         atomic_write_replace(self._tokens_path(), payload)
 
     # D-015, NFR-03: Registro dinâmico de cliente sem salvar client_secret em texto puro no disco

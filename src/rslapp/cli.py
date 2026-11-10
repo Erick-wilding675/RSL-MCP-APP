@@ -171,11 +171,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if args.command == "serve":
         try:
             http_cfg = config.load_http(host=args.host, port=args.port)
-            if not config.is_loopback_host(http_cfg.host):
-                raise ValueError(
-                    "O modo HTTP sem login só pode escutar em endereço de loopback "
-                    f"(127.0.0.1, localhost ou ::1); recebido {http_cfg.host!r}."
-                )
+            config.validate_http_host(http_cfg.host, http_cfg.public_url)
         except ValueError as exc:
             print(f"Erro: {exc}", file=sys.stderr)
             raise SystemExit(1) from None
