@@ -1,6 +1,6 @@
 # Entradas numéricas sem verdadeiro/falso
 
-**Fase:** 7 · Manutenção depois da v1 · **Situação:** para testar
+**Fase:** 7 · Manutenção depois da v1 · **Situação:** pronta
 
 ## O que faz
 
@@ -79,4 +79,4 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
 
 **Teste manual do Erick (opcional):** o Claude Desktop usa o `rslapp` do PyPI, então só vê a mudança depois de uma versão nova (1.0.1). Para conferir antes da versão nova, rode `uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q tests/test_server_int_inputs.py` e veja `16 passed`.
 
-**Publicação (2026-11-09):** `rslapp` 1.0.1 no PyPI (wheel e sdist, token do Lore), conferido com `uvx --no-cache --from rslapp==1.0.1`. Tag `v1.0.1` e release no GitHub. Falta o teste do Erick no Claude Desktop para marcar como pronta.
+**Publicação (2026-11-09):** `rslapp` 1.0.1 no PyPI (wheel e sdist, token do Lore), conferido com `uvx --no-cache --from rslapp==1.0.1`. Tag `v1.0.1` e release no GitHub. Testada pelo Erick no Claude Desktop em 2026-11-10: pronta.

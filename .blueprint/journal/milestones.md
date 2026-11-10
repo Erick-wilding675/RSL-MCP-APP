@@ -22,3 +22,4 @@ Uma linha por marco, o mais novo por último.
 | 2026-11-05 | Fases 1 a 5 testadas e prontas | Testes reais com as chaves nas três bases, RIS, CSV e DOIs abertos no VOSviewer 1.6.21 e o pedido com dois assuntos no Claude Desktop; o critério de aceite do projeto passou. A 05-05 corrigiu o que o teste real achou |
 | 2026-11-05 | Fase 6 · Publicação: v1 lançada | `rslapp` 1.0.0 no PyPI e release v1.0.0 no GitHub, com README; o Erick instalou pelo PyPI no Claude Desktop e testou. As 17 tarefas do plano estão prontas |
 | 2026-11-05 | Próximo passo decidido | Uso por link com modo HTTP e imagem Docker no próprio pacote, hospedado por quem quiser (D-011); ainda sem spec |
+| 2026-11-10 | 1.0.1 publicada e testada | A 07-01 fez as entradas numéricas recusarem `true` e `false`; `rslapp` 1.0.1 no PyPI e release v1.0.1 no GitHub, testada pelo Erick no Claude Desktop. O token antigo do PyPI, da conta inteira, foi apagado |
