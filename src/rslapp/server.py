@@ -21,7 +21,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 from typing_extensions import TypedDict
 
-from rslapp import __version__, config, people
+from rslapp import __version__, config, downloads, people
 from rslapp.auth import (
     AuthStore,
     RSLOAuthProvider,
@@ -29,7 +29,6 @@ from rslapp.auth import (
     build_auth_routes,
     current_person_id,
 )
-from rslapp.auth import verifier as _auth_verifier
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
 from rslapp.core.related import run_related
@@ -76,13 +75,6 @@ mcp = MCPServer("rslapp", instructions=INSTRUCTIONS)
 _http_mode_var: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "_http_mode_var", default=False
 )
-_orig_current_person_id = current_person_id
-
-
-def _get_current_person_id() -> str | None:
-    if current_person_id is not _orig_current_person_id:
-        return current_person_id()
-    return _auth_verifier.current_person_id()
 
 
 def _is_http_mode() -> bool:
@@ -93,7 +85,7 @@ def _is_http_mode() -> bool:
 # D-012, D-013, D-007, FR-12, FR-13: Separa buscas, listas, log e exportações por pessoa com cache compartilhado
 def _resolve_person_id() -> str | None:
     """Obtém e valida o identificador da pessoa autenticada; falha se faltar pessoa no modo HTTP."""
-    person_id = _get_current_person_id()
+    person_id = current_person_id()
     if person_id is None:
         if _is_http_mode():
             raise ToolError("pessoa não identificada no modo HTTP")
@@ -320,6 +312,13 @@ async def health_check(_request: Request) -> Response:
     return JSONResponse({"status": "ok", "version": __version__})
 
 
+# D-014, D-012, FR-06: Rota GET /downloads/{token} sem login, protegida pela assinatura HMAC-SHA256
+@mcp.custom_route("/downloads/{token}", methods=["GET"])
+async def download_export(request: Request) -> Response:
+    """Entrega o arquivo exportado se o token HMAC-SHA256 for válido, ativo e dentro do prazo."""
+    return await downloads.handle_download(request)
+
+
 # D-011, D-017: Proteção contra DNS rebinding aceitando o host de RSL_PUBLIC_URL (puro e :*) e loopback
 def build_transport_security(public_url: str) -> TransportSecuritySettings:
     """Monta TransportSecuritySettings com os hosts de loopback e o host de RSL_PUBLIC_URL."""
@@ -418,6 +417,7 @@ def _build_http_mcp_server(
         http_mcp.add_tool(tool_fn)
     http_mcp.prompt()(plan_search)
     http_mcp.custom_route("/health", methods=["GET"])(health_check)
+    http_mcp.custom_route("/downloads/{token}", methods=["GET"])(download_export)
     return http_mcp
 
 
@@ -439,6 +439,7 @@ def create_http_app(
         if auth_store is not None
         else AuthStore(access_token_minutes=cfg.access_token_minutes)
     )
+    downloads.load_secret_key(store.data_dir)
     verifier = RSLTokenVerifier(store, resource_server_url=resource_server_url)
     auth_settings = AuthSettings(
         issuer_url=AnyHttpUrl(public_url),
