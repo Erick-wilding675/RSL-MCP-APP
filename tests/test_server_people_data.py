@@ -280,7 +280,8 @@ async def test_d012_d013_d007_pastas_em_people_id_e_cache_na_raiz_ignorando_rsl_
     assert (maria_dir / "searches" / "s-0004.json").is_file()
     assert (maria_dir / "log.md").is_file()
     assert (maria_dir / "exports" / "l-0001.ris").is_file()
-    assert Path(exp_res["structuredContent"]["path"]) == maria_dir / "exports" / "l-0001.ris"
+    assert "path" not in exp_res["structuredContent"]
+    assert exp_res["structuredContent"]["download_url"].startswith(f"{PUBLIC_URL}/downloads/")
     assert list((data_dir / "cache" / "openalex").glob("*.json")) != []
     assert not (maria_dir / "cache").exists()
     assert not (data_dir / "lists").exists()

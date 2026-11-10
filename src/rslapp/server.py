@@ -71,15 +71,32 @@ class SourceInfo(TypedDict):
 # D-006, NFR-02: Servidor MCP padrão para transporte stdio
 mcp = MCPServer("rslapp", instructions=INSTRUCTIONS)
 
-# D-012, D-015: Contexto de execução do modo HTTP para impedir queda na pasta comum sem pessoa
+# D-012, D-014, D-015: Contexto de execução do modo HTTP para pessoa e URL pública
 _http_mode_var: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "_http_mode_var", default=False
+)
+_http_public_url_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_http_public_url_var", default=None
 )
 
 
 def _is_http_mode() -> bool:
     """Indica se a ferramenta está rodando no modo HTTP (servidor HTTP ou contexto de autenticação)."""
     return _http_mode_var.get() or get_access_token() is not None
+
+
+def _resolve_public_url() -> str:
+    """Obtém a URL pública base do servidor HTTP para montar links de download (D-014)."""
+    raw_env = config.os.environ.get("RSL_PUBLIC_URL")
+    if raw_env and raw_env.strip():
+        return config.load_http().public_url
+    ctx_url = _http_public_url_var.get()
+    if ctx_url:
+        return ctx_url
+    token = get_access_token()
+    if token is not None and token.resource and token.resource.endswith("/mcp"):
+        return token.resource[:-4]
+    return config.load_http().public_url
 
 
 # D-012, D-013, D-007, FR-12, FR-13: Separa buscas, listas, log e exportações por pessoa com cache compartilhado
@@ -242,13 +259,15 @@ async def repeat_search(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-06, FR-12, UC-01, D-002, D-012, D-013: Exporta uma lista salva para arquivo no formato solicitado
+# FR-06, FR-12, UC-01, D-002, D-012, D-013, D-014: Exporta uma lista salva (caminho no stdio; link assinado no HTTP)
 @mcp.tool()
 def export_list(list_id: str, format: str) -> dict[str, Any]:
     """Exporta uma lista salva para arquivo no formato solicitado ('ris', 'csv', 'json', 'dois', 'openalex_url')."""
-    store, export_dir = _build_tool_store()
+    cfg = config.load()
+    person_id = _resolve_person_id()
+    store, export_dir = _build_tool_store(cfg)
     try:
-        return run_export(
+        result = run_export(
             store,
             list_id=list_id,
             export_format=format,
@@ -256,6 +275,19 @@ def export_list(list_id: str, format: str) -> dict[str, Any]:
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
+
+    # D-014, D-012, FR-06: No modo HTTP, devolve download_url e expires_at no lugar de path
+    if person_id is not None:
+        exported_path = Path(str(result.pop("path")))
+        download_url, expires_at = downloads.create_download_link(
+            person_id,
+            exported_path.name,
+            public_url=_resolve_public_url(),
+            data_dir=cfg.data_dir,
+        )
+        result["download_url"] = download_url
+        result["expires_at"] = expires_at
+    return result
 
 
 # FR-12, D-002, D-012: Mostra uma lista salva por páginas com resumo ou detalhes completos
@@ -376,7 +408,7 @@ class _HostOriginProtectionASGIApp:
 
 
 class _HttpMCPServer(MCPServer):
-    """MCPServer do modo HTTP que marca o contexto de execução das ferramentas como HTTP (D-012)."""
+    """MCPServer do modo HTTP que marca o contexto de execução das ferramentas como HTTP (D-012, D-014)."""
 
     async def call_tool(
         self,
@@ -384,11 +416,14 @@ class _HttpMCPServer(MCPServer):
         arguments: dict[str, Any],
         context: Any = None,
     ) -> Any:
-        token = _http_mode_var.set(True)
+        mode_token = _http_mode_var.set(True)
+        issuer = str(self.settings.auth.issuer_url).rstrip("/") if self.settings.auth else None
+        url_token = _http_public_url_var.set(issuer)
         try:
             return await super().call_tool(name, arguments, context)
         finally:
-            _http_mode_var.reset(token)
+            _http_public_url_var.reset(url_token)
+            _http_mode_var.reset(mode_token)
 
 
 # D-006, D-012, D-015, D-016: Monta um MCPServer pelo construtor com token_verifier e AuthSettings sem duplicar ferramentas

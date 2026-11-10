@@ -44,8 +44,37 @@ Cerca de 250 linhas. Um commit para o link assinado e a rota, outro para a respo
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **`src/rslapp/downloads.py` (novo):** implementa o gerenciamento da chave de assinatura HMAC-SHA256 (`RSL_SECRET_KEY` com pelo menos 32 bytes ou geração única e persistência atômica em `<RSL_DATA_DIR>/auth/secret.key` com permissão `0600`), leitura de `RSL_DOWNLOAD_TTL_MINUTES` (padrão 60), assinatura de tokens temporários (`sign_download_token` e `create_download_link`) e o handler `handle_download` da rota `GET /downloads/{token}` (D-014, D-012, FR-06):
+  - Confere a assinatura em tempo constante com `hmac.compare_digest`, o formato do identificador da pessoa, o bloqueio de `..`, separadores de pasta e caminhos absolutos, a existência e atividade da pessoa (`people.get(id).is_active`), a validade UTC (devolvendo 410 em português quando vencido e 404 para assinatura inválida, pessoa revogada ou arquivo fora da pasta `people/<id>/exports/`) e entrega os bytes exatos do arquivo com `Content-Disposition: attachment; filename="..."`, `Cache-Control: no-store` e o `Content-Type` de cada formato (`.ris`, `.csv`, `.json` e `.txt`).
+- **`src/rslapp/server.py`:**
+  - Registra a rota pública `GET /downloads/{token}` via `custom_route` no `MCPServer` (stdio e `_HttpMCPServer`) e garante a chave em `create_http_app` (D-014, D-012, FR-06).
+  - Em `export_list`, no modo HTTP (`person_id is not None`), grava o arquivo em `<RSL_DATA_DIR>/people/<id>/exports/` como antes e substitui `path` por `download_url` (`<RSL_PUBLIC_URL>/downloads/<token>`) e `expires_at` (ISO 8601 UTC), mantendo `url` em `openalex_url` e preservando o comportamento de `export_list` no modo stdio (com `path` e sem `download_url`).
+- **`tests/test_server_downloads.py` (novo) e `tests/test_server_people_data.py`:** 7 novos testes cobrindo todos os itens de "Pronto quando" (exportação RIS por HTTP e download do arquivo, download nos 5 formatos com `Content-Type` certo e `url` em `openalex_url`, 410 para link vencido e 404 para caractere trocado, 404 para `../`, caminho absoluto ou pasta de outra pessoa, corte imediato após `token revoke`, criação única e reaproveitamento de `auth/secret.key` após reinício, e manutenção de `path` sem `download_url` no stdio), além do ajuste na asserção do retorno de `export_list` HTTP em `tests/test_server_people_data.py`.
 
 ## Como testar
 
-(preenche quem entrega: os comandos dos três gates, como baixar um arquivo à mão com o servidor local, o que deve aparecer e os pontos mais arriscados, o mais difícil primeiro)
+Rode os três gates em sequência (nunca em paralelo):
+
+```powershell
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+```
+
+**O que deve aparecer:**
+- `All checks passed!` no `ruff check .`.
+- `531 passed` (incluindo os 7 testes em `tests/test_server_downloads.py`) tanto no Python 3.10 quanto no Python 3.14.
+
+**Como baixar um arquivo à mão com o servidor local:**
+1. Cadastre uma pessoa e suba o servidor HTTP local:
+   ```powershell
+   uv run rslapp token add maria
+   uv run rslapp serve --port 8000
+   ```
+2. Conecte ao endpoint `http://127.0.0.1:8000/mcp` (autorizando com o código pessoal da `maria`), rode uma busca (`search_works`) e chame `export_list(list_id="l-0001", format="ris")`.
+3. A resposta trará `download_url` (`http://127.0.0.1:8000/downloads/<token>`) e `expires_at`, sem `path`. Abra o `download_url` no navegador (ou com `curl -i "<download_url>"`): o arquivo `l-0001.ris` será baixado com `Content-Disposition: attachment; filename="l-0001.ris"`, `Content-Type: application/x-research-info-systems; charset=utf-8` e `Cache-Control: no-store`.
+
+**Onde olhar primeiro (do ponto mais arriscado para o menos arriscado):**
+1. **Assinatura HMAC-SHA256, chave secreta e confinamento à pasta da pessoa (`src/rslapp/downloads.py`, `load_secret_key`, `_is_safe_export_filename` e `handle_download`):** valida a assinatura em tempo constante (`hmac.compare_digest`) sobre o payload base64url canônico antes de decodificá-lo, recusa qualquer `..`, barra, drive ou caminho absoluto e confere `target_path.parent == exports_dir` dentro de `<RSL_DATA_DIR>/people/<id>/exports/`, além de exigir pessoa ativa (`person.is_active`) e proteger `auth/secret.key` com `0600` sem jamais expor a chave em logs, erros ou `repr`.
+2. **Resposta de `export_list` no modo HTTP vs stdio (`src/rslapp/server.py`, `export_list` e `_resolve_public_url`):** remove `path` apenas quando há pessoa autenticada no modo HTTP (`person_id is not None`), acrescentando `download_url` e `expires_at` e mantendo `url` em `openalex_url`, enquanto o modo stdio continua devolvendo `path` inalterado.
+3. **Respostas HTTP 410 vs 404 e tipos MIME dos cinco formatos (`src/rslapp/downloads.py`, `_MEDIA_TYPES` e `handle_download`):** devolve 410 com mensagem curta em português quando o link vence e 404 genérico nos demais casos de recusa, entregando os bytes exatos gravados em disco nos cinco formatos.
