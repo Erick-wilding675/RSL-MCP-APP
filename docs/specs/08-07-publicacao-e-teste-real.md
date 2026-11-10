@@ -22,7 +22,8 @@ Publica a v2 como `rslapp` 1.1.0 (o modo stdio não muda, então é uma versão 
 ## Pronto quando
 
 - [ ] `rslapp` 1.1.0 no PyPI e conferido com `uvx`
-- [ ] Imagem `1.1.0` e `latest` no ghcr.io, conferida com `docker pull`
+- [ ] Imagem `1.1.0` e `latest` no ghcr.io, com o pacote tornado público pelo Erick nas configurações do GitHub (ele nasce privado), conferida com `docker pull` sem login
+- [ ] Os itens de Docker que ficaram da 08-06: `docker build`, `docker run` com `/health`, `docker history` e o `env` da imagem sem chave, e o usuário sem privilégio
 - [ ] Tag e release `v1.1.0` no GitHub
 - [ ] Teste manual do Erick: os cinco passos acima passam
 - [ ] O que o teste real achar vira itens desta spec ou uma tarefa nova, como na 05-05

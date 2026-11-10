@@ -1,6 +1,6 @@
 # Docker, Caddy e guia de hospedagem
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** a fazer
+**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
 
 ## O que faz
 
@@ -28,11 +28,11 @@ Entrega o que alguém precisa para hospedar o RSL.app num servidor com um domín
 ## Pronto quando
 
 - [ ] `docker build .` constrói a imagem, e `docker run` com `RSL_PUBLIC_URL=http://127.0.0.1:8000` e a porta mapeada responde `GET /health` (se não houver Docker na máquina, dizer no relatório e deixar o item para o Erick)
-- [ ] `docker compose -f deploy/docker-compose.yml config` valida o compose com o `.env.example`
+- [X] `docker compose -f deploy/docker-compose.yml config` valida o compose com o `.env.example`
 - [ ] A imagem roda como usuário sem privilégio e não contém nenhum valor de chave (conferir com `docker history` e `docker run ... env`)
-- [ ] O workflow do Actions passa no `actionlint`, ou é conferido à mão se a ferramenta não estiver disponível
-- [ ] O guia cobre os seis itens acima, com comandos que funcionam copiados, e tem o aviso da LGPD
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] O workflow do Actions passa no `actionlint`, ou é conferido à mão se a ferramenta não estiver disponível
+- [X] O guia cobre os seis itens acima, com comandos que funcionam copiados, e tem o aviso da LGPD
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 - [ ] Teste manual do Erick: seguir o guia num servidor de verdade (fica para a 08-07)
 
 ## Vem de
@@ -99,3 +99,10 @@ Cerca de 350 linhas, quase tudo arquivo novo. Um commit para a imagem e o compos
    1. **Isolamento de rede e `RSL_FORWARDED_ALLOW_IPS=*` no Compose (`deploy/docker-compose.yml` e `deploy/Caddyfile`):** conferir que o serviço `rslapp` usa apenas `expose: ["8000"]` e **não** publica `ports:` no host, garantindo que somente o container do Caddy na rede interna do Docker possa enviar cabeçalhos `X-Forwarded-*` ao `rslapp`.
    2. **Ausência de segredos na imagem, execução sem privilégio e permissão do volume `/data` (`Dockerfile` e `.dockerignore`):** verificar que a imagem copia apenas `pyproject.toml`, `README.md`, `LICENSE` e `src/`, cria `/data` com dono `rslapp:rslapp` (`10001:10001`) antes de `VOLUME ["/data"]` e `USER rslapp`, e não inclui chaves em `ENV` ou camadas.
    3. **Aviso da LGPD, comandos de gestão e fluxo OAuth no guia (`docs/hospedagem.md`):** conferir o alerta sobre os dados pessoais de autores (**D-004**), pedidos de busca e identificadores de usuários guardados no servidor de quem hospeda, a menção à pendência jurídica (**T-007**, **D-018**), o comando `user purge` e as opções de conexão no Claude (`Sign in now` e `Register automatically`, a confirmar no teste real da `08-07`).
+
+**Revisão do Claude (2026-11-10, run `b20261110-163816` do Playmaker):** aprovada e integrada; gates refeitos pelo `board integrate` (ruff, pytest em 3.10 e em 3.14). Conferido: imagem sem chave e com usuário sem privilégio; o `rslapp` não publica porta, o que justifica `RSL_FORWARDED_ALLOW_IPS=*`; o Caddy repassa o `Host` original, que é o que a proteção de host da 08-01 exige; o workflow usa só o `GITHUB_TOKEN`; o guia tem o aviso da LGPD e os comandos de `token` e `user purge`. O `actionlint` não estava instalado: workflow conferido à mão.
+
+Ficam para a 08-07 (o Docker Desktop estava desligado, e o worker não o iniciou, como pedido):
+- `docker build`, `docker run`, `docker history` e o `env` da imagem (itens 1 e 3). Com a 08-03, o `docker run` com host `0.0.0.0` precisa de `RSL_PUBLIC_URL` em `https://` e do cabeçalho `Host` desse domínio no `curl` a `/health`, como o worker apontou.
+- **O pacote do ghcr.io nasce privado** na primeira publicação: depois da tag, o Erick precisa torná-lo público nas configurações do pacote no GitHub, ou o `docker compose pull` de quem hospeda falha.
+- As versões das actions (`checkout@v4`, `setup-qemu@v3`, `setup-buildx@v3`, `login@v3`, `metadata@v5`, `build-push@v6`) não foram conferidas na página oficial; a primeira tag mostra se alguma está velha.
