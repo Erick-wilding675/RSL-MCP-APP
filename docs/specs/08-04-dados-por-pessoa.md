@@ -40,8 +40,28 @@ Cerca de 250 linhas. Um commit para o `Store` com cache separado, outro para as 
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **`src/rslapp/store/__init__.py`:** `Store.__init__` agora aceita o parâmetro opcional `cache_dir: Path | str | None = None` (D-012, D-013, D-007). Quando omitido (`None`), continua usando `<data_dir>/cache`, mantendo inalterado o comportamento do modo stdio e os testes existentes do `Store`.
+- **`src/rslapp/server.py`:** adicionados `_resolve_person_id()` e `_build_tool_store()` (D-012, D-013, D-007, FR-12, FR-13) e marcação do modo HTTP em `_HostOriginProtectionASGIApp` e `_HttpMCPServer`:
+  - No modo stdio (`current_person_id() is None` e fora do modo HTTP), todas as ferramentas continuam usando `RSL_DATA_DIR` e `RSL_EXPORT_DIR`.
+  - No modo HTTP com pessoa autenticada (`<id>`), o `Store` usa `<RSL_DATA_DIR>/people/<id>/` para `lists/`, `searches/` e `log.md`, `<RSL_DATA_DIR>/cache/` compartilhado na raiz, e `<RSL_DATA_DIR>/people/<id>/exports/` na exportação (ignorando `RSL_EXPORT_DIR`).
+  - Se uma ferramenta rodar no modo HTTP sem pessoa identificada (ou com identificador inválido), levanta `ToolError` antes de criar pastas, consultar fontes ou gravar arquivos.
+- **`tests/test_server_people_data.py`:** seis testes cobrindo isolamento de listas e `log.md` entre Maria e João com contadores de ids independentes (`l-0001`, `s-0001`), reuso do cache compartilhado sem nova chamada às fontes, estrutura de pastas em `people/<id>/` e `cache/` na raiz ignorando `RSL_EXPORT_DIR`, preservação do modo stdio na raiz, falha sem gravação no modo HTTP sem pessoa identificada e `rslapp user purge maria --yes` apagando os dados da pessoa e preservando o cache e as outras pessoas.
 
 ## Como testar
 
-(preenche quem entrega: os comandos dos três gates, o que deve aparecer e os pontos mais arriscados, o mais difícil primeiro)
+Rode os três gates, um depois do outro:
+
+```powershell
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+```
+
+**O que deve aparecer:**
+- `All checks passed!` no `ruff check .`.
+- `524 passed` (incluindo os 6 novos testes em `tests/test_server_people_data.py`) tanto no Python 3.10 quanto no Python 3.14.
+
+**Onde olhar primeiro (do ponto mais arriscado para o menos arriscado):**
+1. **Isolamento de dados entre pessoas e bloqueio sem pessoa no modo HTTP (`src/rslapp/server.py`, `_resolve_person_id`, `_build_tool_store` e `_HttpMCPServer`):** valida o `person_id` com `people.validate_person_id` e confere `person_dir_resolved.parent == people_root` antes de montar o `Store`; recusa execução com `ToolError` se `_is_http_mode()` estiver ativo sem `current_person_id()`, impedindo qualquer queda silenciosa na pasta comum `<RSL_DATA_DIR>`.
+2. **Exportações por pessoa e `user purge` (`src/rslapp/server.py`, `export_list` e `tests/test_server_people_data.py`):** no modo HTTP, `export_list` grava em `<RSL_DATA_DIR>/people/<id>/exports/` ignorando `RSL_EXPORT_DIR`, o que garante que `rslapp user purge <id> --yes` remova listas, buscas, `log.md` e exportações daquela pessoa mantendo `<RSL_DATA_DIR>/cache/`.
+3. **Cache compartilhado separado da pasta da pessoa (`src/rslapp/store/__init__.py`, `Store.__init__`):** `self.cache_dir` aponta para `<RSL_DATA_DIR>/cache/` quando informado, mantendo o `.lock`, `lists/`, `searches/` e `log.md` dentro de `<RSL_DATA_DIR>/people/<id>/`.
