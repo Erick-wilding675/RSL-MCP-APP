@@ -43,8 +43,8 @@ dev = [
 ]
 
 [project.scripts]
-# D-008: Comando de entrada do servidor MCP
-rslapp = "rslapp.server:main"
+# D-008, D-011: Comando de entrada do servidor MCP (stdio e subcomando serve)
+rslapp = "rslapp.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rslapp"]

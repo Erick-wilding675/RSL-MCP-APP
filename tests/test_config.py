@@ -39,7 +39,7 @@ def test_d001_d008_pacote_e_entrypoint_instalados() -> None:
     scripts = entry_points(group="console_scripts")
     rslapp_eps = [ep for ep in scripts if ep.name == "rslapp"]
     assert len(rslapp_eps) == 1
-    assert rslapp_eps[0].value == "rslapp.server:main"
+    assert rslapp_eps[0].value == "rslapp.cli:main"
 
 
 # FR-07, NFR-02: Sem variáveis de ambiente, usa padrões locais na pasta do usuário sem criar pastas

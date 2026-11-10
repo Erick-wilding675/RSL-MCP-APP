@@ -5,10 +5,15 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 DEFAULT_DATA_DIR_NAME = "RSL.app"
 DEFAULT_EXPORT_DIR_NAME = "exports"
 DEFAULT_CACHE_DAYS = 7
+DEFAULT_HTTP_HOST = "127.0.0.1"
+DEFAULT_HTTP_PORT = 8000
+DEFAULT_FORWARDED_ALLOW_IPS = "127.0.0.1"
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
 # FR-07: Configuração do servidor e das chaves de API na máquina do usuário via variáveis de ambiente
@@ -74,4 +79,85 @@ def load() -> Config:
         contact_email=contact_email,
         openalex_key_configured=_is_key_configured("OPENALEX_API_KEY"),
         semantic_scholar_key_configured=_is_key_configured("SEMANTIC_SCHOLAR_API_KEY"),
+    )
+
+
+# D-011, D-017, NFR-03: Configuração imutável do modo HTTP sem expor valores secretos no repr
+@dataclass(frozen=True)
+class HttpConfig:
+    """Configuração imutável do modo HTTP carregada do ambiente e da linha de comando."""
+
+    host: str = DEFAULT_HTTP_HOST
+    port: int = DEFAULT_HTTP_PORT
+    public_url: str = f"http://{DEFAULT_HTTP_HOST}:{DEFAULT_HTTP_PORT}"
+    forwarded_allow_ips: str = DEFAULT_FORWARDED_ALLOW_IPS
+
+
+# D-011: Verifica se o host de escuta é um endereço de loopback permitido sem login
+def is_loopback_host(host: str) -> bool:
+    """Indica se o endereço de escuta pertence ao loopback local (127.0.0.1, localhost ou ::1)."""
+    return host.strip().lower() in LOOPBACK_HOSTS
+
+
+# D-011, D-017: Extrai esquema e host (com colchetes em IPv6) de RSL_PUBLIC_URL para proteção de host
+def parse_public_url_host(public_url: str) -> tuple[str, str]:
+    """Valida RSL_PUBLIC_URL e devolve (scheme, host_para_cabecalho_http)."""
+    parsed = urlsplit(public_url.strip())
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("RSL_PUBLIC_URL deve ser uma URL http:// ou https:// com host válido")
+    hostname = parsed.hostname
+    if ":" in hostname:
+        return parsed.scheme, f"[{hostname}]"
+    return parsed.scheme, hostname
+
+
+def _parse_http_port(raw_value: str | None) -> int:
+    """Valida e converte RSL_HTTP_PORT para inteiro entre 1 e 65535."""
+    if raw_value is None or not raw_value.strip():
+        return DEFAULT_HTTP_PORT
+    try:
+        port = int(raw_value.strip())
+    except ValueError:
+        raise ValueError("RSL_HTTP_PORT deve ser um inteiro entre 1 e 65535") from None
+    if port < 1 or port > 65535:
+        raise ValueError("RSL_HTTP_PORT deve ser um inteiro entre 1 e 65535")
+    return port
+
+
+# D-011, D-017: Lê a configuração do modo HTTP com sobreposição por --host e --port
+def load_http(*, host: str | None = None, port: int | None = None) -> HttpConfig:
+    """Lê as variáveis de ambiente do modo HTTP, aplicando --host e --port quando informados."""
+    if host is not None:
+        resolved_host = host.strip()
+        if not resolved_host:
+            raise ValueError("O endereço de escuta HTTP (--host) não pode ser vazio")
+    else:
+        raw_host = os.environ.get("RSL_HTTP_HOST")
+        resolved_host = raw_host.strip() if raw_host and raw_host.strip() else DEFAULT_HTTP_HOST
+
+    if port is not None:
+        if isinstance(port, bool) or not isinstance(port, int) or port < 1 or port > 65535:
+            raise ValueError("A porta HTTP (--port) deve ser um inteiro entre 1 e 65535")
+        resolved_port = port
+    else:
+        resolved_port = _parse_http_port(os.environ.get("RSL_HTTP_PORT"))
+
+    raw_public_url = os.environ.get("RSL_PUBLIC_URL")
+    if raw_public_url and raw_public_url.strip():
+        resolved_public_url = raw_public_url.strip().rstrip("/")
+    else:
+        resolved_public_url = f"http://127.0.0.1:{resolved_port}"
+    parse_public_url_host(resolved_public_url)
+
+    raw_forwarded = os.environ.get("RSL_FORWARDED_ALLOW_IPS")
+    if raw_forwarded and raw_forwarded.strip():
+        resolved_forwarded = raw_forwarded.strip()
+    else:
+        resolved_forwarded = DEFAULT_FORWARDED_ALLOW_IPS
+
+    return HttpConfig(
+        host=resolved_host,
+        port=resolved_port,
+        public_url=resolved_public_url,
+        forwarded_allow_ips=resolved_forwarded,
     )
