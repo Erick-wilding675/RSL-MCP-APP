@@ -1,6 +1,6 @@
 # Dados separados por pessoa
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** a fazer
+**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
 
 ## O que faz
 
@@ -20,13 +20,13 @@ No modo HTTP, cada pessoa logada tem as próprias buscas, listas, log e exporta�
 
 ## Pronto quando
 
-- [ ] Teste: Maria faz uma busca e o João, logado, chama `get_list` com o `list_id` dela e recebe `list_not_found`; `get_search_log` do João não mostra a busca dela
-- [ ] Teste: a mesma busca feita pela Maria e depois pelo João usa o cache na segunda vez (nenhuma chamada nova às fontes, com fontes falsas que contam as chamadas)
-- [ ] Teste: as pastas de cada pessoa ficam em `people/<id>/`, e o cache em `cache/` na raiz
-- [ ] Teste: no stdio, tudo continua na raiz de `RSL_DATA_DIR`, como na 1.0.1 (os testes que já existem passam sem mudança)
-- [ ] Teste: uma ferramenta no modo HTTP sem pessoa identificada falha com erro e não grava nada
-- [ ] Teste: `user purge maria --yes` (08-02) apaga as listas, o log e as exportações dela e mantém o cache
-- [ ] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
+- [X] Teste: Maria faz uma busca e o João, logado, chama `get_list` com o `list_id` dela e recebe `list_not_found`; `get_search_log` do João não mostra a busca dela
+- [X] Teste: a mesma busca feita pela Maria e depois pelo João usa o cache na segunda vez (nenhuma chamada nova às fontes, com fontes falsas que contam as chamadas)
+- [X] Teste: as pastas de cada pessoa ficam em `people/<id>/`, e o cache em `cache/` na raiz
+- [X] Teste: no stdio, tudo continua na raiz de `RSL_DATA_DIR`, como na 1.0.1 (os testes que já existem passam sem mudança)
+- [X] Teste: uma ferramenta no modo HTTP sem pessoa identificada falha com erro e não grava nada
+- [X] Teste: `user purge maria --yes` (08-02) apaga as listas, o log e as exportações dela e mantém o cache
+- [X] Os três gates passam (ruff, pytest em 3.10 e em 3.14)
 
 ## Vem de
 
@@ -65,3 +65,7 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra
 1. **Isolamento de dados entre pessoas e bloqueio sem pessoa no modo HTTP (`src/rslapp/server.py`, `_resolve_person_id`, `_build_tool_store` e `_HttpMCPServer`):** valida o `person_id` com `people.validate_person_id` e confere `person_dir_resolved.parent == people_root` antes de montar o `Store`; recusa execução com `ToolError` se `_is_http_mode()` estiver ativo sem `current_person_id()`, impedindo qualquer queda silenciosa na pasta comum `<RSL_DATA_DIR>`.
 2. **Exportações por pessoa e `user purge` (`src/rslapp/server.py`, `export_list` e `tests/test_server_people_data.py`):** no modo HTTP, `export_list` grava em `<RSL_DATA_DIR>/people/<id>/exports/` ignorando `RSL_EXPORT_DIR`, o que garante que `rslapp user purge <id> --yes` remova listas, buscas, `log.md` e exportações daquela pessoa mantendo `<RSL_DATA_DIR>/cache/`.
 3. **Cache compartilhado separado da pasta da pessoa (`src/rslapp/store/__init__.py`, `Store.__init__`):** `self.cache_dir` aponta para `<RSL_DATA_DIR>/cache/` quando informado, mantendo o `.lock`, `lists/`, `searches/` e `log.md` dentro de `<RSL_DATA_DIR>/people/<id>/`.
+
+**Revisão do Claude (2026-11-10, run `b20261110-163816` do Playmaker):** aprovada numa rodada e integrada com os gates refeitos pelo `board integrate`. Conferido: a pasta da pessoa sai do id validado e não sai de `people/`; no modo HTTP sem pessoa, a ferramenta falha antes de gravar; o cache fica na raiz e o `Store` sem `cache_dir` continua igual; o stdio não muda. Acompanhamentos, não bloqueiam:
+- `_get_current_person_id` em `server.py` confere se `current_person_id` foi trocado por um teste (`_orig_current_person_id`). É indireção desnecessária: chamar `current_person_id()` direto já deixa o teste trocá-la. Limpar numa tarefa futura que mexa no `server.py`.
+- O modo HTTP é marcado em dois lugares (`_HostOriginProtectionASGIApp` e `_HttpMCPServer.call_tool`); o segundo é o que vale dentro das ferramentas.
