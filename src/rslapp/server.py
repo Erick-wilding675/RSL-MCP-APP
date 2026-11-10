@@ -59,27 +59,8 @@ class SourceInfo(TypedDict):
     status: SourceStatus
 
 
-_default_public_url = f"http://{config.DEFAULT_HTTP_HOST}:{config.DEFAULT_HTTP_PORT}"
-_default_resource_url = f"{_default_public_url}/mcp"
-_default_auth_store = AuthStore()
-_default_token_verifier = RSLTokenVerifier(
-    _default_auth_store,
-    resource_server_url=_default_resource_url,
-)
-_default_auth_settings = AuthSettings(
-    issuer_url=AnyHttpUrl(_default_public_url),
-    resource_server_url=AnyHttpUrl(_default_resource_url),
-    required_scopes=["rsl"],
-    validate_token_resource=True,
-)
-
-# D-006, D-015, D-016, NFR-02: Servidor MCP com token_verifier e AuthSettings (sem auth_server_provider legado)
-mcp = MCPServer(
-    "rslapp",
-    instructions=INSTRUCTIONS,
-    token_verifier=_default_token_verifier,
-    auth=_default_auth_settings,
-)
+# D-006, NFR-02: Servidor MCP padrão para transporte stdio
+mcp = MCPServer("rslapp", instructions=INSTRUCTIONS)
 
 
 # D-002, FR-07, NFR-03: Lista as fontes acadêmicas indicando se estão configuradas e prontas
@@ -336,39 +317,33 @@ class _HostOriginProtectionASGIApp:
         await self._app(scope, receive, send)
 
 
-def _install_asgi_transport_fallback(session_manager: Any) -> None:
-    """Permite chamadas diretas via httpx.ASGITransport sem exigir lifespan explícito."""
-    original_handle_request = session_manager._handle_request
-    fallback_lock = anyio.Lock()
-
-    async def _wrapped_handle_request(scope: Scope, receive: Receive, send: Send) -> None:
-        if session_manager._task_group is not None:
-            await original_handle_request(scope, receive, send)
-            return
-
-        async with fallback_lock:
-            if session_manager._task_group is not None:
-                await original_handle_request(scope, receive, send)
-                return
-
-            prev_stateless = session_manager.stateless
-            async with (
-                session_manager.app.lifespan(session_manager.app) as lifespan_state,
-                anyio.create_task_group() as tg,
-            ):
-                session_manager.stateless = True
-                session_manager._lifespan_state = lifespan_state
-                session_manager._task_group = tg
-                try:
-                    await original_handle_request(scope, receive, send)
-                finally:
-                    session_manager._task_group = None
-                    session_manager._lifespan_state = None
-                    session_manager.stateless = prev_stateless
-
-    session_manager._handle_request = _wrapped_handle_request
-    if hasattr(session_manager, "asgi_app") and hasattr(session_manager.asgi_app, "app"):
-        session_manager.asgi_app.app = _wrapped_handle_request
+# D-006, D-015, D-016: Monta um MCPServer pelo construtor com token_verifier e AuthSettings sem duplicar ferramentas
+def _build_http_mcp_server(
+    *,
+    token_verifier: RSLTokenVerifier,
+    auth: AuthSettings,
+) -> MCPServer:
+    """Instancia um MCPServer com token_verifier e AuthSettings compartilhando as ferramentas registradas."""
+    http_mcp = MCPServer(
+        "rslapp",
+        instructions=INSTRUCTIONS,
+        token_verifier=token_verifier,
+        auth=auth,
+    )
+    for tool_fn in (
+        list_sources,
+        search_works,
+        get_related_works,
+        find_work,
+        repeat_search,
+        export_list,
+        get_list,
+        get_search_log,
+    ):
+        http_mcp.add_tool(tool_fn)
+    http_mcp.prompt()(plan_search)
+    http_mcp.custom_route("/health", methods=["GET"])(health_check)
+    return http_mcp
 
 
 # D-011, D-015, D-016, D-006: Cria a aplicação ASGI unificando Resource Server MCP e Authorization Server OAuth 2.1
@@ -402,18 +377,14 @@ def create_http_app(
         else RSLOAuthProvider(store, public_url=public_url)
     )
 
-    mcp.settings.auth = auth_settings
-    mcp._token_verifier = verifier
-    mcp._auth_server_provider = None
-
-    app = mcp.streamable_http_app(
+    http_mcp = _build_http_mcp_server(
+        token_verifier=verifier,
+        auth=auth_settings,
+    )
+    app = http_mcp.streamable_http_app(
         transport_security=security,
         host=cfg.host,
     )
-
-    session_manager = getattr(mcp._lowlevel_server, "_session_manager", None)
-    if session_manager is not None:
-        _install_asgi_transport_fallback(session_manager)
 
     for idx, route in enumerate(app.router.routes):
         if isinstance(route, Route) and route.path == "/mcp":
