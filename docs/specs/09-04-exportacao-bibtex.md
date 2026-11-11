@@ -1,6 +1,6 @@
 # Exportação em BibTeX
 
-**Fase:** 9 · Versão 1.2 · **Situação:** a fazer
+**Fase:** 9 · Versão 1.2 · **Situação:** para testar
 
 ## O que faz
 
@@ -73,3 +73,14 @@ Implementado o exportador de listas para o formato BibTeX (`bibtex`, extensão `
    ```
 3. Testar a exportação no stdio chamando `export_list` com `format="bibtex"` para uma lista salva: verificar que o arquivo `<list_id>.bib` é gravado na pasta de exportação com codificação UTF-8 e sintaxe BibTeX válida.
 4. Testar o download no modo HTTP: requisitar a exportação com `format="bibtex"` via HTTP MCP e baixar pela URL retornada (`/downloads/<token>`), verificando o cabeçalho `Content-Type: application/x-bibtex; charset=utf-8`.
+
+**Revisão do Claude (2026-11-11, run `b20261111-144701` do Playmaker):** duas rodadas (Gemini 3.8 Flash). A primeira voltou pelo parecer do agente revisor:
+- escapar `{` como `\{` deixava a entrada desbalanceada quando um título tinha uma chave sozinha;
+- sufixos (Filho, Neto, Jr.) viravam sobrenome;
+- a lista de palavras de organização pegava pessoas ("Steven Bank");
+- chaves com sufixo podiam repetir;
+- sobrava código morto (490 linhas).
+
+Na segunda, conferido com o teste do revisor: as chaves abrem e fecham na mesma quantidade em todas as entradas, inclusive com `{` e `}` soltas; as chaves de citação não se repetem; `João da Silva Filho` vira `Silva Filho, João da`; `Steven Bank` é pessoa; `World Health Organization` e `Universidade de São Paulo` ficam entre chaves. O exportador caiu para 318 linhas. Integrada com os gates refeitos pelo `board integrate`.
+
+Fora do escopo, e certas: `tests/exporters/test_ris.py` trocou `bibtex` por `yaml` como exemplo de formato desconhecido, e `tests/test_server_downloads.py` ganhou a linha do `.bib`.
