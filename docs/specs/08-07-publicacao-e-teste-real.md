@@ -34,7 +34,7 @@ D-011, D-015, D-017 e D-018, e D-008 (publicação no PyPI).
 
 ## Antes de começar
 
-08-01 a 08-06 integradas e prontas. O Lore conectado (o token do PyPI está nele). O Erick escolhe onde hospedar o teste: escolheu uma máquina da Azure for Students com um nome do DuckDNS (D-019).
+08-01 a 08-06 integradas e prontas. O Lore conectado (o token do PyPI está nele). O Erick escolhe onde hospedar o teste: escolheu uma máquina da Azure for Students com o subdomínio `rsl.sinteselabs.com` (D-019).
 
 ## Resultado da entrega
 
@@ -50,9 +50,9 @@ D-011, D-015, D-017 e D-018, e D-008 (publicação no PyPI).
 
 ## Como testar
 
-O roteiro abaixo segue a D-019: uma máquina da Azure for Students com um nome gratuito do DuckDNS. Nos exemplos, o nome é `rsl-erick.duckdns.org`; troque pelo que você criar. As chaves de API você digita só no `.env` da máquina, nunca no chat nem num arquivo do repositório.
+O roteiro abaixo segue a D-019: uma máquina da Azure for Students com o subdomínio `rsl.sinteselabs.com`, do domínio da Síntese. As chaves de API você digita só no `.env` da máquina, nunca no chat nem num arquivo do repositório.
 
-**1. O nome no DuckDNS.** Entre em <https://www.duckdns.org> com a conta do GitHub ou do Google e crie um subdomínio, por exemplo `rsl-erick`. Deixe a página aberta: o IP entra no passo 3.
+**1. O DNS da Síntese.** O DNS do `sinteselabs.com` fica na Hostinger (servidores `dns-parking.com`). Hoje o `rsl.sinteselabs.com` não existe e o domínio não tem registro CAA, então o Let's Encrypt pode emitir o certificado. O site principal, na Vercel, não muda. Deixe o painel da Hostinger aberto: o IP entra no passo 3.
 
 **2. A máquina na Azure.** Ative a Azure for Students em <https://azure.microsoft.com/free/students> com o e-mail da universidade (não pede cartão). No portal, crie uma máquina virtual:
 
@@ -62,7 +62,7 @@ O roteiro abaixo segue a D-019: uma máquina da Azure for Students com um nome g
 - Autenticação: **chave SSH**, usuário `azureuser`. Baixe o arquivo `.pem` quando o portal oferecer e guarde-o fora do projeto.
 - Portas de entrada: **SSH (22)**, **HTTP (80)** e **HTTPS (443)**.
 
-**3. Apontar o nome.** Copie o **IP público** da máquina (na página dela no portal), cole no DuckDNS ao lado do subdomínio e clique em *update ip*. Confira no seu computador com `nslookup rsl-erick.duckdns.org`: deve aparecer o IP da máquina.
+**3. Apontar o nome.** Copie o **IP público** da máquina (na página dela no portal). No hPanel da Hostinger, em *Domínios → sinteselabs.com → DNS / Nameservers*, adicione um registro **A** com nome `rsl`, apontando para esse IP, com TTL 300. Confira no seu computador com `nslookup rsl.sinteselabs.com 8.8.8.8`: deve aparecer o IP da máquina. Pode levar alguns minutos.
 
 **4. Subir o servidor.** No PowerShell, entre na máquina com `ssh -i C:\caminho\da\chave.pem azureuser@<IP>` e rode:
 
@@ -82,10 +82,10 @@ sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapf
 git clone https://github.com/Erick-wilding675/RSL-MCP-APP.git
 cd RSL-MCP-APP/deploy
 cp .env.example .env
-nano .env    # RSL_DOMAIN=rsl-erick.duckdns.org, RSL_PUBLIC_URL=https://rsl-erick.duckdns.org, sua OPENALEX_API_KEY; Ctrl+O, Enter, Ctrl+X
+nano .env    # RSL_DOMAIN=rsl.sinteselabs.com, RSL_PUBLIC_URL=https://rsl.sinteselabs.com, sua OPENALEX_API_KEY; Ctrl+O, Enter, Ctrl+X
 docker compose up -d
 docker compose ps
-curl https://rsl-erick.duckdns.org/health
+curl https://rsl.sinteselabs.com/health
 ```
 
 O que deve aparecer: os dois serviços `Up`, e o `/health` responde `{"status":"ok","version":"1.1.0"}`. O primeiro certificado pode levar meio minuto; se o `curl` falhar, veja `docker compose logs caddy`.
@@ -108,7 +108,7 @@ docker compose exec rslapp rslapp token add teste2
 
 Cada comando mostra o código (`rsl_...`) uma vez só. Anote os dois num lugar seguro.
 
-**6. No Claude, com o código `erick`.** Em *Configurações → Conectores → Adicionar conector personalizado*, use a URL `https://rsl-erick.duckdns.org/mcp`. O navegador abre a página de login do RSL.app; digite o código `erick`. Depois:
+**6. No Claude, com o código `erick`.** Em *Configurações → Conectores → Adicionar conector personalizado*, use a URL `https://rsl.sinteselabs.com/mcp`. O navegador abre a página de login do RSL.app; digite o código `erick`. Depois:
 
 - peça uma busca curta (por exemplo, "busque artigos sobre revisão sistemática com IA de 2023 a 2025 e salve como lista");
 - peça "exporte a lista em RIS": a resposta traz um link de download, sem caminho de pasta;
@@ -118,17 +118,17 @@ Cada comando mostra o código (`rsl_...`) uma vez só. Anote os dois num lugar s
 **7. No Claude Code, com o código `teste2`.** No seu computador:
 
 ```powershell
-claude mcp add --transport http rsl-teste2 https://rsl-erick.duckdns.org/mcp
+claude mcp add --transport http rsl-teste2 https://rsl.sinteselabs.com/mcp
 ```
 
 Abra o Claude Code, rode `/mcp`, autentique o `rsl-teste2` e digite o código `teste2`. Peça "abra a lista l-0001 pelo rsl-teste2" e "mostre o log de buscas pelo rsl-teste2". O que deve aparecer: `list_not_found` e um log vazio. As listas do `erick` não aparecem.
 
 **8. Revogar.** Na máquina, rode `docker compose exec rslapp rslapp token revoke teste2`. No Claude Code, peça qualquer coisa ao `rsl-teste2`: deve falhar e pedir login de novo, e o código `teste2` não entra mais. No Claude, o `erick` continua funcionando.
 
-**9. Depois do teste.** Para não gastar o crédito à toa, pare a máquina no portal (*Parar*), ou apague o grupo de recursos inteiro se não for usá-la mais. Parada, ela não cobra processamento, mas o disco e o IP podem cobrar uns centavos por dia.
+**9. Depois do teste.** Para não gastar o crédito à toa, pare a máquina no portal (*Parar*), ou apague o grupo de recursos inteiro se não for usá-la mais; nesse caso, apague também o registro `rsl` na Hostinger, para o nome não apontar para um IP que a Azure pode dar a outra pessoa. Parada, ela não cobra processamento, mas o disco e o IP podem cobrar uns centavos por dia.
 
 **Onde olhar primeiro, se algo falhar:**
 
 1. **O login (passos 6 e 7):** se o Claude não abrir a página de login ou voltar com erro, anote a mensagem e rode `docker compose logs rslapp --tail 50`.
-2. **O link de download (passo 6):** ele tem de começar com `https://rsl-erick.duckdns.org/downloads/`. Se começar com `http://` ou com outro nome, o `RSL_PUBLIC_URL` do `.env` está errado.
+2. **O link de download (passo 6):** ele tem de começar com `https://rsl.sinteselabs.com/downloads/`. Se começar com `http://` ou com outro nome, o `RSL_PUBLIC_URL` do `.env` está errado.
 3. **A separação entre pessoas (passo 7):** se o `teste2` vir a lista do `erick`, pare o teste e me avise, porque é o defeito mais grave possível aqui.
