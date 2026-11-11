@@ -175,3 +175,12 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Erick · **Data:** 2026-11-10
 - **Fontes:** conversa de 2026-11-10 (Claude Code)
 - **Situação:** decidida
+
+## D-019 · Teste real da v2 numa máquina da Azure for Students, com nome do DuckDNS
+
+- **Decisão:** o teste real da 08-07 roda numa máquina Linux pequena da Azure, paga com os créditos de estudante do Erick (US$ 100), com um nome gratuito do DuckDNS (por exemplo, `rsl-erick.duckdns.org`) apontado para o IP dela. A 1.1.0 é publicada antes do teste; se ele achar defeito, sai uma 1.1.1.
+- **Motivo:** o Erick escolheu servidor alugado com os créditos e as opções que eu recomendei. A Azure for Students não pede cartão e desativa a conta quando o crédito acaba, sem cobrança surpresa. Os nomes gratuitos das nuvens não servem para o HTTPS: o Let's Encrypt recusa `*.compute.amazonaws.com`, e `cloudapp.azure.com` não está na Public Suffix List, então divide com todos os clientes da Azure o limite de certificados por domínio. O `duckdns.org` está na lista, e cada nome tem o próprio limite. Publicar já é seguro porque o modo stdio não mudou.
+- **Alternativas:** AWS (o crédito de estudante pode ser do Learner Lab, que desliga a máquina no fim da sessão); comprar um domínio (cerca de US$ 10 por ano, fora dos créditos); máquina da universidade; a máquina do Erick com portas abertas; publicar uma 1.1.0rc1 antes.
+- **Decidido por:** Erick · **Data:** 2026-11-11
+- **Fontes:** conversa de 2026-11-11 (Claude Code); azure.microsoft.com/en-us/pricing/offers/ms-azr-0170p e publicsuffix.org/list, lidos em 2026-11-11; fórum community.letsencrypt.org ("Policy forbids issuing for name on Amazon EC2 domain")
+- **Situação:** decidida

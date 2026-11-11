@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 # D-008: Pacote publicado no PyPI para execução isolada via uvx
 name = "rslapp"
-version = "1.0.1"
+version = "1.1.0"
 description = "Servidor MCP em Python para busca acadêmica e exportação para revisão sistemática"
 readme = "README.md"
 license = "MIT"
