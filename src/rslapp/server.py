@@ -39,11 +39,14 @@ from rslapp.exporters import run_export
 from rslapp.prompts import INSTRUCTIONS, render_plan_search
 from rslapp.sources.base import Source
 from rslapp.sources.crossref import CrossrefSource
+from rslapp.sources.europe_pmc import EuropePMCSource
 from rslapp.sources.openalex import OpenAlexSource
+from rslapp.sources.pubmed import PubmedSource
 from rslapp.sources.semantic_scholar import SemanticScholarSource
 from rslapp.store import Store
 
-SourceName = Literal["openalex", "crossref", "semantic_scholar"]
+# D-020: Nomes válidos de fontes acadêmicas disponíveis no servidor
+SourceName = Literal["openalex", "crossref", "semantic_scholar", "europe_pmc", "pubmed"]
 SourceStatus = Literal["ok", "missing_key"]
 
 
@@ -133,10 +136,10 @@ def _build_tool_store(cfg: config.Config | None = None) -> tuple[Store, Path]:
     )
 
 
-# D-002, D-012, FR-07, NFR-03: Lista as fontes acadêmicas indicando se estão configuradas e prontas
+# D-002, D-012, FR-07, NFR-03, D-020: Lista as fontes acadêmicas indicando se estão configuradas e prontas
 @mcp.tool()
 def list_sources() -> list[SourceInfo]:
-    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite."""
+    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar e a do PubMed são opcionais e evitam recusas por limite. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas."""
     _resolve_person_id()
     cfg = config.load()
     openalex_configured = cfg.openalex_key_configured
@@ -159,13 +162,31 @@ def list_sources() -> list[SourceInfo]:
             "needs_key": False,
             "status": "ok",
         },
+        {
+            "name": "europe_pmc",
+            "configured": True,
+            "needs_key": False,
+            "status": "ok",
+        },
+        {
+            "name": "pubmed",
+            "configured": True,
+            "needs_key": False,
+            "status": "ok",
+        },
     ]
 
 
-# FR-01, FR-04, FR-08, D-002: Monta os três conectores das fontes acadêmicas disponíveis
+# FR-01, FR-04, FR-08, D-002, D-020: Monta os cinco conectores das fontes acadêmicas disponíveis
 def _build_sources() -> list[Source]:
     """Instancia os conectores das fontes disponíveis no servidor."""
-    return [OpenAlexSource(), CrossrefSource(), SemanticScholarSource()]
+    return [
+        OpenAlexSource(),
+        CrossrefSource(),
+        SemanticScholarSource(),
+        EuropePMCSource(),
+        PubmedSource(),
+    ]
 
 
 # FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013: Busca artigos nas fontes acadêmicas
@@ -191,7 +212,7 @@ async def search_works(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-15, FR-08, FR-14, UC-04, D-002, D-005, D-010, D-012, D-013: Consulta referências ou citações de um artigo
+# FR-15, FR-08, FR-14, UC-04, D-002, D-005, D-010, D-012, D-013, D-020: Consulta referências ou citações de um artigo
 @mcp.tool()
 async def get_related_works(
     doi: str | None = None,
@@ -202,6 +223,11 @@ async def get_related_works(
     max_results: NonBoolInt = 1000,
 ) -> dict[str, Any]:
     """Busca referências ou citações de um artigo acadêmico nas fontes, deduplica e grava lista própria."""
+    # D-020: pubmed e europe_pmc não são suportadas em get_related_works
+    if sources is not None:
+        for s in sources:
+            if isinstance(s, str) and s.strip() in ("pubmed", "europe_pmc"):
+                raise ToolError(f"invalid_input: fonte não suportada nesta ferramenta: {s.strip()}")
     store, _ = _build_tool_store()
     try:
         return await run_related(
@@ -217,7 +243,7 @@ async def get_related_works(
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
 
-# FR-02, UC-02, D-002, D-012, D-013: Encontra um artigo específico por título ou DOI
+# FR-02, UC-02, D-002, D-012, D-013, D-020: Encontra um artigo específico por título ou DOI
 @mcp.tool()
 async def find_work(
     title: str | None = None,
@@ -227,6 +253,11 @@ async def find_work(
     max_results: NonBoolInt = 10,
 ) -> dict[str, Any]:
     """Busca um artigo específico por título ou DOI nas fontes, deduplica candidatos e grava lista própria."""
+    # D-020: pubmed e europe_pmc não são suportadas em find_work
+    if sources is not None:
+        for s in sources:
+            if isinstance(s, str) and s.strip() in ("pubmed", "europe_pmc"):
+                raise ToolError(f"invalid_input: fonte não suportada nesta ferramenta: {s.strip()}")
     store, _ = _build_tool_store()
     try:
         return await run_find(

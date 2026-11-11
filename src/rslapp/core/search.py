@@ -44,6 +44,14 @@ def _summarize_work(work: Work) -> dict[str, Any]:
     }
 
 
+# D-020: Fontes acadêmicas padrão consultadas quando sources não for especificado
+DEFAULT_SEARCH_SOURCES: tuple[str, ...] = (
+    "openalex",
+    "crossref",
+    "semantic_scholar",
+)
+
+
 def _select_sources(
     available: Sequence[Source],
     requested_names: Sequence[str] | None,
@@ -51,6 +59,10 @@ def _select_sources(
     if not available:
         raise RSLError("invalid_input", "nenhuma fonte disponível para consulta")
     if requested_names is None:
+        # D-020: Sem sources, a busca continua nas três fontes de antes; as novas entram só quando pedidas
+        default_selected = [src for src in available if src.name in DEFAULT_SEARCH_SOURCES]
+        if default_selected:
+            return default_selected
         return list(available)
     if (
         isinstance(requested_names, (str, bytes))

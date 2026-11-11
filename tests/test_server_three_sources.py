@@ -11,7 +11,9 @@ from mcp import Client
 from rslapp import server
 from rslapp.core.models import Author, SourceResult, Work
 from rslapp.sources.crossref import CrossrefSource
+from rslapp.sources.europe_pmc import EuropePMCSource
 from rslapp.sources.openalex import OpenAlexSource
+from rslapp.sources.pubmed import PubmedSource
 from rslapp.sources.semantic_scholar import SemanticScholarSource
 
 
@@ -52,16 +54,18 @@ def _extract_result_dict(call_result: Any) -> dict[str, Any]:
     return sc
 
 
-# FR-01, FR-07, D-002: _build_sources instancia as três fontes na ordem canônica
+# FR-01, FR-07, D-002, D-020: _build_sources instancia as cinco fontes na ordem canônica
 def test_fr01_fr07_d002_build_sources_instancia_tres_fontes() -> None:
     sources = server._build_sources()
-    assert len(sources) == 3
+    assert len(sources) == 5
     assert isinstance(sources[0], OpenAlexSource)
     assert isinstance(sources[1], CrossrefSource)
     assert isinstance(sources[2], SemanticScholarSource)
+    assert isinstance(sources[3], EuropePMCSource)
+    assert isinstance(sources[4], PubmedSource)
 
 
-# FR-07, D-002: list_sources mostra as três fontes e a docstring tem a nota da chave da Semantic Scholar
+# FR-07, D-002, D-020: list_sources mostra as cinco fontes e a docstring tem a nota da chave da Semantic Scholar
 @pytest.mark.anyio
 async def test_fr07_d002_list_sources_docstring_e_tres_fontes() -> None:
     async with Client(server.mcp) as client:
@@ -76,7 +80,7 @@ async def test_fr07_d002_list_sources_docstring_e_tres_fontes() -> None:
         payload = res.structured_content["result"]
         assert isinstance(payload, list)
         names = [item["name"] for item in payload]
-        assert names == ["openalex", "crossref", "semantic_scholar"]
+        assert names == ["openalex", "crossref", "semantic_scholar", "europe_pmc", "pubmed"]
 
         s2_info = next(item for item in payload if item["name"] == "semantic_scholar")
         assert s2_info["configured"] is True

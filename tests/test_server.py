@@ -101,6 +101,18 @@ async def test_d002_d006_fr07_nfr02_handshake_stdio_e_list_sources_sem_chaves(
                     "needs_key": False,
                     "status": "ok",
                 },
+                {
+                    "name": "europe_pmc",
+                    "configured": True,
+                    "needs_key": False,
+                    "status": "ok",
+                },
+                {
+                    "name": "pubmed",
+                    "configured": True,
+                    "needs_key": False,
+                    "status": "ok",
+                },
             ]
         }
 
@@ -151,6 +163,18 @@ async def test_fr07_nfr03_d002_stdio_com_chaves_nao_expoe_valores_e_marca_openal
                     "needs_key": False,
                     "status": "ok",
                 },
+                {
+                    "name": "europe_pmc",
+                    "configured": True,
+                    "needs_key": False,
+                    "status": "ok",
+                },
+                {
+                    "name": "pubmed",
+                    "configured": True,
+                    "needs_key": False,
+                    "status": "ok",
+                },
             ]
         }
 
@@ -176,7 +200,13 @@ async def test_fr07_d002_list_sources_sem_chaves_em_memoria() -> None:
         assert result.is_error is False
         sources = {item["name"]: item for item in result.structured_content["result"]}
 
-        assert set(sources.keys()) == {"openalex", "crossref", "semantic_scholar"}
+        assert set(sources.keys()) == {
+            "openalex",
+            "crossref",
+            "semantic_scholar",
+            "europe_pmc",
+            "pubmed",
+        }
         assert sources["openalex"] == {
             "name": "openalex",
             "configured": False,
@@ -191,6 +221,18 @@ async def test_fr07_d002_list_sources_sem_chaves_em_memoria() -> None:
         }
         assert sources["semantic_scholar"] == {
             "name": "semantic_scholar",
+            "configured": True,
+            "needs_key": False,
+            "status": "ok",
+        }
+        assert sources["europe_pmc"] == {
+            "name": "europe_pmc",
+            "configured": True,
+            "needs_key": False,
+            "status": "ok",
+        }
+        assert sources["pubmed"] == {
+            "name": "pubmed",
             "configured": True,
             "needs_key": False,
             "status": "ok",
