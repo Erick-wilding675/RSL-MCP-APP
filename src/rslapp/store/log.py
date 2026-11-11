@@ -7,7 +7,12 @@ from typing import Any
 from rslapp.store._atomic import strip_url_credentials
 from rslapp.store.cache import parse_utc_timestamp
 
-_KIND_LABELS = {"terms": "busca por termos", "work": "busca de artigo", "repeat": "repetição"}
+_KIND_LABELS = {
+    "terms": "busca por termos",
+    "work": "busca de artigo",
+    "repeat": "repetição",
+    "merge": "junção",
+}
 _DIRECTION_LABELS = {"references": "referências", "citations": "citações"}
 _LIST_STATUS_LABELS = {"complete": "completa", "incomplete": "incompleta"}
 _DIVERGENCE_LABELS = {
@@ -97,9 +102,10 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
     else:
         raise ValueError(f"Tipo de busca inválido: {kind!r}")
 
-    sources = search_data.get("sources")
-    if type(sources) is not list:
-        raise ValueError("Campo 'sources' deve ser uma lista")
+    if kind != "merge":
+        sources = search_data.get("sources")
+        if type(sources) is not list:
+            raise ValueError("Campo 'sources' deve ser uma lista")
 
     created_str = parse_utc_timestamp(str(search_data["created_at"])).strftime("%Y-%m-%d %H:%M UTC")
     summary = _one_line(str(search_data.get("request_summary") or ""))
@@ -116,6 +122,30 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
             raise ValueError(f"Total de lista inválido: {total!r}")
         unit = "artigo" if total == 1 else "artigos"
         list_line = f"Lista: {list_id} · {_LIST_STATUS_LABELS[raw_status]} · {total} {unit}"
+
+    # D-021, FR-05, FR-13: Formatação específica para entradas de junção de listas no log.md
+    if kind == "merge":
+        merged_from = search_data.get("merged_from") or []
+        origin_totals = search_data.get("origin_totals") or {}
+        dups = search_data.get("duplicates_removed", 0)
+        if type(dups) is not int or dups < 0:
+            raise ValueError(f"Total de duplicates_removed inválido: {dups!r}")
+        dup_unit = "artigo" if dups == 1 else "artigos"
+
+        lines = [
+            f"## {search_data['id']} · {created_str} · {kind_label}",
+            f"Pedido: {summary}" if summary else "Pedido:",
+            list_line,
+            f"Duplicatas removidas: {dups} {dup_unit}",
+        ]
+        for lid in merged_from:
+            cnt = origin_totals.get(lid)
+            if cnt is not None and type(cnt) is int:
+                c_unit = "artigo" if cnt == 1 else "artigos"
+                lines.append(f"- {lid} · {cnt} {c_unit}")
+            else:
+                lines.append(f"- {lid}")
+        return "\n".join(lines)
 
     lines = [
         f"## {search_data['id']} · {created_str} · {kind_label}",

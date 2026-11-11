@@ -58,11 +58,14 @@ async def run_repeat(
     except (FileNotFoundError, ValueError):
         raise RSLError("search_not_found", f"busca {clean_search_id} não encontrada") from None
 
+    orig_kind = orig_search.get("kind")
+    if orig_kind == "merge":
+        # D-021: Uma junção não pode ser repetida; repita as buscas de origem
+        raise RSLError("invalid_input", "uma junção não pode ser repetida; repita as buscas de origem")
+
     orig_params = orig_search.get("params")
     if not isinstance(orig_params, dict) or not orig_params:
         raise RSLError("invalid_input", "busca sem parâmetros gravados")
-
-    orig_kind = orig_search.get("kind")
     proxy = _RepeatStoreProxy(store)
     source_names = orig_params.get("sources")
     summary = orig_search.get("request_summary", "")
