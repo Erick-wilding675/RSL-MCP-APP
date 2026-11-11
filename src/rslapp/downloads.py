@@ -244,6 +244,47 @@ def _not_found_response() -> Response:
     return PlainTextResponse(NOT_FOUND_MESSAGE, status_code=404, headers=_NO_STORE_HEADERS)
 
 
+# D-012, D-014, FR-06: Limpeza das exportações antigas da própria pessoa antes de gravar nova exportação
+def clean_expired_exports(
+    export_dir: Path,
+    *,
+    retention_hours: int | None = None,
+    now: datetime | None = None,
+) -> None:
+    """Apaga arquivos normais da pasta exports com idade superior a retention_hours sem interromper em caso de erro."""
+    try:
+        resolved_dir = export_dir.resolve()
+        if not resolved_dir.is_dir():
+            return
+    except OSError:
+        return
+
+    effective_hours = (
+        retention_hours
+        if retention_hours is not None
+        else config.load_export_retention_hours()
+    )
+    now_dt = now.astimezone(timezone.utc) if now is not None else _now_utc()
+    cutoff_ts = now_dt.timestamp() - (effective_hours * 3600)
+
+    try:
+        entries = list(resolved_dir.iterdir())
+    except OSError:
+        return
+
+    for entry in entries:
+        try:
+            if entry.is_symlink() or not entry.is_file():
+                continue
+            if entry.resolve().parent != resolved_dir:
+                continue
+            stat_res = entry.stat()
+            if stat_res.st_mtime < cutoff_ts:
+                entry.unlink()
+        except OSError:
+            continue
+
+
 # D-014, D-012, FR-06: Rota GET /downloads/{token} sem login OAuth, validada por assinatura HMAC-SHA256
 async def handle_download(
     request: Request,

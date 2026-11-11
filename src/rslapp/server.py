@@ -266,6 +266,11 @@ def export_list(list_id: str, format: str) -> dict[str, Any]:
     cfg = config.load()
     person_id = _resolve_person_id()
     store, export_dir = _build_tool_store(cfg)
+
+    # D-012, D-014, FR-06: No modo HTTP, apaga exportações antigas da própria pessoa antes de gravar
+    if person_id is not None:
+        downloads.clean_expired_exports(export_dir)
+
     try:
         result = run_export(
             store,

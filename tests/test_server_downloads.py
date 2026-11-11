@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -33,6 +34,7 @@ ENV_VARS = (
     "RSL_ACCESS_TOKEN_MINUTES",
     "RSL_SECRET_KEY",
     "RSL_DOWNLOAD_TTL_MINUTES",
+    "RSL_EXPORT_RETENTION_HOURS",
 )
 
 
@@ -545,4 +547,83 @@ async def test_d014_compatibilidade_token_export_v110_sem_kind_continua_baixando
         assert resp.status_code == 200
         assert resp.content == export_content
         assert resp.headers.get("content-disposition") == 'attachment; filename="l-0001.ris"'
+
+
+# D-012, D-014, FR-06: export_list no HTTP apaga só os arquivos antigos da própria pessoa; no stdio não apaga nada
+@pytest.mark.anyio
+async def test_d012_d014_fr06_limpeza_exportacoes_antigas_apenas_no_modo_http(
+    monkeypatch: pytest.MonkeyPatch, isolated_env: tuple[Path, Path]
+) -> None:
+    data_dir, export_dir = isolated_env
+    monkeypatch.setattr(server, "_build_sources", lambda: [FakeOpenAlexSource()])
+
+    # Testa validação de RSL_EXPORT_RETENTION_HOURS
+    assert config.load_export_retention_hours() == 24
+    monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "12")
+    assert config.load_export_retention_hours() == 12
+    monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "0")
+    with pytest.raises(ValueError, match="no mínimo 1"):
+        config.load_export_retention_hours()
+    monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "invalido")
+    with pytest.raises(ValueError, match="inteiro >= 1"):
+        config.load_export_retention_hours()
+    monkeypatch.delenv("RSL_EXPORT_RETENTION_HOURS", raising=False)
+
+    maria_token = _issue_person_token(data_dir, "maria")
+    people.add("joao", data_dir=data_dir)
+
+    maria_exports = data_dir / "people" / "maria" / "exports"
+    joao_exports = data_dir / "people" / "joao" / "exports"
+    maria_exports.mkdir(parents=True, exist_ok=True)
+    joao_exports.mkdir(parents=True, exist_ok=True)
+
+    maria_antigo = maria_exports / "maria_antigo.ris"
+    maria_recente = maria_exports / "maria_recente.ris"
+    joao_antigo = joao_exports / "joao_antigo.ris"
+
+    maria_antigo.write_bytes(b"antigo maria")
+    maria_recente.write_bytes(b"recente maria")
+    joao_antigo.write_bytes(b"antigo joao")
+
+    now_ts = datetime.now(timezone.utc).timestamp()
+    # Ajusta timestamps de modificação: antigo com 26h atrás, recente com 1h atrás
+    os.utime(maria_antigo, (now_ts - 26 * 3600, now_ts - 26 * 3600))
+    os.utime(maria_recente, (now_ts - 3600, now_ts - 3600))
+    os.utime(joao_antigo, (now_ts - 26 * 3600, now_ts - 26 * 3600))
+
+    async with _http_app_client() as client:
+        await _call_http_tool(
+            client, maria_token, "search_works", {"query": "clean test", "sources": ["openalex"]}
+        )
+        res = await _call_http_tool(
+            client, maria_token, "export_list", {"list_id": "l-0001", "format": "ris"}
+        )
+        assert res.get("isError") is not True
+
+        # Maria teve seu arquivo antigo apagado e recente mantido
+        assert not maria_antigo.exists()
+        assert maria_recente.exists()
+        # O arquivo antigo do João NUNCA é apagado pela Maria
+        assert joao_antigo.exists()
+        # Nova exportação da Maria gerada com sucesso
+        assert (maria_exports / "l-0001.ris").exists()
+
+    # No modo stdio, nada é apagado mesmo com arquivos antigos
+    stdio_antigo = export_dir / "stdio_antigo.ris"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    stdio_antigo.write_bytes(b"antigo stdio")
+    os.utime(stdio_antigo, (now_ts - 48 * 3600, now_ts - 48 * 3600))
+
+    async with Client(server.mcp) as stdio_client:
+        await stdio_client.call_tool(
+            "search_works", {"query": "stdio clean", "sources": ["openalex"]}
+        )
+        s_res = await stdio_client.call_tool(
+            "export_list", {"list_id": "l-0001", "format": "ris"}
+        )
+        assert s_res.is_error is False
+        # No stdio o arquivo antigo permanece intacto
+        assert stdio_antigo.exists()
+        assert (export_dir / "l-0001.ris").exists()
+
 
