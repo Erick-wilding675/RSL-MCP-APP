@@ -81,8 +81,55 @@ Cerca de 350 linhas, testes incluídos. Um commit para o conector e outro para o
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Entregue o conector `PubmedSource` em `src/rslapp/sources/pubmed.py` e os testes completos com `httpx.MockTransport` em `tests/sources/test_pubmed.py`, acompanhados de `ncbi_key_configured` em `src/rslapp/config.py`:
+
+1. **Conector E-utilities (`PubmedSource`, FR-01, D-020):**
+   - ESearch com `usehistory=y`, `retmode=json`, `retmax=min(max_results, 10000)`, `tool=rslapp` e `db=pubmed`.
+   - EFetch com `retmode=xml`, `WebEnv` e `query_key` do histórico em lotes de 200 (`retmax=200`, `retstart` 0, 200, 400…) até atingir `max_results` ou o fim dos registros.
+   - Busca sem resultados devolve `status="ok"` com `found=0`, `fetched=0` e lista vazia sem acionar EFetch.
+2. **Mapeamento completo para `Work` (FR-03, FR-14, D-004, D-020):**
+   - `title`: texto de `ArticleTitle` sem marcas internas XML/HTML e com espaços normalizados; registro sem título é descartado.
+   - `doi`: prioritariamente de `PubmedData/ArticleIdList/ArticleId IdType="doi"`; se ausente, de `Article/ELocationID EIdType="doi"`, normalizado em minúsculas.
+   - `year`: `PubDate/Year`, senão os quatro primeiros dígitos de `MedlineDate`, senão `ArticleDate/Year`, senão nulo.
+   - `venue`: `Journal/Title`.
+   - `abstract`: partes de `AbstractText` unidas por espaço; quando tem `Label`, prefixa `LABEL: texto`.
+   - `keywords`: as de `KeywordList` primeiro, depois `DescriptorName` do MeSH, sem repetições (comparação insensível a maiúsculas).
+   - `type`: primeiro `PublicationType` em minúsculas.
+   - `authors`: na ordem, com `name` (`ForeName LastName`, ou `LastName`, ou `CollectiveName`), `orcid` em formato canônico `0000-0000-0000-0000` (inválido vira nulo), afiliações em `raw_affiliations` e `affiliations` (`Affiliation(name=...)`), com `position=None`.
+   - `references`: lista de DOIs minúsculos das referências; `references_count` total quando `ReferenceList` existe, senão nulo.
+   - `citations`: dicionário vazio `{}`; `source_ids`: `{"pubmed": "<PMID>"}`.
+3. **Ritmo e controle de taxa (NFR-04, D-020):**
+   - Trava assíncrona (`RATE_LOCK`) no módulo garantindo chamadas estritamente sequenciais (nunca em paralelo).
+   - Intervalo mínimo entre inícios de chamadas de 0,34 s sem chave (<= 3 req/s) e 0,10 s com chave (<= 10 req/s).
+4. **Resiliência e retentativas (NFR-04, D-020):**
+   - Até 3 novas tentativas com espera crescente (1 s, 2 s, 4 s) para HTTP 429, 5xx, tempo esgotado, erro de rede e resposta com `"API rate limit exceeded"`.
+   - Outros erros 4xx falham imediatamente sem retentativa.
+   - Falha parcial preserva as páginas/registros já obtidos anteriormente.
+5. **Segurança e proteção de credenciais (NFR-03, D-020):**
+   - Suporte opcional a `NCBI_API_KEY` e `RSL_CONTACT_EMAIL`.
+   - Nem a chave nem o e-mail aparecem em `query`, `reason`, `cache_query` ou `__repr__`.
+   - Suporte adicionado a `config.py` com o campo booleano `ncbi_key_configured`.
 
 ## Como testar
 
-(preenche quem entrega)
+**Onde olhar primeiro (pontos de maior risco):**
+1. **Segurança e isolamento de chaves/e-mail (NFR-03):** verificar se `NCBI_API_KEY` e `RSL_CONTACT_EMAIL` vão nos parâmetros da URL de rede mas nunca vazam em `query`, `reason`, `cache_query` ou `repr` (`test_nfr03_d020_chaves_e_email_nao_vazam_em_nenhum_campo` em `tests/sources/test_pubmed.py` e `tests/test_config.py`).
+2. **Ritmo de requisições e limite do NCBI (NFR-04):** verificar se os pedidos saem um por vez e respeitam os intervalos mínimos de 0,34 s sem chave e 0,10 s com chave (`test_nfr04_d020_ritmo_pedidos_sequenciais_e_intervalo_minimo`).
+3. **Mapeamento de dados acadêmicos e autores (FR-03, FR-14, D-004):** conferir a extração de autores coletivos, ORCID, resumo estruturado com Label, referências e descarte de trabalhos sem título (`test_fr01_fr03_fr14_d004_d020_mapeamento_completo_campos`).
+
+**Comandos a executar:**
+```bash
+# 1. Testes do conector PubMed
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/sources/test_pubmed.py -v
+
+# 2. Testes de configuração
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_config.py -v
+
+# 3. Linter e formatação
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+```
+
+**O que deve aparecer:**
+- 15 testes de `test_pubmed.py` passando com sucesso.
+- 18 testes de `test_config.py` passando com sucesso.
+- Ruff limpo com `All checks passed!`.
