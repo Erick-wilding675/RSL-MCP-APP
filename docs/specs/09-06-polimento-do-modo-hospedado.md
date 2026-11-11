@@ -45,8 +45,45 @@ Cerca de 400 linhas, no limite. Um commit por item (1 a 6), com os ids no coment
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Entregues os 6 itens da especificação em commits atômicos convencionais com as âncoras D-011, D-012, D-014, D-016, D-017, FR-05, FR-06, FR-13 e T-001:
+
+1. **Proteção de domínio em todas as rotas (D-011, D-017):**
+   `_HostOriginProtectionASGIApp` foi integrado via middleware ASGI (`app.user_middleware.insert(0, ...)`) na aplicação Starlette do modo HTTP. Todas as rotas (`/health`, `/downloads/{token}`, `/login`, `/authorize`, `/token`, `/register`, `/revoke`, metadados OAuth e `/mcp`) rejeitam cabeçalho `Host` estranho com HTTP 421. Domínios aceitos em `RSL_PUBLIC_URL` e loopback (`127.0.0.1`, `localhost`, `[::1]`) respondem como antes.
+2. **Link assinado para download de log no modo HTTP (D-012, D-014, FR-05, FR-13):**
+   No modo HTTP, `get_search_log` devolve `log_download_url` e `expires_at` no lugar de `log_file`. Em modo stdio, `log_file` permanece inalterado. Tokens agora utilizam o discriminador `kind` (`"export"` ou `"log"`). Tokens sem `kind` continuam válidos como exportação (compatibilidade estrita com a versão 1.1.0). Um token de log baixa exclusivamente o `log.md` da pessoa com MIME `text/markdown; charset=utf-8` e `Content-Disposition: attachment; filename="log.md"`.
+3. **Limpeza de exportações antigas no modo HTTP (D-012, D-014, FR-06):**
+   Antes de gravar nova exportação, `export_list` apaga apenas os arquivos normais da pasta `exports/` da própria pessoa autenticada com idade superior a `RSL_EXPORT_RETENTION_HOURS` horas (padrão 24, mínimo 1). Erros ao apagar não impedem a exportação. No stdio, nenhum arquivo é apagado.
+4. **Relógio injetável e remoção de acesso privado (D-014, D-016):**
+   `handle_download` aceita o parâmetro opcional `clock: Callable[[], datetime]` e não acessa atributos privados (`_clock`) de `AuthStore`. A verificação `target_path.is_symlink()` posterior a `resolve()` foi removida.
+5. **Cabeçalho no comando `token list` (D-016):**
+   `rslapp token list` agora imprime a linha de cabeçalho `pessoa\tcriada_em\tcodigo_desde\tsituacao` antes das linhas dos usuários.
+6. **Actions do `docker.yml` atualizadas para Node 24 (D-017, T-001):**
+   Todas as 6 actions do workflow `.github/workflows/docker.yml` foram atualizadas para versões com suporte oficial a Node 24 conferidas no GitHub: `actions/checkout@v5`, `docker/setup-qemu-action@v4`, `docker/setup-buildx-action@v4`, `docker/login-action@v4`, `docker/metadata-action@v6` e `docker/build-push-action@v7`. O daemon do Docker Desktop não estava em execução local nesta máquina (`open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`), impedindo `docker build` local.
 
 ## Como testar
 
-(preenche quem entrega)
+1. **Executar a suíte de testes e verificação de lint (gates do projeto):**
+   Rode os comandos a seguir sequencialmente:
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+   - O ruff deve relatar "All checks passed!".
+   - Ambos os ambientes de teste (Python 3.10 e 3.14) devem relatar 536 testes passando sem falhas.
+
+2. **Verificar cabeçalho do `token list`:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp rslapp token list
+   ```
+   A primeira linha exibida na saída deve ser:
+   `pessoa  criada_em  codigo_desde  situacao`
+
+3. **Verificar rotas HTTP com Host estranho (421) e normal:**
+   Iniciar o servidor HTTP em segundo plano ou via teste:
+   Requisições com `Host: intruso.exemplo.com` para `/health`, `/login`, `/authorize`, `/downloads/...` e metadados OAuth devem retornar status `421 Misdirected Request`.
+   Com `Host: 127.0.0.1:8000`, devem retornar sua resposta normal (200 para `/health`, etc.).
+
+4. **Pontos de atenção para revisão:**
+   - **Isolamento de downloads:** Conferir que links de exportação nunca servem `log.md` e links de log nunca servem arquivos de `exports/`.
+   - **Retenção de exportações:** Conferir que a limpeza em `exports/` opera exclusivamente na pasta da própria pessoa no modo HTTP e não toca em arquivos de outras pessoas nem no modo stdio.
