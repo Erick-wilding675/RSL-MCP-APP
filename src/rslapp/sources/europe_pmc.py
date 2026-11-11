@@ -122,11 +122,16 @@ def _extract_keywords(raw_work: dict[str, Any]) -> list[str]:
     if not isinstance(kw_list, dict):
         return []
     raw_keywords = kw_list.get("keyword")
-    if not isinstance(raw_keywords, list):
-        return []
+    kw_items = (
+        [raw_keywords]
+        if isinstance(raw_keywords, str)
+        else raw_keywords
+        if isinstance(raw_keywords, list)
+        else []
+    )
     keywords: list[str] = []
     seen: set[str] = set()
-    for item in raw_keywords:
+    for item in kw_items:
         if isinstance(item, str):
             cleaned = item.strip()
             if cleaned and cleaned.lower() not in seen:
@@ -140,9 +145,14 @@ def _extract_type(raw_work: dict[str, Any]) -> str | None:
     if not isinstance(pub_type_list, dict):
         return None
     raw_types = pub_type_list.get("pubType")
-    if not isinstance(raw_types, list):
-        return None
-    for item in raw_types:
+    type_items = (
+        [raw_types]
+        if isinstance(raw_types, str)
+        else raw_types
+        if isinstance(raw_types, list)
+        else []
+    )
+    for item in type_items:
         if isinstance(item, str) and item.strip():
             return item.strip().lower()
     return None
@@ -170,12 +180,12 @@ def _parse_author(raw_author: Any) -> Author | None:
         name = full_name
     elif first_name and last_name:
         name = f"{first_name} {last_name}"
+    elif collective_name:
+        name = collective_name
     elif last_name:
         name = last_name
     elif first_name:
         name = first_name
-    elif collective_name:
-        name = collective_name
     else:
         return None
 
@@ -202,14 +212,20 @@ def _parse_author(raw_author: Any) -> Author | None:
     aff_details = raw_author.get("authorAffiliationDetailsList")
     if isinstance(aff_details, dict):
         aff_list = aff_details.get("authorAffiliation")
-        if isinstance(aff_list, list):
-            for aff_item in aff_list:
-                if isinstance(aff_item, dict):
-                    raw_aff = aff_item.get("affiliation")
-                    if isinstance(raw_aff, str) and raw_aff.strip():
-                        text = raw_aff.strip()
-                        raw_affiliations.append(text)
-                        affiliations.append(Affiliation(name=text))
+        aff_items = (
+            [aff_list]
+            if isinstance(aff_list, dict)
+            else aff_list
+            if isinstance(aff_list, list)
+            else []
+        )
+        for aff_item in aff_items:
+            if isinstance(aff_item, dict):
+                raw_aff = aff_item.get("affiliation")
+                if isinstance(raw_aff, str) and raw_aff.strip():
+                    text = raw_aff.strip()
+                    raw_affiliations.append(text)
+                    affiliations.append(Affiliation(name=text))
 
     return Author(
         name=name,
@@ -241,11 +257,17 @@ def _parse_work(raw_work: Any) -> Work | None:
     author_list = raw_work.get("authorList")
     if isinstance(author_list, dict):
         raw_authors = author_list.get("author")
-        if isinstance(raw_authors, list):
-            for raw_author in raw_authors:
-                parsed_author = _parse_author(raw_author)
-                if parsed_author is not None:
-                    authors.append(parsed_author)
+        author_items = (
+            [raw_authors]
+            if isinstance(raw_authors, dict)
+            else raw_authors
+            if isinstance(raw_authors, list)
+            else []
+        )
+        for raw_author in author_items:
+            parsed_author = _parse_author(raw_author)
+            if parsed_author is not None:
+                authors.append(parsed_author)
 
     citations: dict[str, int] = {}
     raw_cited = raw_work.get("citedByCount")
@@ -255,16 +277,24 @@ def _parse_work(raw_work: Any) -> Work | None:
     source_ids: dict[str, str] = {}
     raw_src = raw_work.get("source")
     raw_id = raw_work.get("id")
-    src_str = raw_src.strip() if isinstance(raw_src, str) and raw_src.strip() else None
-    id_str = raw_id.strip() if isinstance(raw_id, str) and raw_id.strip() else None
+    src_str = (
+        str(raw_src).strip()
+        if raw_src is not None and not isinstance(raw_src, bool) and str(raw_src).strip()
+        else None
+    )
+    id_str = (
+        str(raw_id).strip()
+        if raw_id is not None and not isinstance(raw_id, bool) and str(raw_id).strip()
+        else None
+    )
     if src_str and id_str:
         source_ids["europe_pmc"] = f"{src_str}:{id_str}"
 
     raw_pmid = raw_work.get("pmid")
-    if isinstance(raw_pmid, str) and raw_pmid.strip():
-        source_ids["pubmed"] = raw_pmid.strip()
-    elif isinstance(raw_pmid, int) and not isinstance(raw_pmid, bool):
-        source_ids["pubmed"] = str(raw_pmid)
+    if raw_pmid is not None and not isinstance(raw_pmid, bool):
+        pmid_str = str(raw_pmid).strip()
+        if pmid_str:
+            source_ids["pubmed"] = pmid_str
 
     return Work(
         title=title,
@@ -353,11 +383,15 @@ class EuropePMCSource(Source):
                         data = response.json()
                     except ValueError:
                         return None, "failed", "resposta JSON inválida do Europe PMC"
-                    if not isinstance(data, dict) or not isinstance(data.get("resultList"), dict):
+                    if not isinstance(data, dict):
                         return None, "failed", "resposta JSON inválida do Europe PMC"
-                    raw_results = data["resultList"].get("result")
-                    if raw_results is not None and not isinstance(raw_results, list):
+                    raw_result_list = data.get("resultList")
+                    if raw_result_list is not None and not isinstance(raw_result_list, dict):
                         return None, "failed", "resposta JSON inválida do Europe PMC"
+                    if isinstance(raw_result_list, dict):
+                        raw_results = raw_result_list.get("result")
+                        if raw_results is not None and not isinstance(raw_results, list):
+                            return None, "failed", "resposta JSON inválida do Europe PMC"
                     return data, None, None
 
                 if status_code == 429:
@@ -423,7 +457,12 @@ class EuropePMCSource(Source):
                         if isinstance(raw_total, int) and not isinstance(raw_total, bool):
                             found = raw_total
 
-                    raw_items = data["resultList"].get("result")
+                    result_list = data.get("resultList")
+                    raw_items = (
+                        result_list.get("result")
+                        if isinstance(result_list, dict)
+                        else None
+                    )
                     if not isinstance(raw_items, list) or not raw_items:
                         break
 
