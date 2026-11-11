@@ -1,6 +1,6 @@
 # Polimento do modo hospedado
 
-**Fase:** 9 · Versão 1.2 · **Situação:** a fazer
+**Fase:** 9 · Versão 1.2 · **Situação:** para testar
 
 ## O que faz
 
@@ -87,3 +87,17 @@ Entregues os 6 itens da especificação em commits atômicos convencionais com a
 4. **Pontos de atenção para revisão:**
    - **Isolamento de downloads:** Conferir que links de exportação nunca servem `log.md` e links de log nunca servem arquivos de `exports/`.
    - **Retenção de exportações:** Conferir que a limpeza em `exports/` opera exclusivamente na pasta da própria pessoa no modo HTTP e não toca em arquivos de outras pessoas nem no modo stdio.
+
+**Revisão do Claude (2026-11-11, run `b20261111-144701` do Playmaker):** três rodadas. A primeira (Gemini 4 Argon) parou pela cota; a segunda (Gemini 3.8 Flash) voltou pelo parecer do agente revisor:
+- o teste do relógio passava também no código antigo;
+- faltava o teste de que um link de log não abre uma exportação;
+- um `RSL_EXPORT_RETENTION_HOURS` inválido derrubava a exportação;
+- a limpeza seguia `exports/` quando a pasta era um atalho;
+- a leitura da retenção estava em `config.py`;
+- o `Origin` era conferido também nas rotas do OAuth, o que quebraria clientes que fazem login no navegador. A spec pedia isso; o Claude corrigiu a spec.
+
+Na terceira rodada, conferido com o teste do revisor: `Host` estranho dá 421 em `/token`, `/register` e `/revoke`; `Origin` de outro site passa nos metadados, no `/token`, no `/register` e no `/health`; `127.0.0.1`, `localhost` e `[::1]` passam. A retenção fica em `downloads.py`, com o padrão 24 quando o valor é inválido. As Actions estão em versões com Node 24 (tags conferidas pelo revisor). Integrada com os gates refeitos pelo `board integrate`.
+
+Acompanhamentos, não bloqueiam:
+- se `RSL_DOWNLOAD_TTL_MINUTES` passar da retenção, um link ainda válido pode achar o arquivo já apagado; isso vai para o guia;
+- o `docker build` local não rodou (Docker Desktop desligado); a imagem é conferida na publicação (09-07).
