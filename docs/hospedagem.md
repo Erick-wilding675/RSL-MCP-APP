@@ -21,15 +21,24 @@ O projeto não mantém servidor central: quem hospeda administra a própria inst
 
 1. **Um servidor Linux com Docker e Docker Compose** instalados (`docker compose version`).
 2. **Um domínio ou subdomínio próprio** (por exemplo, `rsl.seu-laboratorio.org`) com registro DNS **A** (e **AAAA**, se houver IPv6) apontando para o IP público do servidor.
+   - Os nomes que as nuvens dão de graça não servem para o certificado: o Let's Encrypt recusa `*.compute.amazonaws.com`, e `*.cloudapp.azure.com` divide com todos os clientes da Azure o limite de certificados por domínio.
+   - Sem domínio próprio, um nome gratuito do [DuckDNS](https://www.duckdns.org) (`seu-nome.duckdns.org`) funciona.
+   - Se o domínio tiver registro **CAA**, ele precisa permitir o `letsencrypt.org`.
 3. **As portas `80` (TCP) e `443` (TCP e UDP) abertas** no firewall do servidor, para que o Caddy obtenha e renove sozinho o certificado HTTPS (Let's Encrypt / ZeroSSL). O Claude só aceita conectores remotos por HTTPS (**D-017**).
 4. **Uma chave gratuita do OpenAlex**, obrigatória (**D-013**). Crie em [openalex.org/settings/api](https://openalex.org/settings/api) e **ative pelo link enviado por e-mail**.
-5. **Opcional:** uma chave gratuita da [Semantic Scholar](https://www.semanticscholar.org/product/api#api-key-form) e um e-mail de contato para identificação na Crossref (`RSL_CONTACT_EMAIL`). As chaves ficam somente no servidor e atendem a todas as pessoas cadastradas (**D-013**).
+5. **Opcional:**
+   - uma chave gratuita da [Semantic Scholar](https://www.semanticscholar.org/product/api#api-key-form);
+   - uma chave gratuita do NCBI (`NCBI_API_KEY`, na página de configurações da conta do NCBI), que sobe o limite do PubMed de 3 para 10 pedidos por segundo;
+   - um e-mail de contato (`RSL_CONTACT_EMAIL`), enviado à Crossref, ao NCBI e ao Europe PMC para identificar o servidor.
+
+   As chaves ficam somente no servidor e atendem a todas as pessoas cadastradas (**D-013**, **D-020**).
+6. **Uma máquina pequena basta:** 1 vCPU e 1 GB de memória, com 1 GB de swap. Na **Azure for Students**, a assinatura só permite criar recursos em algumas regiões; confira quais com `az policy assignment list` no Cloud Shell, e quais tamanhos estão liberados com `az vm list-skus -l <região> --size Standard_B`. No teste do projeto, só a North Central US tinha a série B liberada (**D-019**).
 
 ---
 
 ## 2. Subir o servidor
 
-1. Copie a pasta [`deploy/`](../deploy/) deste repositório para o servidor (elle contém `docker-compose.yml`, `Caddyfile` e `.env.example`):
+1. Copie a pasta [`deploy/`](../deploy/) deste repositório para o servidor (ela contém `docker-compose.yml`, `Caddyfile` e `.env.example`):
 
 ```bash
 git clone https://github.com/Erick-wilding675/RSL-MCP-APP.git
@@ -116,7 +125,9 @@ A revogação corta o acesso e os links de download da pessoa imediatamente, sem
 
 ## 4. Como cada pessoa conecta o Claude
 
-Cada pessoa logada tem a própria pasta de buscas, listas, exportações e `log.md`, isolada das demais (**D-012**). Quando a pessoa pede uma exportação (`export_list`), a IA devolve um link temporário (`download_url`, válido por 1 hora) para baixar o arquivo direto no navegador e abrir no VOSviewer (**D-014**).
+Cada pessoa logada tem a própria pasta de buscas, listas, exportações e `log.md`, isolada das demais (**D-012**). Quando a pessoa pede uma exportação (`export_list`), a IA devolve um link temporário (`download_url`, válido por 1 hora) para baixar o arquivo direto no navegador e abrir no VOSviewer (**D-014**). O log de buscas, que vai na metodologia, também sai por link: peça à IA "mostre o log de buscas" e abra o `log_download_url`.
+
+Os arquivos exportados ficam no servidor por 24 horas (`RSL_EXPORT_RETENTION_HOURS`) e depois são apagados na exportação seguinte da mesma pessoa. Se você aumentar a validade dos links (`RSL_DOWNLOAD_TTL_MINUTES`), mantenha a retenção maior que ela; senão, um link ainda válido pode achar o arquivo já apagado.
 
 ### No Claude (web ou Claude Desktop)
 
