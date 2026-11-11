@@ -1,6 +1,6 @@
 # Fonte PubMed
 
-**Fase:** 9 · Versão 1.2 · **Situação:** a fazer
+**Fase:** 9 · Versão 1.2 · **Situação:** para testar
 
 ## O que faz
 
@@ -135,3 +135,5 @@ uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra
 - 16 testes de `test_pubmed.py` passando com sucesso.
 - 18 testes de `test_config.py` passando com sucesso.
 - Ruff limpo com `All checks passed!`.
+
+**Revisão do Claude (2026-11-11, run `b20261111-144701` do Playmaker):** três rodadas. A primeira (Gemini 4 Argon) parou pela cota; a segunda (Gemini 3.8 Flash) voltou pelo parecer do agente revisor. O código usava `.//ArticleIdList/ArticleId` em `PubmedData`, que também acha os DOIs das referências: um artigo sem DOI próprio ficava com o DOI da primeira referência, e a deduplicação juntaria artigos diferentes. Também havia código morto e apelidos sem uso (674 linhas). Na terceira rodada, o DOI vem só do `ArticleIdList` filho direto e, na falta dele, do `ELocationID`. Conferido com o teste do revisor: `ELocationID` próprio mais referências dá o DOI próprio, e sem DOI próprio dá nulo. O limite de taxa só é procurado no JSON do ESearch e em respostas que não são 200, o EFetch pede só o que falta e o conector caiu para 615 linhas. Integrada com os gates refeitos pelo `board integrate`. Acompanhamento: o registrador `httpx` grava a URL completa (com `api_key` e e-mail) em nível INFO, se alguém ligar esse nível; vale para todas as fontes.
