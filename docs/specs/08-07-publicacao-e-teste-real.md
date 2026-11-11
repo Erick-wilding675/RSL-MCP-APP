@@ -23,7 +23,7 @@ Publica a v2 como `rslapp` 1.1.0 (o modo stdio não muda, então é uma versão 
 
 - [X] `rslapp` 1.1.0 no PyPI e conferido com `uvx`
 - [X] Imagem `1.1.0` e `latest` no ghcr.io, baixável sem login (o pacote já nasceu público, não precisou mexer nas configurações)
-- [ ] Os itens de Docker que ficaram da 08-06: `docker build`, `docker run` com `/health`, `docker history` e o `env` da imagem sem chave, e o usuário sem privilégio
+- [X] Os itens de Docker que ficaram da 08-06: `docker build`, `docker run` com `/health`, `docker history` e o `env` da imagem sem chave, e o usuário sem privilégio (conferidos na máquina da Azure em 2026-11-11, com a imagem do ghcr.io no lugar do `docker build` local)
 - [X] Tag e release `v1.1.0` no GitHub
 - [ ] Teste manual do Erick: os cinco passos acima passam
 - [ ] O que o teste real achar vira itens desta spec ou uma tarefa nova, como na 05-05
@@ -46,7 +46,11 @@ D-011, D-015, D-017 e D-018, e D-008 (publicação no PyPI).
 - A tag `v1.1.0` e o release estão em [https://github.com/Erick-wilding675/RSL-MCP-APP/releases/tag/v1.1.0](https://github.com/Erick-wilding675/RSL-MCP-APP/releases/tag/v1.1.0), com notas em português e os dois arquivos.
 - A tag disparou o workflow `docker.yml`, que terminou com sucesso. A imagem `ghcr.io/erick-wilding675/rsl-mcp-app` tem as tags `1.1.0`, `1.1`, `v1.1.0` e `latest`, para `linux/amd64` e `linux/arm64`. Listei as tags e baixei o manifesto sem login, então o pacote já é público.
 
-**Falta:** os itens de Docker que ficaram da 08-06 (rodam na máquina da Azure, no passo 4 abaixo, porque o Docker Desktop estava desligado) e o teste real do Erick.
+**Servidor de teste (Claude, 2026-11-11):** Docker 29.9.3 e 1 GB de swap na máquina `rsl-app`; `deploy/.env` criado com permissão `600`, com o domínio e sem chave nenhuma; `docker compose up -d` com a imagem `latest` (1.1.0). Conferido de fora: `https://rsl.sinteselabs.com/health` responde `{"status":"ok","version":"1.1.0"}`, o certificado é do Let's Encrypt (vale até fevereiro de 2027), `/mcp` sem login dá 401 e os metadados OAuth apontam para `https://rsl.sinteselabs.com/`.
+
+**Itens de Docker da 08-06, conferidos na máquina:** o `rslapp` roda como `uid=10001(rslapp)`; o `docker history` e o `env` da imagem `1.1.0` não têm chave (a única variável com "KEY" é `GPG_KEY`, a impressão digital pública da chave que assina o Python, herdada da imagem oficial); a porta 8000 não responde no host (`000`), só o Caddy publica 80 e 443.
+
+**Falta:** o Erick pôr a chave do OpenAlex no `.env`, criar os dois códigos e fazer o teste real (passos 5 a 8).
 
 ## Como testar
 
