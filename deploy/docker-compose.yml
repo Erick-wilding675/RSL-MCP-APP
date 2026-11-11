@@ -17,6 +17,8 @@ services:
       # D-013: Chaves de API configuradas por quem hospeda
       OPENALEX_API_KEY: ${OPENALEX_API_KEY:-}
       SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
+      # D-020: chave opcional do NCBI (PubMed), de 3 para 10 pedidos por segundo
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
       RSL_CONTACT_EMAIL: ${RSL_CONTACT_EMAIL:-}
     volumes:
       - rsl_data:/data
