@@ -218,7 +218,9 @@ async def test_d012_fr12_fr13_maria_busca_e_joao_nao_ve_lista_nem_log_dela_e_ids
 
         joao_log = (await _call_http_tool(client, joao_token, "get_search_log"))["structuredContent"]
         assert joao_log["entries"] == []
-        assert Path(joao_log["log_file"]) == (data_dir / "people" / "joao" / "log.md").resolve()
+        assert "log_file" not in joao_log
+        assert "log_download_url" in joao_log
+        assert "expires_at" in joao_log
 
         joao_res = await _call_http_tool(
             client, joao_token, "search_works",
