@@ -312,22 +312,36 @@ def get_list(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-05, FR-13, D-002, D-012: Mostra entradas do log de buscas e o caminho do log.md legível
+# FR-05, FR-13, D-002, D-012, D-014: Mostra entradas do log de buscas (caminho no stdio; link assinado no HTTP)
 @mcp.tool()
 def get_search_log(
     search_id: str | None = None,
     limit: NonBoolInt = 20,
 ) -> dict[str, Any]:
     """Mostra entradas do log de buscas em ordem cronológica e o caminho do arquivo legível."""
-    store, _ = _build_tool_store()
+    cfg = config.load()
+    person_id = _resolve_person_id()
+    store, _ = _build_tool_store(cfg)
     try:
-        return get_search_log_view(
+        result = get_search_log_view(
             store,
             search_id=search_id,
             limit=limit,
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
+
+    # D-014, D-012, FR-05, FR-13: No modo HTTP, devolve log_download_url e expires_at no lugar de log_file
+    if person_id is not None:
+        result.pop("log_file", None)
+        log_download_url, expires_at = downloads.create_log_download_link(
+            person_id,
+            public_url=_resolve_public_url(),
+            data_dir=cfg.data_dir,
+        )
+        result["log_download_url"] = log_download_url
+        result["expires_at"] = expires_at
+    return result
 
 
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar

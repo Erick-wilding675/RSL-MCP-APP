@@ -124,7 +124,7 @@ def _compute_signature(secret_key: bytes, payload_b64: str) -> str:
     return hmac.new(secret_key, payload_b64.encode("ascii"), hashlib.sha256).hexdigest()
 
 
-# D-014, D-012, FR-06: Gera token assinado com HMAC-SHA256 contendo pessoa, arquivo e validade UTC
+# D-014, D-012, FR-06: Gera token assinado com HMAC-SHA256 contendo pessoa, arquivo de exportação e validade UTC
 def sign_download_token(
     person_id: str,
     filename: str,
@@ -141,7 +141,42 @@ def sign_download_token(
     expires_at = _format_utc(expires_dt)
 
     payload_bytes = json.dumps(
-        {"person_id": person_id, "filename": filename, "expires_at": expires_at},
+        {
+            "expires_at": expires_at,
+            "filename": filename,
+            "kind": "export",
+            "person_id": person_id,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    payload_b64 = _b64url_encode(payload_bytes)
+    signature = _compute_signature(secret_key, payload_b64)
+    return f"{payload_b64}.{signature}", expires_at
+
+
+# D-012, D-014, FR-05, FR-13: Gera token assinado para baixar o log.md da pessoa autenticada
+def sign_log_download_token(
+    person_id: str,
+    *,
+    data_dir: Path | str | None = None,
+    ttl_minutes: int | None = None,
+    now: datetime | None = None,
+) -> tuple[str, str]:
+    """Assina um token de download para o log.md de person_id e devolve (token, expires_at_iso)."""
+    secret_key = load_secret_key(data_dir)
+    effective_ttl = ttl_minutes if ttl_minutes is not None else load_download_ttl_minutes()
+    now_dt = now.astimezone(timezone.utc) if now is not None else _now_utc()
+    expires_dt = now_dt + timedelta(minutes=effective_ttl)
+    expires_at = _format_utc(expires_dt)
+
+    payload_bytes = json.dumps(
+        {
+            "expires_at": expires_at,
+            "kind": "log",
+            "person_id": person_id,
+        },
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
@@ -165,6 +200,26 @@ def create_download_link(
     token, expires_at = sign_download_token(
         person_id,
         filename,
+        data_dir=data_dir,
+        ttl_minutes=ttl_minutes,
+        now=now,
+    )
+    base_url = public_url.strip().rstrip("/")
+    return f"{base_url}/downloads/{token}", expires_at
+
+
+# D-012, D-014, FR-05, FR-13: Monta o link assinado para download do log.md da pessoa
+def create_log_download_link(
+    person_id: str,
+    *,
+    public_url: str,
+    data_dir: Path | str | None = None,
+    ttl_minutes: int | None = None,
+    now: datetime | None = None,
+) -> tuple[str, str]:
+    """Cria a URL pública temporária para baixar o log.md e devolve (log_download_url, expires_at)."""
+    token, expires_at = sign_log_download_token(
+        person_id,
         data_dir=data_dir,
         ttl_minutes=ttl_minutes,
         now=now,
@@ -229,13 +284,12 @@ async def handle_download(
         return _not_found_response()
 
     person_id = payload.get("person_id")
-    filename = payload.get("filename")
     expires_at = payload.get("expires_at")
+    kind = payload.get("kind", "export")
     if (
         type(person_id) is not str
-        or type(filename) is not str
         or type(expires_at) is not str
-        or not _is_safe_export_filename(filename)
+        or kind not in ("export", "log")
     ):
         return _not_found_response()
 
@@ -246,24 +300,35 @@ async def handle_download(
         return _not_found_response()
 
     people_root = (resolved_data_dir / "people").resolve()
-    exports_dir = (people_root / person_id / "exports").resolve()
-    target_path = (exports_dir / filename).resolve()
-    if exports_dir.parent.parent != people_root or target_path.parent != exports_dir:
+    person_dir = (people_root / person_id).resolve()
+    if person_dir.parent != people_root:
         return _not_found_response()
+
+    if kind == "export":
+        filename = payload.get("filename")
+        if type(filename) is not str or not _is_safe_export_filename(filename):
+            return _not_found_response()
+        exports_dir = (person_dir / "exports").resolve()
+        target_path = (exports_dir / filename).resolve()
+        if exports_dir.parent != person_dir or target_path.parent != exports_dir:
+            return _not_found_response()
+        out_filename = filename
+        media_type = _MEDIA_TYPES.get(target_path.suffix.lower(), "application/octet-stream")
+    else:
+        filename_in_payload = payload.get("filename")
+        if filename_in_payload is not None and filename_in_payload != "log.md":
+            return _not_found_response()
+        target_path = (person_dir / "log.md").resolve()
+        if target_path.parent != person_dir:
+            return _not_found_response()
+        out_filename = "log.md"
+        media_type = "text/markdown; charset=utf-8"
 
     person = people.get(person_id, data_dir=resolved_data_dir)
     if person is None or not person.is_active:
         return _not_found_response()
 
-    now_dt = (
-        clock()
-        if clock is not None
-        else (
-            auth_store.now()
-            if auth_store is not None and getattr(auth_store, "_clock", None) is not None
-            else _now_utc()
-        )
-    )
+    now_dt = clock() if clock is not None else _now_utc()
     if now_dt.astimezone(timezone.utc) >= expires_dt:
         return PlainTextResponse(
             EXPIRED_LINK_MESSAGE,
@@ -271,7 +336,7 @@ async def handle_download(
             headers=_NO_STORE_HEADERS,
         )
 
-    if target_path.is_symlink() or not target_path.is_file():
+    if not target_path.is_file():
         return _not_found_response()
 
     try:
@@ -279,9 +344,8 @@ async def handle_download(
     except OSError:
         return _not_found_response()
 
-    media_type = _MEDIA_TYPES.get(target_path.suffix.lower(), "application/octet-stream")
     headers = {
         **_NO_STORE_HEADERS,
-        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Content-Disposition": f'attachment; filename="{out_filename}"',
     }
     return Response(content=content_bytes, media_type=media_type, headers=headers)

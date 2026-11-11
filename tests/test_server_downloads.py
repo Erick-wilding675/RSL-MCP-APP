@@ -402,3 +402,147 @@ async def test_d014_fr06_stdio_export_list_continua_com_path_e_sem_download_url(
         assert Path(data["path"]) == export_dir / "l-0001.ris"
         assert "download_url" not in data
         assert "expires_at" not in data
+
+
+# D-012, D-014, FR-05, FR-13: No modo HTTP, get_search_log devolve log_download_url e expires_at sem log_file e baixa log.md; no stdio, log_file continua
+@pytest.mark.anyio
+async def test_d014_fr13_http_get_search_log_devolve_download_url_e_expires_at_sem_log_file_e_baixa_log(
+    monkeypatch: pytest.MonkeyPatch, isolated_env: tuple[Path, Path]
+) -> None:
+    data_dir, _ = isolated_env
+    monkeypatch.setattr(server, "_build_sources", lambda: [FakeOpenAlexSource()])
+    maria_token = _issue_person_token(data_dir, "maria")
+
+    now_fixed = datetime(2026, 11, 10, 15, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(downloads, "_now_utc", lambda: now_fixed)
+
+    async with _http_app_client() as client:
+        await _call_http_tool(
+            client, maria_token, "search_works", {"query": "vosviewer log test", "sources": ["openalex"]}
+        )
+        log_res = await _call_http_tool(
+            client, maria_token, "get_search_log", {"limit": 10}
+        )
+        assert log_res.get("isError") is not True
+        payload = log_res["structuredContent"]
+
+        assert "log_file" not in payload
+        assert "log_download_url" in payload
+        assert payload["log_download_url"].startswith(f"{PUBLIC_URL}/downloads/")
+        assert payload["expires_at"] == "2026-11-10T16:00:00Z"
+        assert len(payload["entries"]) == 1
+
+        saved_log = data_dir / "people" / "maria" / "log.md"
+        assert saved_log.is_file()
+
+        dl_resp = await client.get(urlsplit(payload["log_download_url"]).path)
+        assert dl_resp.status_code == 200
+        assert dl_resp.content == saved_log.read_bytes()
+        assert dl_resp.headers.get("content-type") == "text/markdown; charset=utf-8"
+        assert dl_resp.headers.get("content-disposition") == 'attachment; filename="log.md"'
+        assert dl_resp.headers.get("cache-control") == "no-store"
+
+    # No modo stdio, get_search_log continua devolvendo log_file e sem link
+    async with Client(server.mcp) as stdio_client:
+        await stdio_client.call_tool(
+            "search_works", {"query": "stdio log test", "sources": ["openalex"]}
+        )
+        s_log = await stdio_client.call_tool("get_search_log", {"limit": 10})
+        assert s_log.is_error is False
+        s_payload = s_log.structured_content
+        assert "log_file" in s_payload
+        assert "log_download_url" not in s_payload
+        assert "expires_at" not in s_payload
+
+
+# D-012, D-014, FR-05, FR-13: Token de log não abre exportação e vice-versa; log da Maria não abre o do João; 410 e 404
+@pytest.mark.anyio
+async def test_d014_d012_fr13_isolamento_token_log_e_export_vencido_e_revogado(
+    monkeypatch: pytest.MonkeyPatch, isolated_env: tuple[Path, Path]
+) -> None:
+    data_dir, _ = isolated_env
+    people.add("maria", data_dir=data_dir)
+    people.add("joao", data_dir=data_dir)
+
+    maria_dir = data_dir / "people" / "maria"
+    joao_dir = data_dir / "people" / "joao"
+    maria_exports = maria_dir / "exports"
+    joao_exports = joao_dir / "exports"
+    maria_exports.mkdir(parents=True, exist_ok=True)
+    joao_exports.mkdir(parents=True, exist_ok=True)
+
+    maria_log_bytes = b"# Log da Maria\nConteudo restrito da Maria\n"
+    joao_log_bytes = b"# Log do Joao\nConteudo restrito do Joao\n"
+    (maria_dir / "log.md").write_bytes(maria_log_bytes)
+    (joao_dir / "log.md").write_bytes(joao_log_bytes)
+
+    maria_export_bytes = b"TY  - JOUR\r\nTI  - Export Maria\r\nER  - \r\n"
+    (maria_exports / "l-0001.ris").write_bytes(maria_export_bytes)
+
+    now_box = [datetime(2026, 11, 10, 12, 0, 0, tzinfo=timezone.utc)]
+    monkeypatch.setattr(downloads, "_now_utc", lambda: now_box[0])
+
+    log_token_maria, _ = downloads.sign_log_download_token("maria", data_dir=data_dir)
+    export_token_maria, _ = downloads.sign_download_token("maria", "l-0001.ris", data_dir=data_dir)
+
+    async with _http_app_client() as client:
+        # Token de log da Maria baixa o log da Maria
+        resp_log = await client.get(f"/downloads/{log_token_maria}")
+        assert resp_log.status_code == 200
+        assert resp_log.content == maria_log_bytes
+        assert resp_log.content != joao_log_bytes
+
+        # Token de exportação da Maria baixa o arquivo de exportação
+        resp_exp = await client.get(f"/downloads/{export_token_maria}")
+        assert resp_exp.status_code == 200
+        assert resp_exp.content == maria_export_bytes
+
+        # Token de exportação não abre o log.md da Maria mesmo tentando filename=log.md
+        fake_exp_log_token, _ = downloads.sign_download_token("maria", "log.md", data_dir=data_dir)
+        resp_fake_exp = await client.get(f"/downloads/{fake_exp_log_token}")
+        assert resp_fake_exp.status_code == 404
+
+        # Link vencido dá 410
+        now_box[0] = now_box[0] + timedelta(minutes=61)
+        resp_vencido = await client.get(f"/downloads/{log_token_maria}")
+        assert resp_vencido.status_code == 410
+
+        # Pessoa revogada dá 404
+        now_box[0] = now_box[0] - timedelta(minutes=61)
+        cli.main(["token", "revoke", "maria"])
+        resp_revogado = await client.get(f"/downloads/{log_token_maria}")
+        assert resp_revogado.status_code == 404
+
+
+# D-014, FR-06: Link de exportação criado com o formato de token da 1.1.0 (sem kind) continua baixando
+@pytest.mark.anyio
+async def test_d014_compatibilidade_token_export_v110_sem_kind_continua_baixando(
+    isolated_env: tuple[Path, Path]
+) -> None:
+    data_dir, _ = isolated_env
+    people.add("maria", data_dir=data_dir)
+    exports_dir = data_dir / "people" / "maria" / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    export_content = b"TY  - JOUR\r\nTI  - Artigo v1.1.0\r\nER  - \r\n"
+    (exports_dir / "l-0001.ris").write_bytes(export_content)
+
+    secret_key = downloads.load_secret_key(data_dir)
+    expires_at = downloads._format_utc(datetime.now(timezone.utc) + timedelta(minutes=30))
+
+    # Formato exato v1.1.0: apenas person_id, filename, expires_at (sem campo kind)
+    payload_dict = {
+        "expires_at": expires_at,
+        "filename": "l-0001.ris",
+        "person_id": "maria",
+    }
+    payload_bytes = json.dumps(payload_dict, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    payload_b64 = downloads._b64url_encode(payload_bytes)
+    sig = downloads._compute_signature(secret_key, payload_b64)
+    v110_token = f"{payload_b64}.{sig}"
+
+    async with _http_app_client() as client:
+        resp = await client.get(f"/downloads/{v110_token}")
+        assert resp.status_code == 200
+        assert resp.content == export_content
+        assert resp.headers.get("content-disposition") == 'attachment; filename="l-0001.ris"'
+
