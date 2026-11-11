@@ -21,6 +21,8 @@ from rslapp import config, people
 from rslapp.store._atomic import atomic_write_replace, file_lock
 
 DEFAULT_DOWNLOAD_TTL_MINUTES = 60
+DEFAULT_EXPORT_RETENTION_HOURS = 24
+MIN_EXPORT_RETENTION_HOURS = 1
 MIN_SECRET_KEY_BYTES = 32
 SECRET_KEY_FILENAME = "secret.key"
 
@@ -75,6 +77,21 @@ def load_download_ttl_minutes() -> int:
     if minutes <= 0:
         raise ValueError("RSL_DOWNLOAD_TTL_MINUTES deve ser um inteiro positivo")
     return minutes
+
+
+# D-014: Prazo de retenção de arquivos exportados no modo HTTP (RSL_EXPORT_RETENTION_HOURS, padrão 24, mínimo 1)
+def load_export_retention_hours() -> int:
+    """Lê RSL_EXPORT_RETENTION_HOURS do ambiente (padrão 24, mínimo 1); usa 24 se ausente ou inválido."""
+    raw = os.environ.get("RSL_EXPORT_RETENTION_HOURS")
+    if raw is None or not raw.strip():
+        return DEFAULT_EXPORT_RETENTION_HOURS
+    try:
+        hours = int(raw.strip())
+        if hours < MIN_EXPORT_RETENTION_HOURS:
+            return DEFAULT_EXPORT_RETENTION_HOURS
+        return hours
+    except ValueError:
+        return DEFAULT_EXPORT_RETENTION_HOURS
 
 
 # D-014, D-007, NFR-03: Chave HMAC-SHA256 vinda de RSL_SECRET_KEY (>= 32 bytes) ou <RSL_DATA_DIR>/auth/secret.key
@@ -253,16 +270,21 @@ def clean_expired_exports(
 ) -> None:
     """Apaga arquivos normais da pasta exports com idade superior a retention_hours sem interromper em caso de erro."""
     try:
+        if export_dir.is_symlink():
+            return
         resolved_dir = export_dir.resolve()
         if not resolved_dir.is_dir():
+            return
+        person_dir = export_dir.parent.resolve()
+        if resolved_dir.parent != person_dir:
             return
     except OSError:
         return
 
     effective_hours = (
         retention_hours
-        if retention_hours is not None
-        else config.load_export_retention_hours()
+        if (retention_hours is not None and retention_hours >= MIN_EXPORT_RETENTION_HOURS)
+        else load_export_retention_hours()
     )
     now_dt = now.astimezone(timezone.utc) if now is not None else _now_utc()
     cutoff_ts = now_dt.timestamp() - (effective_hours * 3600)

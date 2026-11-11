@@ -10,7 +10,6 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
-import httpx2
 import pytest
 import uvicorn
 from mcp import Client
@@ -128,7 +127,7 @@ async def test_d011_serve_lista_ferramentas_por_http(
         url = f"http://127.0.0.1:{port}/mcp"
         token = _issue_test_bearer_token(url)
         async with (
-            httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as auth_http,
+            httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as auth_http,
             Client(streamable_http_client(url, http_client=auth_http)) as http_client,
             Client(server.mcp) as stdio_client,
         ):
@@ -233,7 +232,7 @@ async def test_d011_d017_protecao_host_recusa_dominio_estranho_com_421_e_aceita_
 
         # Cliente MCP completo enviando Host igual ao domínio de RSL_PUBLIC_URL conecta e lista ferramentas
         async with (
-            httpx2.AsyncClient(
+            httpx.AsyncClient(
                 headers={
                     "Host": "rsl.exemplo.org",
                     "Authorization": f"Bearer {token}",
@@ -311,7 +310,7 @@ async def test_d011_d017_health_devolve_200_com_status_e_version_e_nada_mais(
             assert "fake-key-123" not in resp.text
 
 
-# D-011, D-017: Todas as rotas HTTP (/login, /authorize, metadados OAuth, /downloads/{token}, /health) recusam Host estranho com 421
+# D-011, D-017: Todas as rotas HTTP recusam Host estranho com 421
 @pytest.mark.anyio
 async def test_d011_d017_protecao_host_todas_as_rotas_recusam_dominio_estranho_com_421() -> None:
     public_url = "https://rsl.exemplo.org"
@@ -322,16 +321,20 @@ async def test_d011_d017_protecao_host_todas_as_rotas_recusam_dominio_estranho_c
         "/health",
         "/login",
         "/authorize",
+        "/token",
+        "/register",
+        "/revoke",
         "/downloads/fake-token-123",
         "/.well-known/oauth-authorization-server",
-        "/.well-known/oauth-protected-resource",
+        "/.well-known/oauth-protected-resource/mcp",
+        "/mcp",
     ]
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url=public_url
     ) as client:
         for path in routes_to_test:
-            # Host estranho -> 421
+            # Host estranho -> 421 em todas
             resp_estranho = await client.get(
                 path,
                 headers={"Host": "intruso.exemplo.com"},
@@ -351,4 +354,89 @@ async def test_d011_d017_protecao_host_todas_as_rotas_recusam_dominio_estranho_c
                 headers={"Host": "127.0.0.1:8000"},
             )
             assert resp_loopback.status_code != 421, f"Falha na rota {path} com host loopback"
+
+
+# D-011, D-017: Origin estranho passa em /token e metadados, mas dá 403 em /mcp e POST /login
+@pytest.mark.anyio
+async def test_d011_d017_protecao_origin_apenas_em_mcp_e_post_login() -> None:
+    public_url = "https://rsl.exemplo.org"
+    http_cfg = config.HttpConfig(host="127.0.0.1", port=8000, public_url=public_url)
+    app = server.create_http_app(http_cfg)
+
+    headers_origin_estranho = {
+        "Host": "rsl.exemplo.org",
+        "Origin": "https://claude.ai",
+    }
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url=public_url
+    ) as client:
+        # 1. Metadados OAuth com Origin estranho passam (200)
+        resp_meta_as = await client.get(
+            "/.well-known/oauth-authorization-server",
+            headers=headers_origin_estranho,
+        )
+        assert resp_meta_as.status_code == 200
+
+        resp_meta_pr = await client.get(
+            "/.well-known/oauth-protected-resource/mcp",
+            headers=headers_origin_estranho,
+        )
+        assert resp_meta_pr.status_code == 200
+
+        # 2. Rotas OAuth (/token, /register) com Origin estranho passam (não dão 403)
+        resp_token = await client.post(
+            "/token",
+            headers=headers_origin_estranho,
+        )
+        assert resp_token.status_code != 403
+        assert resp_token.status_code != 421
+
+        resp_register = await client.post(
+            "/register",
+            headers=headers_origin_estranho,
+        )
+        assert resp_register.status_code != 403
+        assert resp_register.status_code != 421
+
+        # 3. GET /login, /health e /downloads com Origin estranho passam
+        resp_health = await client.get(
+            "/health",
+            headers=headers_origin_estranho,
+        )
+        assert resp_health.status_code == 200
+
+        resp_login_get = await client.get(
+            "/login",
+            headers=headers_origin_estranho,
+        )
+        assert resp_login_get.status_code != 403
+        assert resp_login_get.status_code != 421
+
+        resp_downloads = await client.get(
+            "/downloads/fake-token",
+            headers=headers_origin_estranho,
+        )
+        assert resp_downloads.status_code == 404
+
+        # 4. /mcp com Origin estranho dá 403
+        resp_mcp_get = await client.get(
+            "/mcp",
+            headers=headers_origin_estranho,
+        )
+        assert resp_mcp_get.status_code == 403
+
+        resp_mcp_post = await client.post(
+            "/mcp",
+            headers=headers_origin_estranho,
+        )
+        assert resp_mcp_post.status_code == 403
+
+        # 5. POST /login com Origin estranho dá 403
+        resp_login_post = await client.post(
+            "/login",
+            headers=headers_origin_estranho,
+            data={"token": "some-token"},
+        )
+        assert resp_login_post.status_code == 403
 

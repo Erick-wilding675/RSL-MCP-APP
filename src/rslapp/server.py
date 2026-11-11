@@ -405,8 +405,9 @@ def build_transport_security(public_url: str) -> TransportSecuritySettings:
     )
 
 
+# D-011, D-017: Protege todas as rotas HTTP contra DNS rebinding conferindo Host em todas e Origin em /mcp e POST /login
 class _HostOriginProtectionASGIApp:
-    """Valida Host e Origin contra DNS rebinding antes do middleware de autenticação OAuth."""
+    """Valida Host em todas as rotas e Origin em /mcp e POST /login contra DNS rebinding."""
 
     def __init__(self, app: ASGIApp, security: TransportSecuritySettings) -> None:
         self._app = app
@@ -415,10 +416,21 @@ class _HostOriginProtectionASGIApp:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
             request = Request(scope, receive)
-            error_resp = await self._validator.validate_request(request, is_post=False)
-            if error_resp is not None:
-                await error_resp(scope, receive, send)
-                return
+            if self._validator.settings.enable_dns_rebinding_protection:
+                host = request.headers.get("host")
+                if not self._validator._validate_host(host):
+                    resp = Response("Invalid Host header", status_code=421)
+                    await resp(scope, receive, send)
+                    return
+
+                path = scope.get("path", "")
+                method = scope.get("method", "GET").upper()
+                if (path == "/mcp" or path.startswith("/mcp/")) or (method == "POST" and path == "/login"):
+                    origin = request.headers.get("origin")
+                    if not self._validator._validate_origin(origin):
+                        resp = Response("Invalid Origin header", status_code=403)
+                        await resp(scope, receive, send)
+                        return
         token = _http_mode_var.set(True)
         try:
             await self._app(scope, receive, send)
@@ -526,7 +538,6 @@ def create_http_app(
         0,
         Middleware(_HostOriginProtectionASGIApp, security=security),
     )
-    app.middleware_stack = app.build_middleware_stack()
     return app
 
 

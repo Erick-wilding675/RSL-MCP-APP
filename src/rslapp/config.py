@@ -14,8 +14,6 @@ DEFAULT_HTTP_HOST = "127.0.0.1"
 DEFAULT_HTTP_PORT = 8000
 DEFAULT_FORWARDED_ALLOW_IPS = "127.0.0.1"
 DEFAULT_ACCESS_TOKEN_MINUTES = 60
-DEFAULT_EXPORT_RETENTION_HOURS = 24
-MIN_EXPORT_RETENTION_HOURS = 1
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
@@ -159,21 +157,6 @@ def _parse_access_token_minutes(raw_value: str | None) -> int:
 def load_access_token_minutes() -> int:
     """Lê RSL_ACCESS_TOKEN_MINUTES do ambiente (padrão 60)."""
     return _parse_access_token_minutes(os.environ.get("RSL_ACCESS_TOKEN_MINUTES"))
-
-
-# D-014: Prazo de retenção de arquivos exportados no modo HTTP (RSL_EXPORT_RETENTION_HOURS, padrão 24, mínimo 1)
-def load_export_retention_hours() -> int:
-    """Lê e valida RSL_EXPORT_RETENTION_HOURS do ambiente (padrão 24, mínimo 1)."""
-    raw = os.environ.get("RSL_EXPORT_RETENTION_HOURS")
-    if raw is None or not raw.strip():
-        return DEFAULT_EXPORT_RETENTION_HOURS
-    try:
-        hours = int(raw.strip())
-    except ValueError:
-        raise ValueError("RSL_EXPORT_RETENTION_HOURS deve ser um inteiro >= 1") from None
-    if hours < MIN_EXPORT_RETENTION_HOURS:
-        raise ValueError(f"RSL_EXPORT_RETENTION_HOURS deve ser no mínimo {MIN_EXPORT_RETENTION_HOURS}")
-    return hours
 
 
 # D-011, D-015, D-017: Lê a configuração do modo HTTP com sobreposição por --host e --port

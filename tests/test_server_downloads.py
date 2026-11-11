@@ -504,6 +504,27 @@ async def test_d014_d012_fr13_isolamento_token_log_e_export_vencido_e_revogado(
         resp_fake_exp = await client.get(f"/downloads/{fake_exp_log_token}")
         assert resp_fake_exp.status_code == 404
 
+        # Token de log com filename='l-0001.ris' no payload dá 404 (não abre exportação)
+        fake_log_payload = {
+            "expires_at": downloads._format_utc(datetime.now(timezone.utc) + timedelta(minutes=30)),
+            "filename": "l-0001.ris",
+            "kind": "log",
+            "person_id": "maria",
+        }
+        fake_log_bytes = json.dumps(fake_log_payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        fake_log_b64 = downloads._b64url_encode(fake_log_bytes)
+        secret_key = downloads.load_secret_key(data_dir)
+        fake_log_token = f"{fake_log_b64}.{downloads._compute_signature(secret_key, fake_log_b64)}"
+        resp_fake_log = await client.get(f"/downloads/{fake_log_token}")
+        assert resp_fake_log.status_code == 404
+
+        # Token de log da Maria nunca abre o log do João
+        log_token_joao, _ = downloads.sign_log_download_token("joao", data_dir=data_dir)
+        resp_joao = await client.get(f"/downloads/{log_token_joao}")
+        assert resp_joao.status_code == 200
+        assert resp_joao.content == joao_log_bytes
+        assert resp_joao.content != maria_log_bytes
+
         # Link vencido dá 410
         now_box[0] = now_box[0] + timedelta(minutes=61)
         resp_vencido = await client.get(f"/downloads/{log_token_maria}")
@@ -557,16 +578,15 @@ async def test_d012_d014_fr06_limpeza_exportacoes_antigas_apenas_no_modo_http(
     data_dir, export_dir = isolated_env
     monkeypatch.setattr(server, "_build_sources", lambda: [FakeOpenAlexSource()])
 
-    # Testa validação de RSL_EXPORT_RETENTION_HOURS
-    assert config.load_export_retention_hours() == 24
+    # Testa validação de RSL_EXPORT_RETENTION_HOURS em downloads (padrão 24, mínimo 1)
+    assert downloads.load_export_retention_hours() == 24
     monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "12")
-    assert config.load_export_retention_hours() == 12
+    assert downloads.load_export_retention_hours() == 12
+    # RSL_EXPORT_RETENTION_HOURS inválido ('0', 'abc') não quebra: usa o padrão 24
     monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "0")
-    with pytest.raises(ValueError, match="no mínimo 1"):
-        config.load_export_retention_hours()
+    assert downloads.load_export_retention_hours() == 24
     monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "invalido")
-    with pytest.raises(ValueError, match="inteiro >= 1"):
-        config.load_export_retention_hours()
+    assert downloads.load_export_retention_hours() == 24
     monkeypatch.delenv("RSL_EXPORT_RETENTION_HOURS", raising=False)
 
     maria_token = _issue_person_token(data_dir, "maria")
@@ -608,6 +628,30 @@ async def test_d012_d014_fr06_limpeza_exportacoes_antigas_apenas_no_modo_http(
         # Nova exportação da Maria gerada com sucesso
         assert (maria_exports / "l-0001.ris").exists()
 
+        # RSL_EXPORT_RETENTION_HOURS inválido no ambiente não derruba export_list no HTTP
+        monkeypatch.setenv("RSL_EXPORT_RETENTION_HOURS", "abc")
+        res_inv = await _call_http_tool(
+            client, maria_token, "export_list", {"list_id": "l-0001", "format": "ris"}
+        )
+        assert res_inv.get("isError") is not True
+        monkeypatch.delenv("RSL_EXPORT_RETENTION_HOURS", raising=False)
+
+    # Recusa a limpeza quando exports/ for symlink ou apontar para fora da pasta da pessoa
+    symlink_target = data_dir / "symlink_target_dir"
+    symlink_target.mkdir(parents=True, exist_ok=True)
+    symlink_file = symlink_target / "sobrevive.ris"
+    symlink_file.write_bytes(b"antigo em symlink")
+    os.utime(symlink_file, (now_ts - 48 * 3600, now_ts - 48 * 3600))
+    fake_person_exports = data_dir / "people" / "fake_symlink_person" / "exports"
+    fake_person_exports.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fake_person_exports.symlink_to(symlink_target, target_is_directory=True)
+        downloads.clean_expired_exports(fake_person_exports)
+        assert symlink_file.exists()
+    except (OSError, NotImplementedError):
+        # Ambientes sem permissão para criar links simbólicos
+        pass
+
     # No modo stdio, nada é apagado mesmo com arquivos antigos
     stdio_antigo = export_dir / "stdio_antigo.ris"
     export_dir.mkdir(parents=True, exist_ok=True)
@@ -630,7 +674,8 @@ async def test_d012_d014_fr06_limpeza_exportacoes_antigas_apenas_no_modo_http(
 # D-014, D-016: handle_download aceita clock como parâmetro injetado e não acessa atributos privados de AuthStore
 @pytest.mark.anyio
 async def test_d014_handle_download_nao_acessa_atributo_privado_de_auth_store(
-    isolated_env: tuple[Path, Path]
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_env: tuple[Path, Path],
 ) -> None:
     data_dir, _ = isolated_env
     people.add("maria", data_dir=data_dir)
@@ -664,15 +709,22 @@ async def test_d014_handle_download_nao_acessa_atributo_privado_de_auth_store(
 
     req = FakeRequest(FakeApp(FakeAppState(StrictAuthStore(data_dir))))
 
-    # Com clock válido injetado: 200 sem acessar atributos privados
+    # Chama handle_download(req) sem clock=, monkeypatching downloads._now_utc:
+    # 1. Dentro da validade -> 200 sem acessar atributos privados de AuthStore
     now_ok = datetime.now(timezone.utc)
-    resp_ok = await downloads.handle_download(req, clock=lambda: now_ok)
+    monkeypatch.setattr(downloads, "_now_utc", lambda: now_ok)
+    resp_ok = await downloads.handle_download(req)
     assert resp_ok.status_code == 200
 
-    # Com clock avançado injetado: 410 sem acessar atributos privados
+    # 2. Expirado -> 410 sem acessar atributos privados de AuthStore
     now_expired = now_ok + timedelta(hours=5)
-    resp_exp = await downloads.handle_download(req, clock=lambda: now_expired)
+    monkeypatch.setattr(downloads, "_now_utc", lambda: now_expired)
+    resp_exp = await downloads.handle_download(req)
     assert resp_exp.status_code == 410
+
+    # 3. Com clock explicitamente injetado: 200
+    resp_clock = await downloads.handle_download(req, clock=lambda: now_ok)
+    assert resp_clock.status_code == 200
 
 
 
