@@ -61,8 +61,30 @@ Cerca de 350 linhas. Um commit para a junção no miolo e no armazenamento, outr
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **Miolo e armazenamento (`src/rslapp/core/merge.py`, `src/rslapp/core/repeat.py`, `src/rslapp/store/log.py`):**
+  - Implementada função `run_merge(store, list_ids, request_summary)` com validação estrita de entradas (2 a 20 listas, sem repetição, formato `l-NNNN`), verificação prévia de existência de todas as listas (gerando `list_not_found` sem nada gravar se alguma faltar), agrupamento e deduplicação de artigos preservando ordem, unindo `source_ids` e `citations` de registros duplicados e computando `duplicates_removed`.
+  - Tratamento de estado `incomplete` com `incomplete_from` quando qualquer lista de origem estiver incompleta.
+  - Gravação de lista (`l-NNNN`), busca (`s-NNNN` com `kind: "merge"`, `merged_from`, `origin_totals`, `duplicates_removed`, `total`, `params`) e entrada formatada no `log.md`.
+  - `format_log_entry` estendido para `kind: "merge"` ("junção"), exibindo pedido, lista gerada com total, duplicatas removidas e listas de origem com seus totais.
+  - `run_repeat` atualizado para recusar registros com `kind: "merge"` com código `invalid_input` e mensagem `uma junção não pode ser repetida; repita as buscas de origem` (D-021).
+- **Servidor MCP e Prompt (`src/rslapp/server.py`, `src/rslapp/prompts.py`):**
+  - Ferramenta `merge_lists(list_ids, request_summary="")` exposta no MCPServer stdio e registrada em `_build_http_mcp_server`. O servidor passa a ter 9 ferramentas.
+  - No modo HTTP, o acesso a listas é isolado por pessoa (`_build_tool_store()`), impedindo acesso a listas de outras pessoas (`list_not_found`).
+  - Prompt `plan_search` atualizado orientando a manter assuntos distintos em listas separadas e utilizar `merge_lists` após buscas quando o mesmo assunto utilizar múltiplas strings.
+- **Testes e contagens atualizadas:**
+  - `tests/core/test_merge.py` (7 testes unitários do miolo e armazenamento).
+  - `tests/test_merge_lists.py` (7 testes de integração do servidor MCP stdio e modo HTTP multiusuário).
+  - `tests/test_prompts.py` atualizado com teste da orientação de `merge_lists`.
+  - `tests/test_server_new_sources.py`, `tests/test_server_http.py` e `tests/auth/test_oauth_flow_http.py` atualizados para a nova contagem de 9 ferramentas.
 
 ## Como testar
 
-(preenche quem entrega)
+1. **Testes automatizados da ferramenta e miolo:**
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/core/test_merge.py tests/test_merge_lists.py
+   ```
+   Deve passar todos os 14 testes cobrindo deduplicação por DOI, deduplicação sem DOI por título/ano, propagação de status incompleto, erros de validação, formatação de log, recusa de `repeat_search` e isolamento multiusuário em HTTP.
+
+2. **Verificar listagem de ferramentas e execução via cliente MCP:**
+   No servidor stdio ou HTTP autenticado, chamar `tools/list` e verificar que 9 ferramentas são listadas, incluindo `merge_lists`.
+   Chamar `merge_lists` com `list_ids` de listas existentes e verificar retorno com `search_id`, `list_id`, `merged_from`, `duplicates_removed`, `status`, `total` e `works` da primeira página.

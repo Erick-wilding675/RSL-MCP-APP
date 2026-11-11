@@ -77,3 +77,17 @@ def test_d020_render_plan_search_orienta_pubmed_e_europe_pmc() -> None:
     assert "medicina" in res_vazio_lower
     assert "biologia" in res_vazio_lower
 
+
+# D-021, FR-10: render_plan_search orienta sobre separação de assuntos e uso de merge_lists para mesmo assunto
+def test_d021_render_plan_search_orienta_merge_lists() -> None:
+    res_pedido = render_plan_search("Ensino híbrido em matemática")
+    assert "merge_lists" in res_pedido
+    assert "assuntos diferentes" in res_pedido.lower()
+    assert "mesmo assunto" in res_pedido.lower()
+
+    res_vazio = render_plan_search("")
+    assert "merge_lists" in res_vazio
+    assert "assuntos diferentes" in res_vazio.lower()
+    assert "mesmo assunto" in res_vazio.lower()
+
+

@@ -39,6 +39,7 @@ EXPECTED_TOOLS = {
     "find_work",
     "get_related_works",
     "repeat_search",
+    "merge_lists",
     "get_list",
     "get_search_log",
     "export_list",

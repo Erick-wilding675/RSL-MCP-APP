@@ -31,6 +31,7 @@ from rslapp.auth import (
 )
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
+from rslapp.core.merge import run_merge
 from rslapp.core.related import run_related
 from rslapp.core.repeat import run_repeat
 from rslapp.core.search import run_search
@@ -290,6 +291,24 @@ async def repeat_search(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
+# D-021, FR-04, FR-05, FR-12, FR-13, D-012: Junta listas salvas numa lista nova sem duplicatas
+@mcp.tool()
+async def merge_lists(
+    list_ids: list[str],
+    request_summary: str = "",
+) -> dict[str, Any]:
+    """Une listas salvas de buscas diferentes numa lista nova e sem duplicatas (D-021). Aceita de 2 a 20 listas sem repetir."""
+    store, _ = _build_tool_store()
+    try:
+        return await run_merge(
+            store,
+            list_ids=list_ids,
+            request_summary=request_summary,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
 # FR-06, FR-12, UC-01, D-002, D-012, D-013, D-014: Exporta uma lista salva (caminho no stdio; link assinado no HTTP)
 @mcp.tool()
 def export_list(list_id: str, format: str) -> dict[str, Any]:
@@ -507,6 +526,7 @@ def _build_http_mcp_server(
         get_related_works,
         find_work,
         repeat_search,
+        merge_lists,
         export_list,
         get_list,
         get_search_log,

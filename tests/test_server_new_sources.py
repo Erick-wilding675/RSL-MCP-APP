@@ -275,13 +275,14 @@ def test_d020_modo_http_mantem_mesmas_ferramentas(tmp_path: Path) -> None:
         auth=auth_settings,
     )
 
-    # As 8 ferramentas registradas continuam idênticas
+    # As 9 ferramentas registradas continuam idênticas (D-021 adiciona merge_lists)
     expected_tools = {
         "list_sources",
         "search_works",
         "get_related_works",
         "find_work",
         "repeat_search",
+        "merge_lists",
         "export_list",
         "get_list",
         "get_search_log",
