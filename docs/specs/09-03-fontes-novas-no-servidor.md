@@ -1,6 +1,6 @@
 # PubMed e Europe PMC no servidor
 
-**Fase:** 9 · Versão 1.2 · **Situação:** a fazer
+**Fase:** 9 · Versão 1.2 · **Situação:** para testar
 
 ## O que faz
 
@@ -65,3 +65,20 @@ Para rodar a suíte completa de testes das fontes novas:
 uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_new_sources.py -v
 ```
 Deve exibir 6 testes passando com sucesso.
+
+**Revisão do Claude (2026-11-11, run `b20261111-144701` do Playmaker):** uma rodada (Gemini 3.8 Flash), aprovada pelo agente revisor e integrada com os gates refeitos pelo `board integrate`. Conferido:
+- sem `sources`, a busca chama só as três fontes de antes;
+- uma busca antiga repetida usa as mesmas três, e uma busca com `pubmed` repete com `pubmed`;
+- `find_work` e `get_related_works` recusam as fontes novas antes de chamar qualquer fonte;
+- a precedência está na ordem pedida, e Europe PMC mais PubMed sem DOI se juntam por título e ano, guardando os dois ids;
+- as colunas antigas do CSV não mudaram;
+- o servidor HTTP continua com 8 ferramentas.
+
+Acompanhamentos, não bloqueiam:
+- `sources/__init__.py` ganhou exportações fora do escopo (inofensivas);
+- a recusa das fontes novas está duplicada em `server.py` e no miolo;
+- as colunas de id do CSV (as antigas e as novas) não passam pela proteção contra fórmula;
+- o teste `test_d020_modo_http_mantem_mesmas_ferramentas` conta 8 ferramentas e muda na 09-05;
+- `list_sources` não usa `ncbi_key_configured`, porque a spec manda `configured: true` para o PubMed.
+
+O Claude corrigiu uma linha do contrato que trocava o padrão de `sources` em `get_related_works`.

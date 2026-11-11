@@ -85,7 +85,7 @@ get_related_works(doi="10.1234/exemplo", direction="citations", max_results=200)
 | `doi` ou `work_id` | O artigo de origem. Um dos dois | sim | - |
 | `direction` | `references` (o que ele cita) ou `citations` (quem o cita) | sim | - |
 | `request_summary` | O pedido, resumido | não | vazio |
-| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar`, `pubmed`, `europe_pmc` | não | `openalex`, `crossref` e `semantic_scholar`; `pubmed` e `europe_pmc` só quando pedidas (D-020, desde a 1.2) |
+| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar` (`pubmed` e `europe_pmc` dão `invalid_input`, D-020) | não | todas as configuradas |
 | `max_results` | O máximo de trabalhos a trazer por fonte; a lista juntada pode passar disso (Erick, 2026-11-05) | não | 1.000 (D-010) |
 
 **Volta:** o mesmo formato de `search_works`. O log guarda o artigo de origem e a direção.
