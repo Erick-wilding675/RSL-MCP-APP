@@ -31,47 +31,36 @@ RETRY_DELAYS: tuple[int, ...] = (1, 2, 4)
 RATE_INTERVAL_NO_KEY: float = 0.34
 RATE_INTERVAL_WITH_KEY: float = 0.10
 
-# NFR-04: Trava e relógio no nível do módulo para garantir 1 pedido por vez, nunca em paralelo
 RATE_LOCK = asyncio.Lock()
 _last_call_start: float | None = None
-_module_clock: Callable[[], float] = time.monotonic
-_module_sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep
 
 _ORCID_RE = re.compile(r"^(\d{4}-\d{4}-\d{4}-[\dX]{4})$", re.IGNORECASE)
 
 
-def reset_rate_limiter(
-    *,
-    clock: Callable[[], float] | None = None,
-    sleep: Callable[[float], Awaitable[Any]] | None = None,
-) -> None:
-    """Zera o estado do limitador de taxa para testes ou reconfiguração."""
-    global _last_call_start, _module_clock, _module_sleep, RATE_LOCK
+def reset_rate_limiter() -> None:
+    """Zera o estado do limitador de taxa para testes."""
+    global _last_call_start, RATE_LOCK
     _last_call_start = None
     RATE_LOCK = asyncio.Lock()
-    _module_clock = clock if clock is not None else time.monotonic
-    _module_sleep = sleep if sleep is not None else asyncio.sleep
 
 
 @asynccontextmanager
 async def rate_limited_call(
     *,
     has_key: bool = False,
-    clock: Callable[[], float] | None = None,
-    sleep: Callable[[float], Awaitable[Any]] | None = None,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
 ) -> AsyncIterator[None]:
     """Garante no máximo um pedido ativo e intervalo mínimo entre inícios (0,34 s ou 0,10 s)."""
     global _last_call_start
-    clk = clock or _module_clock
-    slp = sleep or _module_sleep
     interval = RATE_INTERVAL_WITH_KEY if has_key else RATE_INTERVAL_NO_KEY
     async with RATE_LOCK:
-        now = clk()
+        now = clock()
         if _last_call_start is not None:
             elapsed = now - _last_call_start
             if elapsed < interval:
-                await slp(interval - elapsed)
-        _last_call_start = clk()
+                await sleep(interval - elapsed)
+        _last_call_start = clock()
         yield
 
 
@@ -86,8 +75,7 @@ def _user_agent() -> str:
 def _normalize_doi(raw: Any) -> str | None:
     if not isinstance(raw, str):
         return None
-    val = raw.strip()
-    lower = val.lower()
+    val = raw.strip().lower()
     for prefix in (
         "https://doi.org/",
         "http://doi.org/",
@@ -95,10 +83,9 @@ def _normalize_doi(raw: Any) -> str | None:
         "http://dx.doi.org/",
         "doi:",
     ):
-        if lower.startswith(prefix):
+        if val.startswith(prefix):
             val = val[len(prefix) :].strip()
-            lower = val.lower()
-    return lower if lower else None
+    return val if val else None
 
 
 # D-004: Normaliza ORCID para o formato canônico 0000-0000-0000-0000; inválido vira None
@@ -110,39 +97,29 @@ def _normalize_orcid(raw: Any) -> str | None:
         if val.lower().startswith(prefix):
             val = val[len(prefix) :].strip()
     val = val.upper()
-    if _ORCID_RE.match(val):
-        return val
-    return None
+    return val if _ORCID_RE.match(val) else None
 
 
 def _extract_year_from_text(raw: str | None) -> int | None:
     if not raw:
         return None
     match = re.search(r"\d{4}", raw)
-    if match:
-        try:
-            return int(match.group(0))
-        except ValueError:
-            return None
-    return None
+    return int(match.group(0)) if match else None
 
 
 # FR-03, D-020: Extrai o ano por prioridade: PubDate/Year, 4 dígitos de MedlineDate, ArticleDate/Year
 def _extract_year(medline_citation: ET.Element | None) -> int | None:
     if medline_citation is None:
         return None
-    for year_elem in medline_citation.findall(".//Journal//PubDate/Year"):
-        y = _extract_year_from_text("".join(year_elem.itertext()))
-        if y is not None:
-            return y
-    for medline_date_elem in medline_citation.findall(".//Journal//PubDate/MedlineDate"):
-        y = _extract_year_from_text("".join(medline_date_elem.itertext()))
-        if y is not None:
-            return y
-    for art_year_elem in medline_citation.findall(".//ArticleDate/Year"):
-        y = _extract_year_from_text("".join(art_year_elem.itertext()))
-        if y is not None:
-            return y
+    for xpath in (
+        ".//Journal//PubDate/Year",
+        ".//Journal//PubDate/MedlineDate",
+        ".//ArticleDate/Year",
+    ):
+        for elem in medline_citation.findall(xpath):
+            y = _extract_year_from_text("".join(elem.itertext()))
+            if y is not None:
+                return y
     return None
 
 
@@ -156,7 +133,7 @@ def _extract_abstract(article_elem: ET.Element) -> str | None:
         text = " ".join("".join(text_elem.itertext()).split())
         if not text:
             continue
-        label = text_elem.attrib.get("Label") or text_elem.attrib.get("label")
+        label = text_elem.attrib.get("Label")
         if label and label.strip():
             parts.append(f"{label.strip()}: {text}")
         else:
@@ -167,14 +144,11 @@ def _extract_abstract(article_elem: ET.Element) -> str | None:
 # FR-03, D-020: Palavras-chave de KeywordList primeiro, depois MeSH DescriptorName, sem repetir
 def _extract_keywords(medline_citation: ET.Element) -> list[str]:
     raw_keywords: list[str] = []
-    for kw_elem in medline_citation.findall(".//KeywordList/Keyword"):
-        kw_text = " ".join("".join(kw_elem.itertext()).split())
-        if kw_text:
-            raw_keywords.append(kw_text)
-    for mesh_elem in medline_citation.findall(".//MeshHeadingList/MeshHeading/DescriptorName"):
-        mesh_text = " ".join("".join(mesh_elem.itertext()).split())
-        if mesh_text:
-            raw_keywords.append(mesh_text)
+    for xpath in (".//KeywordList/Keyword", ".//MeshHeadingList/MeshHeading/DescriptorName"):
+        for elem in medline_citation.findall(xpath):
+            text = " ".join("".join(elem.itertext()).split())
+            if text:
+                raw_keywords.append(text)
 
     keywords: list[str] = []
     seen: set[str] = set()
@@ -198,32 +172,27 @@ def _extract_type(article_elem: ET.Element) -> str | None:
 
 # FR-03, D-004, D-020: Nome (ForeName LastName, LastName ou CollectiveName), ORCID e afiliações
 def _parse_author(author_elem: ET.Element) -> Author | None:
-    fore_elem = author_elem.find("ForeName")
-    fore_name = " ".join("".join(fore_elem.itertext()).split()) if fore_elem is not None else ""
-    last_elem = author_elem.find("LastName")
-    last_name = " ".join("".join(last_elem.itertext()).split()) if last_elem is not None else ""
-    col_elem = author_elem.find("CollectiveName")
-    collective = " ".join("".join(col_elem.itertext()).split()) if col_elem is not None else ""
+    fore = " ".join(author_elem.findtext("ForeName", "").split())
+    last = " ".join(author_elem.findtext("LastName", "").split())
+    collective = " ".join(author_elem.findtext("CollectiveName", "").split())
 
-    if fore_name and last_name:
-        name = f"{fore_name} {last_name}"
-    elif last_name:
-        name = last_name
+    if fore and last:
+        name = f"{fore} {last}"
+    elif last:
+        name = last
     elif collective:
         name = collective
-    elif fore_name:
-        name = fore_name
+    elif fore:
+        name = fore
     else:
         return None
 
     orcid: str | None = None
     for id_elem in author_elem.findall("Identifier"):
-        source = (id_elem.attrib.get("Source") or id_elem.attrib.get("source") or "").upper()
-        if source == "ORCID" or not source:
-            raw_orcid = "".join(id_elem.itertext()).strip()
-            cand_orcid = _normalize_orcid(raw_orcid)
-            if cand_orcid:
-                orcid = cand_orcid
+        if id_elem.attrib.get("Source", "").upper() == "ORCID":
+            cand = _normalize_orcid("".join(id_elem.itertext()))
+            if cand:
+                orcid = cand
                 break
 
     raw_affiliations: list[str] = []
@@ -245,14 +214,16 @@ def _parse_author(author_elem: ET.Element) -> Author | None:
     )
 
 
-# FR-03, D-020: DOI de ArticleId IdType="doi", senão de ELocationID EIdType="doi"
+# FR-03, D-020: DOI de ArticleId IdType="doi" em PubmedData, senão de ELocationID EIdType="doi"
 def _extract_doi(article_elem: ET.Element, pubmed_data: ET.Element | None) -> str | None:
     if pubmed_data is not None:
-        for aid in pubmed_data.findall(".//ArticleIdList/ArticleId"):
-            if aid.attrib.get("IdType", "").lower() == "doi":
-                doi = _normalize_doi("".join(aid.itertext()))
-                if doi:
-                    return doi
+        art_id_list = pubmed_data.find("ArticleIdList")
+        if art_id_list is not None:
+            for aid in art_id_list.findall("ArticleId"):
+                if aid.attrib.get("IdType", "").lower() == "doi":
+                    doi = _normalize_doi("".join(aid.itertext()))
+                    if doi:
+                        return doi
     for eloc in article_elem.findall(".//ELocationID"):
         if eloc.attrib.get("EIdType", "").lower() == "doi":
             doi = _normalize_doi("".join(eloc.itertext()))
@@ -299,7 +270,6 @@ def _parse_pubmed_article(article_container: ET.Element) -> Work | None:
         return None
 
     pubmed_data = article_container.find("PubmedData")
-
     doi = _extract_doi(article_elem, pubmed_data)
     year = _extract_year(medline_citation)
 
@@ -307,10 +277,6 @@ def _parse_pubmed_article(article_container: ET.Element) -> Work | None:
     venue = " ".join("".join(venue_elem.itertext()).split()) if venue_elem is not None else None
     if venue == "":
         venue = None
-
-    abstract = _extract_abstract(article_elem)
-    keywords = _extract_keywords(medline_citation)
-    work_type = _extract_type(article_elem)
 
     authors: list[Author] = []
     author_list = article_elem.find("AuthorList")
@@ -324,22 +290,25 @@ def _parse_pubmed_article(article_container: ET.Element) -> Work | None:
 
     pmid_elem = medline_citation.find("PMID")
     pmid = "".join(pmid_elem.itertext()).strip() if pmid_elem is not None else None
-    source_ids = {"pubmed": pmid} if pmid else {}
 
     return Work(
         title=title,
         doi=doi,
         year=year,
-        type=work_type,
+        type=_extract_type(article_elem),
         venue=venue,
-        abstract=abstract,
-        keywords=keywords,
+        abstract=_extract_abstract(article_elem),
+        keywords=_extract_keywords(medline_citation),
         authors=authors,
         references=references,
         references_count=references_count,
         citations={},
-        source_ids=source_ids,
+        source_ids={"pubmed": pmid} if pmid else {},
     )
+
+
+class _RateLimitExceededError(Exception):
+    pass
 
 
 def _retry_failure(status: str, prefix: str) -> tuple[str, str]:
@@ -350,6 +319,34 @@ def _format_query_text(query: str, last_retstart: int = 0) -> str:
     if last_retstart > 0:
         return f"term={query} · retmax={BATCH_SIZE} · retstart 0-{last_retstart}"
     return f"term={query} · retmax={BATCH_SIZE}"
+
+
+def _parse_esearch(response: httpx.Response) -> dict[str, Any]:
+    try:
+        data = response.json()
+    except ValueError:
+        if "API rate limit exceeded" in response.text:
+            raise _RateLimitExceededError() from None
+        raise ValueError("resposta JSON inválida do ESearch") from None
+    if not isinstance(data, dict):
+        raise TypeError("resposta JSON inválida do ESearch")
+    if "error" in data and "API rate limit exceeded" in str(data["error"]):
+        raise _RateLimitExceededError()
+    esearchresult = data.get("esearchresult")
+    if not isinstance(esearchresult, dict):
+        if "API rate limit exceeded" in str(data):
+            raise _RateLimitExceededError()
+        raise TypeError("resposta JSON inválida do ESearch")
+    if "ERROR" in esearchresult and "API rate limit exceeded" in str(esearchresult["ERROR"]):
+        raise _RateLimitExceededError()
+    return data
+
+
+def _parse_efetch(response: httpx.Response) -> ET.Element:
+    try:
+        return ET.fromstring(response.content)
+    except ET.ParseError:
+        raise ValueError("resposta XML inválida do EFetch") from None
 
 
 # FR-01, FR-03, FR-14, NFR-03, NFR-04, D-004, D-020: Conector de busca no PubMed via E-utilities
@@ -390,18 +387,14 @@ class PubmedSource(Source):
             key = self._api_key.strip()
             return key if key else None
         raw = os.environ.get("NCBI_API_KEY")
-        if raw and raw.strip():
-            return raw.strip()
-        return None
+        return raw.strip() if raw and raw.strip() else None
 
     def _resolve_contact_email(self) -> str | None:
         if self._email is not None:
             email = self._email.strip()
             return email if email else None
         raw = os.environ.get("RSL_CONTACT_EMAIL")
-        if raw and raw.strip():
-            return raw.strip()
-        return None
+        return raw.strip() if raw and raw.strip() else None
 
     @asynccontextmanager
     async def _get_client(self) -> AsyncIterator[httpx.AsyncClient]:
@@ -411,14 +404,16 @@ class PubmedSource(Source):
             async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
                 yield client
 
-    # NFR-04: Consulta ESearch com até 3 novas tentativas (1, 2, 4 s) em 429, 5xx e limite
-    async def _request_esearch(
+    # NFR-04: Helper único de requisição com até 3 novas tentativas (1, 2, 4 s)
+    async def _request(
         self,
         client: httpx.AsyncClient,
+        url: str,
         params: dict[str, str],
         headers: dict[str, str],
         has_key: bool,
-    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
+        parse: Callable[[httpx.Response], Any],
+    ) -> tuple[Any, str | None, str | None]:
         max_retries = len(RETRY_DELAYS)
         err_status, err_reason = "failed", "falha inesperada ao consultar o PubMed"
         for attempt in range(max_retries + 1):
@@ -427,7 +422,7 @@ class PubmedSource(Source):
             ):
                 try:
                     response = await client.get(
-                        PUBMED_ESEARCH_URL,
+                        url,
                         params=params,
                         headers=headers,
                         timeout=DEFAULT_TIMEOUT,
@@ -440,71 +435,20 @@ class PubmedSource(Source):
                     return None, "failed", "falha inesperada ao consultar o PubMed"
                 else:
                     status_code = response.status_code
-                    text = response.text
-                    if "API rate limit exceeded" in text:
+                    if status_code == 200:
+                        try:
+                            data = parse(response)
+                            return data, None, None
+                        except _RateLimitExceededError:
+                            err_status, err_reason = _retry_failure(
+                                "rate_limited", "limite de taxa da API excedido"
+                            )
+                        except (ValueError, TypeError) as exc:
+                            return None, "failed", str(exc)
+                    elif "API rate limit exceeded" in response.text:
                         err_status, err_reason = _retry_failure(
                             "rate_limited", "limite de taxa da API excedido"
                         )
-                    elif status_code == 200:
-                        try:
-                            data = response.json()
-                        except ValueError:
-                            return None, "failed", "resposta JSON inválida do ESearch"
-                        if not isinstance(data, dict) or not isinstance(data.get("esearchresult"), dict):
-                            return None, "failed", "resposta JSON inválida do ESearch"
-                        return data, None, None
-                    elif status_code == 429:
-                        err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
-                    elif 500 <= status_code < 600:
-                        err_status, err_reason = _retry_failure("failed", f"HTTP {status_code}")
-                    else:
-                        return None, "failed", f"HTTP {status_code}"
-
-            if attempt < max_retries:
-                await self._sleep(RETRY_DELAYS[attempt])
-
-        return None, err_status, err_reason
-
-    # NFR-04: Consulta EFetch com até 3 novas tentativas (1, 2, 4 s) em 429, 5xx e limite
-    async def _request_efetch(
-        self,
-        client: httpx.AsyncClient,
-        params: dict[str, str],
-        headers: dict[str, str],
-        has_key: bool,
-    ) -> tuple[ET.Element | None, str | None, str | None]:
-        max_retries = len(RETRY_DELAYS)
-        err_status, err_reason = "failed", "falha inesperada ao consultar o PubMed"
-        for attempt in range(max_retries + 1):
-            async with rate_limited_call(
-                has_key=has_key, clock=self._clock, sleep=self._sleep
-            ):
-                try:
-                    response = await client.get(
-                        PUBMED_EFETCH_URL,
-                        params=params,
-                        headers=headers,
-                        timeout=DEFAULT_TIMEOUT,
-                    )
-                except httpx.TimeoutException:
-                    err_status, err_reason = _retry_failure("failed", "tempo limite esgotado")
-                except httpx.HTTPError:
-                    err_status, err_reason = _retry_failure("failed", "erro de rede")
-                except Exception:  # noqa: BLE001
-                    return None, "failed", "falha inesperada ao consultar o PubMed"
-                else:
-                    status_code = response.status_code
-                    text = response.text
-                    if "API rate limit exceeded" in text:
-                        err_status, err_reason = _retry_failure(
-                            "rate_limited", "limite de taxa da API excedido"
-                        )
-                    elif status_code == 200:
-                        try:
-                            root = ET.fromstring(response.content)
-                        except ET.ParseError:
-                            return None, "failed", "resposta XML inválida do EFetch"
-                        return root, None, None
                     elif status_code == 429:
                         err_status, err_reason = _retry_failure("rate_limited", "HTTP 429")
                     elif 500 <= status_code < 600:
@@ -526,9 +470,7 @@ class PubmedSource(Source):
         contact_email = self._resolve_contact_email()
         has_key = bool(api_key)
 
-        headers = {
-            "User-Agent": _user_agent(),
-        }
+        headers = {"User-Agent": _user_agent()}
 
         retmax_esearch = min(effective_max, MAX_ESEARCH_RESULTS)
         esearch_params: dict[str, str] = {
@@ -550,8 +492,8 @@ class PubmedSource(Source):
 
         try:
             async with self._get_client() as client:
-                data, err_status, err_reason = await self._request_esearch(
-                    client, esearch_params, headers, has_key
+                data, err_status, err_reason = await self._request(
+                    client, PUBMED_ESEARCH_URL, esearch_params, headers, has_key, _parse_esearch
                 )
                 if err_status is not None:
                     return SourceResult(
@@ -584,12 +526,8 @@ class PubmedSource(Source):
                         works=[],
                     )
 
-                webenv = esearchresult.get("webenv") or esearchresult.get("WebEnv")
-                query_key = (
-                    esearchresult.get("querykey")
-                    or esearchresult.get("QueryKey")
-                    or esearchresult.get("query_key")
-                )
+                webenv = esearchresult.get("webenv")
+                query_key = esearchresult.get("querykey")
                 if not webenv or not query_key:
                     return SourceResult(
                         name=self.name,
@@ -606,13 +544,16 @@ class PubmedSource(Source):
 
                 while retstart < total_to_fetch and len(works) < effective_max:
                     last_retstart = retstart
+                    faltam = effective_max - len(works)
+                    batch_retmax = min(BATCH_SIZE, faltam)
+
                     efetch_params: dict[str, str] = {
                         "db": "pubmed",
                         "retmode": "xml",
                         "WebEnv": str(webenv),
                         "query_key": str(query_key),
                         "retstart": str(retstart),
-                        "retmax": str(BATCH_SIZE),
+                        "retmax": str(batch_retmax),
                         "tool": "rslapp",
                     }
                     if contact_email:
@@ -620,8 +561,8 @@ class PubmedSource(Source):
                     if api_key:
                         efetch_params["api_key"] = api_key
 
-                    xml_root, fetch_err_status, fetch_err_reason = await self._request_efetch(
-                        client, efetch_params, headers, has_key
+                    xml_root, fetch_err_status, fetch_err_reason = await self._request(
+                        client, PUBMED_EFETCH_URL, efetch_params, headers, has_key, _parse_efetch
                     )
                     if fetch_err_status is not None:
                         # NFR-04: As páginas já trazidas ficam salvas no resultado parcial
@@ -650,7 +591,7 @@ class PubmedSource(Source):
                     if len(works) >= effective_max:
                         break
 
-                    retstart += BATCH_SIZE
+                    retstart += batch_retmax
 
         except Exception:  # noqa: BLE001
             return SourceResult(
