@@ -15,9 +15,9 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
 from pydantic import AnyHttpUrl, BeforeValidator, ValidationInfo
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 from typing_extensions import TypedDict
 
@@ -497,18 +497,17 @@ def create_http_app(
         host=cfg.host,
     )
 
-    for idx, route in enumerate(app.router.routes):
-        if isinstance(route, Route) and route.path == "/mcp":
-            app.router.routes[idx] = Route(
-                "/mcp",
-                endpoint=_HostOriginProtectionASGIApp(route.app, security),
-            )
-            break
-
     app.router.routes.extend(build_auth_routes(provider, issuer_url=public_url))
     app.state.auth_store = store
     app.state.oauth_provider = provider
     app.state.token_verifier = verifier
+
+    # D-011, D-017: Protege todas as rotas HTTP contra DNS rebinding antes de middlewares e rotas
+    app.user_middleware.insert(
+        0,
+        Middleware(_HostOriginProtectionASGIApp, security=security),
+    )
+    app.middleware_stack = app.build_middleware_stack()
     return app
 
 

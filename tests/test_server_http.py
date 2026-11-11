@@ -309,3 +309,46 @@ async def test_d011_d017_health_devolve_200_com_status_e_version_e_nada_mais(
             assert set(dados.keys()) == {"status", "version"}
             assert dados == {"status": "ok", "version": rslapp.__version__}
             assert "fake-key-123" not in resp.text
+
+
+# D-011, D-017: Todas as rotas HTTP (/login, /authorize, metadados OAuth, /downloads/{token}, /health) recusam Host estranho com 421
+@pytest.mark.anyio
+async def test_d011_d017_protecao_host_todas_as_rotas_recusam_dominio_estranho_com_421() -> None:
+    public_url = "https://rsl.exemplo.org"
+    http_cfg = config.HttpConfig(host="127.0.0.1", port=8000, public_url=public_url)
+    app = server.create_http_app(http_cfg)
+
+    routes_to_test = [
+        "/health",
+        "/login",
+        "/authorize",
+        "/downloads/fake-token-123",
+        "/.well-known/oauth-authorization-server",
+        "/.well-known/oauth-protected-resource",
+    ]
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url=public_url
+    ) as client:
+        for path in routes_to_test:
+            # Host estranho -> 421
+            resp_estranho = await client.get(
+                path,
+                headers={"Host": "intruso.exemplo.com"},
+            )
+            assert resp_estranho.status_code == 421, f"Falha na rota {path} com host estranho"
+
+            # Domínio público de RSL_PUBLIC_URL -> responde normalmente (não 421)
+            resp_publico = await client.get(
+                path,
+                headers={"Host": "rsl.exemplo.org"},
+            )
+            assert resp_publico.status_code != 421, f"Falha na rota {path} com host público"
+
+            # Loopback 127.0.0.1:8000 -> responde normalmente (não 421)
+            resp_loopback = await client.get(
+                path,
+                headers={"Host": "127.0.0.1:8000"},
+            )
+            assert resp_loopback.status_code != 421, f"Falha na rota {path} com host loopback"
+
