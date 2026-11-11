@@ -627,3 +627,52 @@ async def test_d012_d014_fr06_limpeza_exportacoes_antigas_apenas_no_modo_http(
         assert (export_dir / "l-0001.ris").exists()
 
 
+# D-014, D-016: handle_download aceita clock como parâmetro injetado e não acessa atributos privados de AuthStore
+@pytest.mark.anyio
+async def test_d014_handle_download_nao_acessa_atributo_privado_de_auth_store(
+    isolated_env: tuple[Path, Path]
+) -> None:
+    data_dir, _ = isolated_env
+    people.add("maria", data_dir=data_dir)
+    exports_dir = data_dir / "people" / "maria" / "exports"
+    exports_dir.mkdir(parents=True, exist_ok=True)
+    (exports_dir / "l-0001.ris").write_bytes(b"TY  - JOUR\r\nER  - \r\n")
+
+    token, _ = downloads.sign_download_token("maria", "l-0001.ris", data_dir=data_dir)
+
+    class StrictAuthStore:
+        def __init__(self, data_directory: Path) -> None:
+            self.data_dir = data_directory
+
+        def __getattribute__(self, name: str) -> Any:
+            if name.startswith("_") and name not in ("__class__", "__dict__"):
+                raise AssertionError(f"Acesso indevido ao atributo privado {name!r} de AuthStore")
+            return super().__getattribute__(name)
+
+    class FakeAppState:
+        def __init__(self, store: StrictAuthStore) -> None:
+            self.auth_store = store
+
+    class FakeApp:
+        def __init__(self, state: FakeAppState) -> None:
+            self.state = state
+
+    class FakeRequest:
+        def __init__(self, app: FakeApp) -> None:
+            self.app = app
+            self.path_params = {"token": token}
+
+    req = FakeRequest(FakeApp(FakeAppState(StrictAuthStore(data_dir))))
+
+    # Com clock válido injetado: 200 sem acessar atributos privados
+    now_ok = datetime.now(timezone.utc)
+    resp_ok = await downloads.handle_download(req, clock=lambda: now_ok)
+    assert resp_ok.status_code == 200
+
+    # Com clock avançado injetado: 410 sem acessar atributos privados
+    now_expired = now_ok + timedelta(hours=5)
+    resp_exp = await downloads.handle_download(req, clock=lambda: now_expired)
+    assert resp_exp.status_code == 410
+
+
+
