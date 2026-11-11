@@ -273,4 +273,4 @@ def test_d006_nfr02_list_sources_nao_escreve_em_stdout(
     resultado = server.list_sources()
     capturado = capsys.readouterr()
     assert capturado.out == ""
-    assert len(resultado) == 3
+    assert len(resultado) == 5

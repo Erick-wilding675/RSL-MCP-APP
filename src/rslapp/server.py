@@ -139,7 +139,7 @@ def _build_tool_store(cfg: config.Config | None = None) -> tuple[Store, Path]:
 # D-002, D-012, FR-07, NFR-03, D-020: Lista as fontes acadêmicas indicando se estão configuradas e prontas
 @mcp.tool()
 def list_sources() -> list[SourceInfo]:
-    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar e a do PubMed são opcionais e evitam recusas por limite. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas."""
+    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite; a do PubMed também é opcional. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas."""
     _resolve_person_id()
     cfg = config.load()
     openalex_configured = cfg.openalex_key_configured
