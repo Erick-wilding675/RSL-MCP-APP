@@ -43,7 +43,7 @@ D-011, D-015, D-017 e D-018, e D-008 (publicação no PyPI).
 - Versão 1.1.0 no `pyproject.toml` e em `src/rslapp/__init__.py` (commit `470aade`, com a D-019). Os três gates passaram antes de publicar: `ruff` sem apontamentos e 531 testes em 3.10 e em 3.14.
 - O sdist foi conferido com `tar -tzf`: código, testes, `README.md`, `LICENSE` e `pyproject.toml`, sem `.env`, sem chave e sem pasta de dados. O wheel tem o comando `rslapp = rslapp.cli:main`.
 - O `uv publish` enviou só os dois arquivos da 1.1.0, com o token do Lore. Conferido com `uvx --no-cache --from rslapp==1.1.0`, que mostrou `1.1.0`.
-- A tag `v1.1.0` e o release estão em <https://github.com/Erick-wilding675/RSL-MCP-APP/releases/tag/v1.1.0>, com notas em português e os dois arquivos.
+- A tag `v1.1.0` e o release estão em [https://github.com/Erick-wilding675/RSL-MCP-APP/releases/tag/v1.1.0](https://github.com/Erick-wilding675/RSL-MCP-APP/releases/tag/v1.1.0), com notas em português e os dois arquivos.
 - A tag disparou o workflow `docker.yml`, que terminou com sucesso. A imagem `ghcr.io/erick-wilding675/rsl-mcp-app` tem as tags `1.1.0`, `1.1`, `v1.1.0` e `latest`, para `linux/amd64` e `linux/arm64`. Listei as tags e baixei o manifesto sem login, então o pacote já é público.
 
 **Falta:** os itens de Docker que ficaram da 08-06 (rodam na máquina da Azure, no passo 4 abaixo, porque o Docker Desktop estava desligado) e o teste real do Erick.
@@ -54,11 +54,11 @@ O roteiro abaixo segue a D-019: uma máquina da Azure for Students com o subdom�
 
 **1. O DNS da Síntese.** O DNS do `sinteselabs.com` fica na Hostinger (servidores `dns-parking.com`). Hoje o `rsl.sinteselabs.com` não existe e o domínio não tem registro CAA, então o Let's Encrypt pode emitir o certificado. O site principal, na Vercel, não muda. Deixe o painel da Hostinger aberto: o IP entra no passo 3.
 
-**2. A máquina na Azure.** Ative a Azure for Students em <https://azure.microsoft.com/free/students> com o e-mail da universidade (não pede cartão). No portal, crie uma máquina virtual:
+**2. A máquina na Azure.** Ative a Azure for Students em [h[https://azure.microsoft.com/free/students](https://azure.microsoft.com/free/students)ttps://azure.microsoft.com/free/students](https://azure.microsoft.com/free/students) com o e-mail da universidade (não pede cartão). No portal, crie uma máquina virtual:
 
 - Imagem: **Ubuntu Server 24.04 LTS**.
-- Tamanho: **B1s** (1 vCPU, 1 GB). Se o portal mostrar **B2ats v2** como gratuito, pode usar esse.
-- Região: **Brazil South**, se o tamanho aparecer lá; se não, **East US**.
+- Tamanho e região: a Azure for Students costuma não ter a **B1s** nas regiões mais procuradas. Em *Tamanho → Ver todos os tamanhos*, procure nesta ordem: **B2ats_v2** (2 vCPU, 1 GB, x64), **B2pts_v2** (2 vCPU, 1 GB, ARM; a imagem tem versão arm64) e **B1s**. Se nenhum aparecer, troque a região e procure de novo: **East US 2**, **Central US**, **West US 2**, **West US 3**, **Canada Central**, **North Europe**. A região não importa para o teste.
+- Último recurso, pago com o crédito: **B1ms** (1 vCPU, 2 GB) ou **B2s** (2 vCPU, 4 GB). Custam alguns centavos de dólar por hora; um teste de poucos dias gasta poucos dólares dos US$ 100.
 - Autenticação: **chave SSH**, usuário `azureuser`. Baixe o arquivo `.pem` quando o portal oferecer e guarde-o fora do projeto.
 - Portas de entrada: **SSH (22)**, **HTTP (80)** e **HTTPS (443)**.
 
