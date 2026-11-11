@@ -288,3 +288,18 @@ def test_d020_modo_http_mantem_mesmas_ferramentas(tmp_path: Path) -> None:
     }
     registered_tools = set(http_server._tool_manager._tools.keys())
     assert registered_tools == expected_tools
+
+
+# D-020: a descrição de search_works orienta sobre pubmed e europe_pmc em temas de saúde
+@pytest.mark.anyio
+async def test_d020_search_works_descricao_orienta_fontes_saude() -> None:
+    async with Client(server.mcp) as client:
+        tools = await client.list_tools()
+        tool = next(t for t in tools.tools if t.name == "search_works")
+        desc_lower = tool.description.lower()
+        assert "pubmed" in desc_lower
+        assert "europe_pmc" in desc_lower
+        assert "saúde" in desc_lower or "saude" in desc_lower
+        assert "medicina" in desc_lower
+        assert "biologia" in desc_lower
+

@@ -44,8 +44,24 @@ Cerca de 300 linhas. Um commit para o servidor e a configuração, outro para a 
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Liguei os conectores `pubmed` e `europe_pmc` ao servidor MCP e suas ferramentas, preservando o comportamento para quem não solicitar as fontes novas (D-020):
+- **Ferramentas MCP:** `search_works` e `repeat_search` passam a aceitar `pubmed` e `europe_pmc` em `sources`. Sem `sources`, continuam consultando exclusivamente as três fontes padrão (`openalex`, `crossref`, `semantic_scholar`).
+- **`list_sources`:** lista as cinco fontes acadêmicas. `pubmed` e `europe_pmc` com `needs_key: false`, `configured: true`, `status: "ok"`. Chave `NCBI_API_KEY` opcional tratada sem expor seu valor. Docstring orienta sobre as bases de saúde e ciências da vida.
+- **Bloqueio em `find_work` e `get_related_works`:** respondem `invalid_input: fonte não suportada nesta ferramenta: <nome>` se `pubmed` ou `europe_pmc` forem solicitadas, sem acionar fontes nem rede.
+- **Deduplicação:** `SOURCE_PRECEDENCE` atualizada para `("openalex", "crossref", "semantic_scholar", "europe_pmc", "pubmed")`. Artigos com mesmo DOI unem `source_ids` e `citations` de todas as fontes mantendo os campos da fonte de maior prevalência.
+- **Exportador CSV:** inclusão das três colunas no fim (`PubMed ID`, `Europe PMC ID`, `Citations Europe PMC`), preservando a ordem e integridade das 19 colunas originais do Scopus para o VOSviewer.
+- **Prompt e orientações:** `render_plan_search` e a descrição de `search_works` orientam a inclusão de `pubmed` e `europe_pmc` quando o tema envolver saúde, medicina ou biologia. Exemplo adicionado em `deploy/.env.example`.
+- **Modo HTTP:** o servidor `_build_http_mcp_server` mantém exatamente as 8 ferramentas registradas.
 
 ## Como testar
 
-(preenche quem entrega)
+Onde olhar primeiro (pontos mais arriscados):
+1. **Não-exposição de segredos e chaves de API:** rodar `pytest tests/test_server_new_sources.py -k test_d020_list_sources_lista_cinco_e_nao_vaza_ncbi_key` para conferir que `NCBI_API_KEY` não vaza em nenhuma serialização da resposta de `list_sources`.
+2. **Exportação CSV e compatibilidade com VOSviewer:** rodar `pytest tests/exporters/test_csv.py -k test_d020_csv_tres_colunas_novas_no_fim_e_colunas_antigas_iguais` para certificar que as 19 primeiras colunas do Scopus permanecem intactas e as 3 novas ficam estritamente no final.
+3. **Bloqueio de fontes não suportadas antes de chamadas de rede:** rodar `pytest tests/test_server_new_sources.py -k test_d020_find_work_e_get_related_works_recusam_fontes_novas`.
+
+Para rodar a suíte completa de testes das fontes novas:
+```bash
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_new_sources.py -v
+```
+Deve exibir 6 testes passando com sucesso.

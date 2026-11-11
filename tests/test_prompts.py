@@ -57,3 +57,23 @@ def test_fr10_d003_render_plan_search_pedido_vazio(pedido_vazio: str) -> None:
     assert "incomplete" in resultado
     assert "dados" in resultado.lower()
     assert "<pedido_pesquisador>" not in resultado
+
+
+# FR-10, UC-01, D-002, D-003, D-020: render_plan_search orienta uso de pubmed e europe_pmc em temas de saúde
+def test_d020_render_plan_search_orienta_pubmed_e_europe_pmc() -> None:
+    res_pedido = render_plan_search("Diagnóstico clínico de câncer")
+    res_lower = res_pedido.lower()
+    assert "pubmed" in res_lower
+    assert "europe_pmc" in res_lower
+    assert "saúde" in res_lower or "saude" in res_lower
+    assert "medicina" in res_lower
+    assert "biologia" in res_lower
+
+    res_vazio = render_plan_search("")
+    res_vazio_lower = res_vazio.lower()
+    assert "pubmed" in res_vazio_lower
+    assert "europe_pmc" in res_vazio_lower
+    assert "saúde" in res_vazio_lower or "saude" in res_vazio_lower
+    assert "medicina" in res_vazio_lower
+    assert "biologia" in res_vazio_lower
+

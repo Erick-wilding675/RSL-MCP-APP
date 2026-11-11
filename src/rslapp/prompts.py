@@ -12,7 +12,7 @@ INSTRUCTIONS = (
 )
 
 
-# FR-10, UC-01, D-002, D-003: Renderiza o texto de orientação do prompt plan_search
+# FR-10, UC-01, D-002, D-003, D-020: Renderiza o texto de orientação do prompt plan_search
 def render_plan_search(request: str) -> str:
     """Gera o texto de orientação do prompt plan_search para o pedido fornecido."""
     cleaned_request = request.strip() if request else ""
@@ -22,7 +22,8 @@ def render_plan_search(request: str) -> str:
             "ou termos de pesquisa antes de planejar a busca. Quando o tema for fornecido, "
             "siga as seguintes orientações:\n"
             "1. Separar assuntos distintos: divida temas independentes em buscas separadas.\n"
-            "2. Montar a string de cada fonte: elabore os termos adequados para OpenAlex, Crossref e Semantic Scholar.\n"
+            "2. Montar a string de cada fonte: elabore os termos adequados para OpenAlex, Crossref e Semantic Scholar. "
+            "Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources.\n"
             "3. Chamar search_works uma vez por assunto: envie 'query' técnica e 'request_summary' resumido.\n"
             "4. Entregar cada lista separada: não una resultados de temas distintos numa única lista.\n"
             "5. Avisar lista incompleta: se o status for 'incomplete', alerte qual fonte falhou e o motivo.\n"
@@ -39,7 +40,8 @@ def render_plan_search(request: str) -> str:
         "1. Separar assuntos distintos: analise o pedido acima e, caso contenha mais de um tema "
         "ou assunto independente, divida-o em buscas separadas em vez de combiná-los numa única consulta.\n"
         "2. Montar a string de cada fonte: elabore os termos técnicos e palavras-chave mais adequados "
-        "para as fontes acadêmicas disponíveis (OpenAlex, Crossref, Semantic Scholar).\n"
+        "para as fontes acadêmicas disponíveis (OpenAlex, Crossref, Semantic Scholar). "
+        "Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources.\n"
         "3. Chamar search_works uma vez por assunto: execute a ferramenta search_works para cada assunto "
         "identificado, passando a consulta técnica no parâmetro 'query' e o resumo em linguagem natural no parâmetro 'request_summary'.\n"
         "4. Entregar cada lista separada: mantenha os resultados de cada assunto em listas separadas, "

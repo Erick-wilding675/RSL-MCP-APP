@@ -189,7 +189,7 @@ def _build_sources() -> list[Source]:
     ]
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013: Busca artigos nas fontes acadêmicas
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020: Busca artigos nas fontes acadêmicas
 @mcp.tool()
 async def search_works(
     query: str,
@@ -197,7 +197,7 @@ async def search_works(
     sources: list[str] | None = None,
     max_results: NonBoolInt = 100,
 ) -> dict[str, Any]:
-    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página."""
+    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources."""
     store, _ = _build_tool_store()
     try:
         return await run_search(
