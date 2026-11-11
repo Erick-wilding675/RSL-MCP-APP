@@ -37,6 +37,7 @@ _MEDIA_TYPES: dict[str, str] = {
     ".csv": "text/csv; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".txt": "text/plain; charset=utf-8",
+    ".bib": "application/x-bibtex; charset=utf-8",
 }
 
 _NO_STORE_HEADERS: dict[str, str] = {

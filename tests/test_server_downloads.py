@@ -223,6 +223,7 @@ async def test_d014_fr06_link_baixa_nos_cinco_formatos_com_tipo_de_conteudo_cert
         "json": ("l-0001.json", "application/json; charset=utf-8"),
         "dois": ("l-0001.dois.txt", "text/plain; charset=utf-8"),
         "openalex_url": ("l-0001.openalex.txt", "text/plain; charset=utf-8"),
+        "bibtex": ("l-0001.bib", "application/x-bibtex; charset=utf-8"),
     }
 
     async with _http_app_client() as client:

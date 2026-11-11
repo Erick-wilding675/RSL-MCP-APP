@@ -262,7 +262,7 @@ async def repeat_search(
 # FR-06, FR-12, UC-01, D-002, D-012, D-013, D-014: Exporta uma lista salva (caminho no stdio; link assinado no HTTP)
 @mcp.tool()
 def export_list(list_id: str, format: str) -> dict[str, Any]:
-    """Exporta uma lista salva para arquivo no formato solicitado ('ris', 'csv', 'json', 'dois', 'openalex_url')."""
+    """Exporta uma lista salva para arquivo no formato solicitado ('ris', 'csv', 'json', 'dois', 'openalex_url', 'bibtex')."""
     cfg = config.load()
     person_id = _resolve_person_id()
     store, export_dir = _build_tool_store(cfg)

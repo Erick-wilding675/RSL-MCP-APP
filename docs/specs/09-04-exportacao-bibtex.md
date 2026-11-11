@@ -49,8 +49,24 @@ Cerca de 250 linhas, testes incluídos. Um commit, com FR-06 no comentário e no
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Implementado o exportador de listas para o formato BibTeX (`bibtex`, extensão `.bib`) em `src/rslapp/exporters/bibtex.py`, registrado em `src/rslapp/exporters/__init__.py` e integrado à ferramenta `export_list` do servidor MCP e rota de download `/downloads/{token}` com o tipo MIME `application/x-bibtex; charset=utf-8` em `src/rslapp/downloads.py`.
+
+- Geração de entradas `@article` para artigos com periódico (`venue`) e tipo compatível (`article`, `journal-article`, `journal article`, `review`); entradas `@misc` para os demais casos.
+- Campos BibTeX: `title` entre chaves duplas `{{...}}`, `author` com formatação `Sobrenome, Nome` e organizações protegidas entre chaves `{...}` unidos por ` and `, `year`, `journal` ou `howpublished`, `doi` limpo, `url` (`https://doi.org/<doi>`), `abstract`, `keywords` e `note` com as fontes encontradas (`Fontes: ...`). Campos vazios ou ausentes são omitidos.
+- Geração de chaves de citação compostas por sobrenome do primeiro autor (ou `anon`), ano (ou `nd`) e primeira palavra significativa do título, apenas em letras e dígitos ASCII minúsculos, com resolução de duplicatas por sufixos sequenciais (`a`, `b`, `c`...).
+- Escape de caracteres especiais do LaTeX (`\ { } % & $ # _ ^ ~`), preservação de acentuação em UTF-8 e substituição de quebras de linha por espaços.
+- Suporte a ambos os modos de transporte: caminho de arquivo no stdio e link temporário assinado com tipo `application/x-bibtex; charset=utf-8` no modo HTTP.
+- Suíte completa de testes unitários e de integração em `tests/exporters/test_bibtex.py` e extensões em `tests/test_server_export_list.py` e `tests/test_server_downloads.py`.
 
 ## Como testar
 
-(preenche quem entrega)
+1. Executar os testes automatizados da exportação BibTeX:
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/exporters/test_bibtex.py -v
+   ```
+2. Executar a suíte de testes de exportação e downloads do servidor:
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_export_list.py tests/test_server_downloads.py -q
+   ```
+3. Testar a exportação no stdio chamando `export_list` com `format="bibtex"` para uma lista salva: verificar que o arquivo `<list_id>.bib` é gravado na pasta de exportação com codificação UTF-8 e sintaxe BibTeX válida.
+4. Testar o download no modo HTTP: requisitar a exportação com `format="bibtex"` via HTTP MCP e baixar pela URL retornada (`/downloads/<token>`), verificando o cabeçalho `Content-Type: application/x-bibtex; charset=utf-8`.

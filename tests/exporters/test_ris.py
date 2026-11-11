@@ -278,7 +278,7 @@ def test_fr12_run_export_lista_inexistente_ou_malformada(tmp_path: Path, bad_lis
 
 
 # D-002: Formato desconhecido ou não suportado levanta RSLError('invalid_input')
-@pytest.mark.parametrize("unsupported_format", ["xml", "bibtex", "unknown", ""])
+@pytest.mark.parametrize("unsupported_format", ["xml", "yaml", "unknown", ""])
 def test_d002_run_export_formato_desconhecido(tmp_path: Path, unsupported_format: str) -> None:
     store = Store(tmp_path / "data")
     with pytest.raises(RSLError) as exc_info:
