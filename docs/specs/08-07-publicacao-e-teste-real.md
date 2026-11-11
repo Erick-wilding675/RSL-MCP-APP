@@ -1,6 +1,6 @@
 # Publicação da 1.1.0 e teste real
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** em andamento (publicada; falta o teste real do Erick)
+**Fase:** 8 · Uso por link (v2) · **Situação:** pronta (2026-11-11)
 
 ## O que faz
 
@@ -25,8 +25,8 @@ Publica a v2 como `rslapp` 1.1.0 (o modo stdio não muda, então é uma versão 
 - [X] Imagem `1.1.0` e `latest` no ghcr.io, baixável sem login (o pacote já nasceu público, não precisou mexer nas configurações)
 - [X] Os itens de Docker que ficaram da 08-06: `docker build`, `docker run` com `/health`, `docker history` e o `env` da imagem sem chave, e o usuário sem privilégio (conferidos na máquina da Azure em 2026-11-11, com a imagem do ghcr.io no lugar do `docker build` local)
 - [X] Tag e release `v1.1.0` no GitHub
-- [ ] Teste manual do Erick: os cinco passos acima passam
-- [ ] O que o teste real achar vira itens desta spec ou uma tarefa nova, como na 05-05
+- [X] Teste manual do Erick: os cinco passos acima passam (passo 6 pelo Erick no Claude; passos 7 e 8 por script rodado por ele)
+- [X] O que o teste real achar vira itens desta spec ou uma tarefa nova, como na 05-05 (o teste não achou defeito; achou só o que entrou no roteiro: as regiões permitidas da Azure for Students e o nome do domínio)
 
 ## Vem de
 
@@ -52,7 +52,9 @@ D-011, D-015, D-017 e D-018, e D-008 (publicação no PyPI).
 
 **Passos 7 e 8 (2026-11-11):** o Erick pôs a chave do OpenAlex e criou os códigos `erick` e `teste2`. Como o `erick` ainda não tinha dados, o passo 7 foi feito no sentido inverso: com o código do `teste2`, um script (rodado pelo Erick, porque o Claude não faz login com código de outra pessoa) fez o login OAuth completo (registro automático, PKCE, `/login`, `/token`) e conferiu, todos passando: 8 ferramentas; log vazio e `get_list l-0001` com `list_not_found` antes de buscar; `search_works` com o pedido marcado `TESTE-ISOLAMENTO-TESTE2` criou `s-0001` e `l-0001` com as três fontes `ok`. Passo 8: `token revoke teste2` pelo SSH; a mesma sessão recebeu 401 na chamada seguinte e um login novo com o código foi recusado ("código inválido"). No servidor, os dados ficaram só em `/data/people/teste2/` (1 lista, 1 busca, a marca no `log.md`), e o cache das três fontes em `/data/cache/`.
 
-**Falta:** o passo 6 do Erick no Claude (conector, busca, RIS pelo link, VOSviewer), conferindo também que o `get_search_log` dele não mostra a busca `TESTE-ISOLAMENTO-TESTE2` e que a `l-0001` dele é a busca dele.
+**Passo 6 (Erick, 2026-11-11):** conector `https://rsl.sinteselabs.com/mcp` no Claude, login com o código `erick`, busca, RIS baixado pelo link e aberto no VOSviewer; o log dele não mostra a busca do `teste2`. Deu tudo certo, e a fase 8 fechou.
+
+**O servidor de teste continua no ar** (máquina `rsl-app` na Azure, gastando crédito) até o Erick decidir parar ou apagar.
 
 ## Como testar
 

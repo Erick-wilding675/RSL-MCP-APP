@@ -1,6 +1,6 @@
 # Exportação por link temporário
 
-**Fase:** 8 · Uso por link (v2) · **Situação:** para testar
+**Fase:** 8 · Uso por link (v2) · **Situação:** pronta (testada pelo Erick em 2026-11-11, no teste real da 08-07)
 
 ## O que faz
 

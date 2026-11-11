@@ -80,6 +80,8 @@ Decidida com o Erick em 2026-11-10 (D-011 a D-018). Um servidor hospedado por qu
 6. Docker, Caddy e guia de hospedagem: Dockerfile, docker-compose com Caddy, imagem no ghcr.io a cada tag e guia em português com o aviso da LGPD. Spec: `specs/08-06-docker-e-guia.md`
 7. Publicação da 1.1.0 e teste real: versão no PyPI e no ghcr.io, e o teste de ponta a ponta do Erick num conector do Claude. Spec: `specs/08-07-publicacao-e-teste-real.md`
 
+**Fase 8 pronta em 2026-11-11:** `rslapp` 1.1.0 no PyPI e no ghcr.io, e o teste real do Erick passou em `rsl.sinteselabs.com` (D-019).
+
 As tarefas andam nessa ordem: cada uma usa a anterior. A 08-02 não depende da 08-01 e pode rodar em paralelo com ela. Antes de anunciar o modo hospedado, a LGPD (T-007) precisa ser conferida (D-018).
 
 ## Próximos passos (depois da v1)
