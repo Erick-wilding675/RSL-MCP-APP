@@ -1,6 +1,6 @@
 # Publicação da 1.2.0 e teste real
 
-**Fase:** 9 · Versão 1.2 · **Situação:** para testar
+**Fase:** 9 · Versão 1.2 · **Situação:** pronta
 
 ## O que faz
 
@@ -30,7 +30,7 @@ Publica a fase 9 como `rslapp` 1.2.0 (só acrescenta, então é uma versão meno
 - [x] `rslapp` 1.2.0 no PyPI, conferida com `uvx`
 - [x] Imagem `1.2.0` e `latest` no ghcr.io, e o servidor de teste atualizado
 - [x] Tag e release `v1.2.0` no GitHub
-- [ ] Os quatro passos do Erick passam (o Claude Code fez a parte que não precisa de tela; faltam o Zotero e o VOSviewer)
+- [x] Os quatro passos do Erick passam (Zotero, VOSviewer e Claude Desktop conferidos pelo Erick em 2026-11-11)
 - [ ] O que o teste achar vira item desta spec ou uma tarefa nova
 
 ## Vem de

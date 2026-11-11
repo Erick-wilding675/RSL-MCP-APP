@@ -1,6 +1,6 @@
 # Polimento do modo hospedado
 
-**Fase:** 9 · Versão 1.2 · **Situação:** para testar
+**Fase:** 9 · Versão 1.2 · **Situação:** pronta
 
 ## O que faz
 

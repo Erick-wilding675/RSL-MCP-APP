@@ -98,6 +98,8 @@ Decidida com o Erick em 2026-11-11 (D-020 e D-021). Pronto quando: uma busca de 
 
 A 09-01, a 09-02 e a 09-06 não dependem uma da outra e rodam em paralelo. A 09-03 espera a 09-01 e a 09-02. A 09-04 e a 09-05 mexem em `server.py`, como a 09-06 e a 09-03, e por isso entram uma de cada vez nesse arquivo.
 
+**Fase 9 pronta em 2026-11-11:** `rslapp` 1.2.0 no PyPI e no ghcr.io. O Erick conferiu o BibTeX no Zotero, a lista juntada no VOSviewer e a busca no Claude Desktop.
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo:
