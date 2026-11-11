@@ -116,6 +116,8 @@ def _run_token_command(args: argparse.Namespace) -> None:
             print("Guarde este código agora: ele é mostrado uma vez só e não aparece de novo.")
             return
         if args.token_command == "list":
+            # D-016: Cabeçalho explicativo antes da listagem de pessoas
+            print("pessoa\tcriada_em\tcodigo_desde\tsituacao")
             for person in people.list_people():
                 print(
                     f"{person.id}\t{person.created_at}\t"

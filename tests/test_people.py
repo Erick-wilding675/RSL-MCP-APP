@@ -147,7 +147,8 @@ def test_d016_token_revoke_mantem_pasta_e_token_list_sem_codigo_nem_hash(
     cli.main(["token", "list"])
     list_out = capsys.readouterr().out
     lines = [line for line in list_out.strip().splitlines() if line.strip()]
-    assert len(lines) == 2
+    assert len(lines) == 3
+    assert lines[0] == "pessoa\tcriada_em\tcodigo_desde\tsituacao"
 
     maria_line = next(line for line in lines if line.startswith("maria\t"))
     joao_line = next(line for line in lines if line.startswith("joao\t"))
@@ -257,4 +258,26 @@ def test_d016_user_purge_apaga_cadastro_e_pasta_e_cancela_sem_confirmacao(
     capsys.readouterr()
     assert people.get("joao") is None
     assert not joao_dir.exists()
+
+
+# D-016: token list começa pelo cabeçalho pessoa criada_em codigo_desde situacao
+def test_d016_token_list_comeca_pelo_cabecalho(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Sem pessoas cadastradas: imprime apenas o cabeçalho
+    cli.main(["token", "list"])
+    out_vazio = capsys.readouterr().out
+    assert out_vazio.strip() == "pessoa\tcriada_em\tcodigo_desde\tsituacao"
+
+    # Com pessoas cadastradas: primeira linha é o cabeçalho
+    people.add("maria")
+    people.add("joao")
+    cli.main(["token", "list"])
+    out_com_pessoas = capsys.readouterr().out
+    linhas = out_com_pessoas.strip().splitlines()
+    assert len(linhas) == 3
+    assert linhas[0] == "pessoa\tcriada_em\tcodigo_desde\tsituacao"
+    assert linhas[1].startswith("maria\t")
+    assert linhas[2].startswith("joao\t")
+
 
