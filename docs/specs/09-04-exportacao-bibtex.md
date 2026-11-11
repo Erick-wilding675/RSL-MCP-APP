@@ -53,9 +53,12 @@ Implementado o exportador de listas para o formato BibTeX (`bibtex`, extensão `
 
 - Geração de entradas `@article` para artigos com periódico (`venue`) e tipo compatível (`article`, `journal-article`, `journal article`, `review`); entradas `@misc` para os demais casos.
 - Campos BibTeX: `title` entre chaves duplas `{{...}}`, `author` com formatação `Sobrenome, Nome` e organizações protegidas entre chaves `{...}` unidos por ` and `, `year`, `journal` ou `howpublished`, `doi` limpo, `url` (`https://doi.org/<doi>`), `abstract`, `keywords` e `note` com as fontes encontradas (`Fontes: ...`). Campos vazios ou ausentes são omitidos.
-- Geração de chaves de citação compostas por sobrenome do primeiro autor (ou `anon`), ano (ou `nd`) e primeira palavra significativa do título, apenas em letras e dígitos ASCII minúsculos, com resolução de duplicatas por sufixos sequenciais (`a`, `b`, `c`...).
-- Escape de caracteres especiais do LaTeX (`\ { } % & $ # _ ^ ~`), preservação de acentuação em UTF-8 e substituição de quebras de linha por espaços.
+- Geração de chaves de citação compostas por sobrenome do primeiro autor (ou `anon`), ano (ou `nd`) e primeira palavra significativa do título, apenas em letras e dígitos ASCII minúsculos. Desambiguação sequencial com sufixos (`a`, `b`, `c`...) repetindo até a chave estar completamente livre, prevenindo colisões com outras chaves base.
+- Escape de caracteres especiais do LaTeX (`\ { } % & $ # _ ^ ~`) com `\textbraceleft{}` e `\textbraceright{}` para manter as chaves balanceadas mesmo quando o texto possui chaves solitárias; preservação de acentuação em UTF-8 e substituição de quebras de linha por espaços.
+- Tratamento de nomes de autores com preservação de sufixos de parentesco/geração (`Jr.`, `Júnior`, `Filho`, `Neto`, `Sobrinho`, `II`, `III`) junto ao sobrenome (ex.: `Silva Filho, João da`, chave `silva...`) e manutenção de partículas (`da`, `de`, `do`, etc.) no padrão ABNT.
+- Detecção de organizações restrita a termos institucionais inequívocos e termo `Group`/`Grupo` apenas no fim do nome, evitando falsos positivos com nomes de pessoas físicas (como Steven Bank ou Iso Yamamoto).
 - Suporte a ambos os modos de transporte: caminho de arquivo no stdio e link temporário assinado com tipo `application/x-bibtex; charset=utf-8` no modo HTTP.
+- Código enxuto (~315 linhas) sem ramos mortos nem duplicações.
 - Suíte completa de testes unitários e de integração em `tests/exporters/test_bibtex.py` e extensões em `tests/test_server_export_list.py` e `tests/test_server_downloads.py`.
 
 ## Como testar

@@ -103,8 +103,8 @@ def test_fr06_escape_latex_completo() -> None:
     escaped = escape_latex(text)
     assert r"\&" in escaped
     assert r"\%" in escaped
-    assert r"\{" in escaped
-    assert r"\}" in escaped
+    assert r"\textbraceleft{}" in escaped
+    assert r"\textbraceright{}" in escaped
     assert r"\$" in escaped
     assert r"\#" in escaped
     assert r"\_" in escaped
@@ -122,35 +122,35 @@ def test_fr06_escape_latex_completo() -> None:
 # FR-06: Formatação de autor individual e corporativo
 def test_fr06_format_author_for_bibtex() -> None:
     # Pessoa com Nome Sobrenome
-    assert _format_author_for_bibtex(Author(name="Ada Lovelace")) == "Lovelace, Ada"
+    assert _format_author_for_bibtex({"name": "Ada Lovelace"}) == "Lovelace, Ada"
     # Pessoa já com Sobrenome, Nome
-    assert _format_author_for_bibtex(Author(name="Silva, José")) == "Silva, José"
+    assert _format_author_for_bibtex({"name": "Silva, José"}) == "Silva, José"
     # Pessoa com um único nome
-    assert _format_author_for_bibtex(Author(name="Plato")) == "Plato"
-    # Organização detectada por palavra-chave
+    assert _format_author_for_bibtex({"name": "Plato"}) == "Plato"
+    # Organização detectada por palavra-chave inequívoca
     assert (
-        _format_author_for_bibtex(Author(name="World Health Organization"))
+        _format_author_for_bibtex({"name": "World Health Organization"})
         == "{World Health Organization}"
     )
     # Organização com caracteres LaTeX para escapar
     assert (
-        _format_author_for_bibtex(Author(name="Research & Development Group"))
+        _format_author_for_bibtex({"name": "Research & Development Group"})
         == r"{Research \& Development Group}"
     )
-    # Organização explícita em dict
+    # Organização com termo de consórcio
     assert (
-        _format_author_for_bibtex({"name": "Custom Consortium", "is_organization": True})
+        _format_author_for_bibtex({"name": "Custom Consortium"})
         == "{Custom Consortium}"
     )
 
 
 # FR-06: Extração de chaves de citação (autor, ano, título)
 def test_fr06_citation_key_parts() -> None:
-    assert _extract_author_key([Author(name="José da Silva")]) == "silva"
-    assert _extract_author_key([Author(name="Lovelace, Ada")]) == "lovelace"
-    assert _extract_author_key([Author(name="World Health Organization")]) == "world"
-    assert _extract_author_key([]) == "anon"
+    assert _extract_author_key({"name": "José da Silva"}) == "silva"
+    assert _extract_author_key({"name": "Lovelace, Ada"}) == "lovelace"
+    assert _extract_author_key({"name": "World Health Organization"}) == "world"
     assert _extract_author_key(None) == "anon"
+    assert _extract_author_key({}) == "anon"
 
     assert _extract_year_key(2021) == "2021"
     assert _extract_year_key("2024") == "2024"
@@ -272,10 +272,13 @@ def test_fr06_d014_exportacao_bibtex_artigos_diversos_campo_a_campo() -> None:
     assert "  howpublished = {WHO Press}," in e3
     assert "journal = " not in e3
 
-    # Entrada 4: título com &, %, _ e { escapados
+    # Entrada 4: título com &, %, _ e { escapados com \textbraceleft{} e \textbraceright{}
     e4 = entries[3]
     assert e4.startswith("@article{shannon2022ai,")
-    assert r"  title = {{AI \& Deep Learning: 100\% of \{Special\} \_Features\_}}," in e4
+    assert (
+        r"  title = {{AI \& Deep Learning: 100\% of \textbraceleft{}Special\textbraceright{} \_Features\_}},"
+        in e4
+    )
 
     # Entrada 5: resumo com quebras de linha substituídas por espaço
     e5 = entries[4]
@@ -322,20 +325,137 @@ def test_fr06_duas_entradas_mesma_chave_base_ganham_sufixos_a_e_b() -> None:
     assert "@article{lovelace2021deep," in rendered
 
 
+# FR-06: Chaves solitárias { e } no título e no resumo deixam chaves balanceadas por entrada
+def test_fr06_chaves_solitarias_no_titulo_e_resumo_mantem_chaves_balanceadas() -> None:
+    work = {
+        "title": "Estudo sobre { chave aberta solitária no título",
+        "abstract": "Resumo com chave fechada } solitária no resumo",
+        "year": 2024,
+        "authors": [{"name": "Ada Lovelace"}],
+    }
+    rendered = BibTeXExporter().render({"works": [work]})
+    entry = rendered.strip()
+    assert r"\textbraceleft{}" in entry
+    assert r"\textbraceright{}" in entry
+    assert entry.count("{") == entry.count("}")
+
+
+# FR-06: Divisão de nomes com sufixos (Jr., Filho, Neto, etc.) e partículas mantidas
+def test_fr06_divisao_nomes_com_sufixos_e_particulas() -> None:
+    # João da Silva Filho -> Silva Filho, João da / chave silva...
+    assert (
+        _format_author_for_bibtex({"name": "João da Silva Filho"})
+        == "Silva Filho, João da"
+    )
+    assert _extract_author_key({"name": "João da Silva Filho"}) == "silva"
+
+    # Silva Filho, João da -> Silva Filho, João da / chave silva...
+    assert (
+        _format_author_for_bibtex({"name": "Silva Filho, João da"})
+        == "Silva Filho, João da"
+    )
+    assert _extract_author_key({"name": "Silva Filho, João da"}) == "silva"
+
+    # Mario de Carvalho Júnior -> Carvalho Júnior, Mario de / chave carvalho...
+    assert (
+        _format_author_for_bibtex({"name": "Mario de Carvalho Júnior"})
+        == "Carvalho Júnior, Mario de"
+    )
+    assert _extract_author_key({"name": "Mario de Carvalho Júnior"}) == "carvalho"
+
+    # John Smith Jr. -> Smith Jr., John / chave smith...
+    assert _format_author_for_bibtex({"name": "John Smith Jr."}) == "Smith Jr., John"
+    assert _extract_author_key({"name": "John Smith Jr."}) == "smith"
+
+    # Partículas no estilo ABNT mantidas como hoje: Silva, Maria da / chave silva...
+    assert _format_author_for_bibtex({"name": "Maria da Silva"}) == "Silva, Maria da"
+    assert _extract_author_key({"name": "Maria da Silva"}) == "silva"
+
+
+# FR-06: Diferenciação entre organizações e pessoas físicas sem falsos positivos
+def test_fr06_organizacoes_vs_pessoas_sem_falsos_positivos() -> None:
+    # Pessoas que antes colidiam com palavras de organização
+    assert _format_author_for_bibtex({"name": "Steven Bank"}) == "Bank, Steven"
+    assert _extract_author_key({"name": "Steven Bank"}) == "bank"
+
+    assert _format_author_for_bibtex({"name": "Iso Yamamoto"}) == "Yamamoto, Iso"
+    assert _extract_author_key({"name": "Iso Yamamoto"}) == "yamamoto"
+
+    assert _format_author_for_bibtex({"name": "Ana Rede"}) == "Rede, Ana"
+    assert _extract_author_key({"name": "Ana Rede"}) == "rede"
+
+    # Organizações com termos inequívocos
+    assert (
+        _format_author_for_bibtex({"name": "University of Oxford"})
+        == "{University of Oxford}"
+    )
+    assert (
+        _format_author_for_bibtex({"name": "Instituto Butantan"})
+        == "{Instituto Butantan}"
+    )
+    assert (
+        _format_author_for_bibtex({"name": "World Health Organization"})
+        == "{World Health Organization}"
+    )
+    assert (
+        _format_author_for_bibtex({"name": "Ministério da Saúde"})
+        == "{Ministério da Saúde}"
+    )
+
+    # Group apenas no fim é organização; no início ou meio é pessoa
+    assert (
+        _format_author_for_bibtex({"name": "Research Group"}) == "{Research Group}"
+    )
+    assert _format_author_for_bibtex({"name": "Group Research"}) == "Research, Group"
+
+
+# FR-06: Chaves com sufixo colidindo com outra chave base repetem até estarem livres
+def test_fr06_colisao_chave_com_sufixo_e_outra_chave_base() -> None:
+    # dois 'Model...' e um 'Modela...' do mesmo autor e ano
+    w1 = {
+        "title": "Model Checking One",
+        "year": 2021,
+        "authors": [{"name": "John Smith"}],
+    }
+    w2 = {
+        "title": "Model Checking Two",
+        "year": 2021,
+        "authors": [{"name": "John Smith"}],
+    }
+    w3 = {
+        "title": "Modela Synthesis",
+        "year": 2021,
+        "authors": [{"name": "John Smith"}],
+    }
+    rendered = BibTeXExporter().render({"works": [w1, w2, w3]})
+    assert "@misc{smith2021modelb," in rendered
+    assert "@misc{smith2021modelc," in rendered
+    assert "@misc{smith2021modela," in rendered
+
+    # Garante que as 3 chaves geradas são distintas e não houve duplicação
+    keys = [
+        line.split("{")[1].split(",")[0]
+        for line in rendered.splitlines()
+        if line.startswith("@misc{")
+    ]
+    assert len(keys) == 3
+    assert len(set(keys)) == 3
+
+
 # FR-06: O arquivo lido de volta com um analisador simples tem uma entrada por artigo e chaves balanceadas
 def test_fr06_analisador_simples_contagem_arrobas_e_chaves_balanceadas() -> None:
     works = [
         {
-            "title": "Interpretable Machine Learning in Healthcare",
+            "title": "Interpretable Machine Learning in Healthcare: {lone open",
             "doi": "10.1234/iml.2024.001",
             "year": 2024,
             "type": "article",
             "venue": "Nature Machine Intelligence",
-            "abstract": "We propose a novel framework for explainable AI with {nested} concepts.",
+            "abstract": "We propose a novel framework for explainable AI with lone close} here.",
             "keywords": ["artificial intelligence", "healthcare & medicine"],
             "authors": [
                 {"name": "Ada Lovelace"},
-                {"name": "Research & Development Consortium", "is_organization": True},
+                {"name": "Research & Development Consortium"},
             ],
             "source_ids": {"openalex": "W1", "crossref": "CR1"},
         },
@@ -367,7 +487,9 @@ def test_fr06_analisador_simples_contagem_arrobas_e_chaves_balanceadas() -> None
     for entry in raw_entries:
         open_braces = entry.count("{")
         close_braces = entry.count("}")
-        assert open_braces == close_braces, f"Chaves desbalanceadas na entrada:\n{entry}"
+        assert (
+            open_braces == close_braces
+        ), f"Chaves desbalanceadas na entrada:\n{entry}"
         assert open_braces >= 2  # Pelo menos @tipo{chave, ... }
 
 
@@ -390,7 +512,15 @@ def test_fr06_export_list_stdio_grava_arquivo_bib(
         {
             "kind": "terms",
             "query": "bibliometria",
-            "sources": [{"name": "openalex", "status": "ok", "query": "q", "found": 1, "fetched": 1}],
+            "sources": [
+                {
+                    "name": "openalex",
+                    "status": "ok",
+                    "query": "q",
+                    "found": 1,
+                    "fetched": 1,
+                }
+            ],
         },
         {"status": "complete", "works": [work.to_dict()]},
     )
@@ -438,11 +568,16 @@ async def test_fr06_d014_export_list_http_download_tipo_mime(
         resource="https://rsl.example.com/mcp",
     ).access_token
 
-    http_cfg = config.HttpConfig(host="127.0.0.1", port=8000, public_url="https://rsl.example.com")
+    http_cfg = config.HttpConfig(
+        host="127.0.0.1", port=8000, public_url="https://rsl.example.com"
+    )
     app = server.create_http_app(http_cfg)
     async with (
         app.router.lifespan_context(app),
-        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://rsl.example.com") as client,
+        httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="https://rsl.example.com",
+        ) as client,
     ):
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -474,7 +609,13 @@ async def test_fr06_d014_export_list_http_download_tipo_mime(
                 "jsonrpc": "2.0",
                 "id": 2,
                 "method": "tools/call",
-                "params": {"name": "search_works", "arguments": {"query": "bibliometrics", "sources": ["openalex"]}},
+                "params": {
+                    "name": "search_works",
+                    "arguments": {
+                        "query": "bibliometrics",
+                        "sources": ["openalex"],
+                    },
+                },
             },
             headers=call_headers,
         )
@@ -486,7 +627,10 @@ async def test_fr06_d014_export_list_http_download_tipo_mime(
                 "jsonrpc": "2.0",
                 "id": 3,
                 "method": "tools/call",
-                "params": {"name": "export_list", "arguments": {"list_id": "l-0001", "format": "bibtex"}},
+                "params": {
+                    "name": "export_list",
+                    "arguments": {"list_id": "l-0001", "format": "bibtex"},
+                },
             },
             headers=call_headers,
         )
@@ -496,14 +640,21 @@ async def test_fr06_d014_export_list_http_download_tipo_mime(
         assert "path" not in payload
         assert payload["format"] == "bibtex"
         assert payload["count"] == 1
-        assert payload["download_url"].startswith("https://rsl.example.com/downloads/")
+        assert payload["download_url"].startswith(
+            "https://rsl.example.com/downloads/"
+        )
         assert "expires_at" in payload
 
         dl_path = urlsplit(payload["download_url"]).path
         dl_resp = await client.get(dl_path)
         assert dl_resp.status_code == 200
-        assert dl_resp.headers.get("content-type") == "application/x-bibtex; charset=utf-8"
-        assert 'filename="l-0001.bib"' in dl_resp.headers.get("content-disposition", "")
+        assert (
+            dl_resp.headers.get("content-type")
+            == "application/x-bibtex; charset=utf-8"
+        )
+        assert 'filename="l-0001.bib"' in dl_resp.headers.get(
+            "content-disposition", ""
+        )
         assert dl_resp.content.startswith(b"@article{lovelace2024fake,")
 
 
@@ -518,7 +669,15 @@ def test_fr06_export_list_formato_desconhecido_continua_com_mesmo_erro(
         {
             "kind": "terms",
             "query": "qualquer",
-            "sources": [{"name": "openalex", "status": "ok", "query": "q", "found": 1, "fetched": 1}],
+            "sources": [
+                {
+                    "name": "openalex",
+                    "status": "ok",
+                    "query": "q",
+                    "found": 1,
+                    "fetched": 1,
+                }
+            ],
         },
         {"status": "complete", "works": [work.to_dict()]},
     )
@@ -540,7 +699,15 @@ def test_fr06_export_list_vazia_em_bibtex_recusa_com_empty_list(
         {
             "kind": "terms",
             "query": "sem resultados",
-            "sources": [{"name": "openalex", "status": "ok", "query": "q", "found": 0, "fetched": 0}],
+            "sources": [
+                {
+                    "name": "openalex",
+                    "status": "ok",
+                    "query": "q",
+                    "found": 0,
+                    "fetched": 0,
+                }
+            ],
         },
         {"status": "complete", "works": []},
     )
