@@ -1,6 +1,6 @@
 # Pesquisa
 
-**Projeto:** RSL.app · **Versão:** 0.2 · **Data:** 2026-11-02
+**Projeto:** RSL.app · **Versão:** 0.3 · **Data:** 2026-11-11
 
 > **Em resumo:** Cinco perguntas pesquisadas em 2026-11-02.
 > Não existe MCP do VOSviewer (a busca não foi exaustiva), e o VOSviewer já lê RIS, CSV, URL do OpenAlex e lista de DOIs, então a ponte é o exportador.
@@ -8,6 +8,7 @@
 > A primeira versão usa OpenAlex, Crossref e Semantic Scholar. Scopus, Web of Science e CAPES dependem de licença ou de acesso institucional.
 > Sci-Hub fica fora; o texto completo, quando entrar, vem de acesso aberto.
 > Quatro perguntas de Arquitetura foram acrescentadas em 2026-11-02: biblioteca do MCP, onde guardar os dados, como instalar e quanto custam referências e citações. Nenhuma está decidida ainda.
+> Em 2026-11-11, para a 2.0: o Scopus (visão COMPLETE) entra primeiro, só no modo stdio, com a chave de cada pessoa em variável de ambiente. O Web of Science Starter vem depois, como fonte magra. Nenhuma das duas entra no modo hospedado, por causa dos termos. As duas decisões estão em aberto, com o Erick.
 
 ## Existe um MCP do VOSviewer, oficial ou da comunidade, para conectar ao nosso?
 
@@ -90,7 +91,10 @@
 - Cotas, preços e créditos do OpenAlex e limites do Semantic Scholar mudam. Conferir na hora de codar.
 - Parâmetros de linha de comando do VOSviewer na versão atual: não testados.
 - A busca por MCP do VOSviewer não foi exaustiva. Conferir GitHub e Glama.
-- Os dados do Crossref, do Web of Science Starter e do Scopus vêm de páginas de terceiros.
+- Os dados do Crossref, do Web of Science Starter e do Scopus vêm de páginas de terceiros. (Scopus e Web of Science relidos nas páginas oficiais em 2026-11-11.)
+- Os termos de produto das APIs da Clarivate (terms.clarivate.com) ficam atrás de uma verificação anti-robô e não foram lidos.
+- Se as instituições que recebem o Scopus pelo Periódicos CAPES liberam a API pelo IP delas, e se a VPN da universidade conta como IP da instituição para a Elsevier.
+- Se a visão COMPLETE do Scopus Search exige a assinatura (a página das visões não diz) e se as referências de cada artigo vêm pela Abstract Retrieval API com a mesma chave.
 
 ## Qual biblioteca usar para o servidor MCP em Python?
 
@@ -160,3 +164,63 @@
 - **Fontes (lidas em 2026-11-02):**
   - https://pypi.org/project/academic-research-mcp/ (terceiro)
   - https://github.com/openags/paper-search-mcp (terceiro)
+
+## Scopus e Web of Science na 2.0: com qual API e dentro de quais termos?
+
+- **Decisão:** em aberto, com o Erick. Recomendo começar pelo Scopus Search API, na visão COMPLETE, e deixar o Web of Science Starter para depois, como fonte mais magra. Os dois só no modo stdio, na máquina de quem tem acesso pela instituição.
+- **Motivo:** o critério é ser gratuito para o pesquisador e cumprir os termos de cada base.
+  - O Scopus devolve o que a revisão sistemática usa: todos os autores com ORCID, afiliações, resumo e palavras-chave.
+  - O Starter não traz resumo, afiliações nem referências.
+  - Nenhum dos dois permite servir os dados a quem é de fora da organização, o que exclui o modo hospedado.
+- **Fatos, Scopus (Elsevier):**
+  - **Chave:** o pesquisador registra uma chave gratuita no portal da Elsevier. "An API key alone does not provide data or content access": os dados dependem da assinatura da instituição.
+  - **Fora do campus:** a Elsevier confere a assinatura pelo IP de quem chama. Fora da rede da instituição, a Elsevier dá um token institucional (`insttoken`) a pedido, e "API access through proxies is not supported".
+  - **Scopus Search API:** 20.000 pedidos por semana e 9 por segundo. A visão STANDARD traz até 200 resultados por pedido; a COMPLETE, até 25. Sem paginação por cursor, o limite é de 5.000 itens.
+  - **Visão STANDARD:** só o primeiro autor, sem resumo e sem palavras-chave.
+  - **Visão COMPLETE:** todos os autores com `authid`, ORCID e afiliação, o resumo (`dc:description`), as palavras-chave dos autores e o número de citações.
+  - **Uso "Academic Research" da política:**
+    - os dados guardados servem para arquivo e para reproduzir o resultado da pesquisa;
+    - só os campos da lista da política podem ser usados, entre eles ids, DOI, resumo, autores, afiliações, título, ano, fonte e citações;
+    - "no 3rd party or consultant access is permitted";
+    - o Scopus precisa aparecer como fonte dos dados.
+  - **Para sites:** a chamada tem que sair do navegador de quem usa, sem passar por um servidor no meio.
+- **Fatos, Web of Science (Clarivate):**
+  - **Starter API, três planos:**
+    - Free Trial: aberto a qualquer um, 1 pedido por segundo e 50 por dia, sem número de citações;
+    - Free Institutional Member: para quem é de instituição assinante, 5 por segundo e 5.000 por dia, com citações;
+    - Integration: 20.000 por dia, só para a equipe administrativa da instituição.
+  - **Campos do Starter** (descrição OpenAPI): UID, título, fonte, ano, autores, palavras-chave dos autores, DOI, PubMed ID, tipo de documento e número de citações (conforme o plano), além de links para o Web of Science. Não traz resumo, afiliações nem a lista de referências. Até 50 registros por página, paginados por `page`. Aceita só parte das etiquetas da busca avançada (por exemplo TI, SO, PY).
+  - **API Expanded:** exige licença paga da instituição. Traz o registro completo, com afiliações, citações e referências.
+  - **Termos gerais de usuário da Clarivate (2018):**
+    - o usuário não pode "provide Content to anyone else" fora dos documentos do próprio trabalho, nem prestar serviço a quem é de fora da organização;
+    - sem licença de arquivo da instituição, não pode guardar o conteúdo baixado por mais de 3 meses;
+    - pede o crédito "Source: Clarivate Analytics".
+    - O contrato da instituição prevalece sobre esses termos.
+- **Alternativas:**
+  - Os dois agora: dobra o trabalho, e o Starter acrescenta pouco às fontes abertas.
+  - Só o Web of Science: mais fraco nos campos e preso a 50 por dia sem vínculo institucional.
+  - API Expanded do Web of Science: depende de licença paga, fora do critério de ser gratuito.
+  - Oferecer no modo hospedado: contraria os termos das duas bases.
+- **Fontes (lidas em 2026-11-11):**
+  - https://dev.elsevier.com/policy.html (oficial)
+  - https://dev.elsevier.com/api_key_settings.html (oficial)
+  - https://dev.elsevier.com/sc_search_views.html (oficial)
+  - https://dev.elsevier.com/sc_search_tips.html (oficial)
+  - https://dev.elsevier.com/support.html (oficial)
+  - https://developer.clarivate.com/apis/wos-starter (oficial)
+  - https://developer.clarivate.com/apis/wos-starter/swagger (oficial, descrição OpenAPI)
+  - https://developer.clarivate.com/apis/wos (oficial)
+  - https://clarivate.com/wp-content/uploads/dlm_uploads/2019/08/End-User-Terms.pdf (oficial, termos gerais de 2018)
+
+## Onde fica a chave de cada pessoa para o Scopus e o Web of Science?
+
+- **Decisão:** em aberto, com o Erick. Recomendo variáveis de ambiente na configuração do cliente MCP de cada pessoa (`SCOPUS_API_KEY`, `SCOPUS_INSTTOKEN` opcional e `WOS_STARTER_API_KEY`), como já é com o OpenAlex. No modo hospedado, as duas fontes ficam indisponíveis.
+- **Motivo:** o critério é não ter chave em arquivo do projeto e manter os dados na máquina de quem usa. As variáveis de ambiente já são o caminho do projeto (D-013) e ficam na máquina da pessoa. Os termos das duas bases proíbem servir os dados a terceiros, então o servidor hospedado não as oferece.
+- **O que muda no código**, para a spec:
+  - **Fora do modo hospedado:** `list_sources` mostra as duas como indisponíveis no modo hospedado.
+  - **Cache:** o cache compartilhado não guarda respostas delas; no stdio, o cache é por pessoa e curto.
+  - **Crédito à fonte:** o log e as exportações dizem "Fonte: Scopus" e "Source: Clarivate Analytics".
+- **Alternativas:**
+  - Guardar a chave no cofre do sistema (keyring): mais seguro, mas é dependência e passo de instalação novos, e diferente das outras chaves.
+  - Cada pessoa cadastra a chave no servidor hospedado: contraria os termos.
+- **Fontes:** as da pergunta anterior.

@@ -202,3 +202,12 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Erick (incluir) e Claude Code (a forma) · **Data:** 2026-11-11
 - **Fontes:** conversa de 2026-11-11 (Claude Code)
 - **Situação:** decidida
+
+## D-022 · Pareceres de revisão do OpenAlex fora da busca, com opção para incluir
+
+- **Decisão:** a busca no OpenAlex passa a excluir por padrão os registros do tipo `peer-review` (pareceres, cartas de decisão e respostas de autores, vindos do Publons). Uma entrada nova deixa incluí-los para quem quiser.
+- **Motivo:** no teste da 1.2.0, 9 dos 40 itens do OpenAlex numa busca de diabetes eram pareceres. Cada um tem DOI próprio, então a deduplicação não os junta, e eles entram na lista como se fossem artigos. Numa revisão sistemática isso é ruído.
+- **Alternativas:** filtrar sempre, sem opção (mais simples, mas tira de quem estuda o processo de revisão por pares); deixar como está e tirar na triagem.
+- **Decidido por:** Erick · **Data:** 2026-11-11
+- **Fontes:** teste da 09-07 (`docs/specs/09-07-publicacao-1-2-e-teste-real.md`, "Achados do teste")
+- **Situação:** decidida; o nome da entrada e se ela vale para outras fontes ficam para a spec
