@@ -16,6 +16,7 @@ ENV_VARS = (
     "RSL_CACHE_DAYS",
     "OPENALEX_API_KEY",
     "SEMANTIC_SCHOLAR_API_KEY",
+    "NCBI_API_KEY",
     "RSL_CONTACT_EMAIL",
 )
 
@@ -52,6 +53,7 @@ def test_fr07_nfr02_padroes_sem_variaveis_e_sem_criar_pastas(isolated_env: Path)
     assert cfg.contact_email is None
     assert cfg.openalex_key_configured is False
     assert cfg.semantic_scholar_key_configured is False
+    assert cfg.ncbi_key_configured is False
     assert not cfg.data_dir.exists()
     assert not cfg.export_dir.exists()
 
@@ -104,12 +106,14 @@ def test_fr07_nfr03_chaves_vazias_ou_espacos_contam_como_nao_configuradas(
 ) -> None:
     monkeypatch.setenv("OPENALEX_API_KEY", empty_val)
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", empty_val)
+    monkeypatch.setenv("NCBI_API_KEY", empty_val)
     monkeypatch.setenv("RSL_CONTACT_EMAIL", empty_val)
 
     cfg = config.load()
 
     assert cfg.openalex_key_configured is False
     assert cfg.semantic_scholar_key_configured is False
+    assert cfg.ncbi_key_configured is False
     assert cfg.contact_email is None
 
 
@@ -121,12 +125,21 @@ def test_fr07_nfr03_cada_chave_controla_apenas_seu_booleano(
     cfg_oa = config.load()
     assert cfg_oa.openalex_key_configured is True
     assert cfg_oa.semantic_scholar_key_configured is False
+    assert cfg_oa.ncbi_key_configured is False
 
     monkeypatch.delenv("OPENALEX_API_KEY")
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "fake-key-456-s2")
     cfg_s2 = config.load()
     assert cfg_s2.openalex_key_configured is False
     assert cfg_s2.semantic_scholar_key_configured is True
+    assert cfg_s2.ncbi_key_configured is False
+
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY")
+    monkeypatch.setenv("NCBI_API_KEY", "fake-key-789-ncbi")
+    cfg_ncbi = config.load()
+    assert cfg_ncbi.openalex_key_configured is False
+    assert cfg_ncbi.semantic_scholar_key_configured is False
+    assert cfg_ncbi.ncbi_key_configured is True
 
 
 # NFR-03: repr, str, vars e asdict nunca expõem o valor das chaves nem o email de contato em repr/str
@@ -141,24 +154,30 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
         "contact_email",
         "openalex_key_configured",
         "semantic_scholar_key_configured",
+        "ncbi_key_configured",
     }
     assert campos["openalex_key_configured"] in (bool, "bool")
     assert campos["semantic_scholar_key_configured"] in (bool, "bool")
+    assert campos["ncbi_key_configured"] in (bool, "bool")
 
     fake_oa_key = "fake-key-123-openalex"
     fake_s2_key = "fake-key-456-s2"
+    fake_ncbi_key = "fake-key-789-ncbi"
     fake_email = "pesquisador@exemplo.org"
 
     monkeypatch.setenv("OPENALEX_API_KEY", fake_oa_key)
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", fake_s2_key)
+    monkeypatch.setenv("NCBI_API_KEY", fake_ncbi_key)
     monkeypatch.setenv("RSL_CONTACT_EMAIL", fake_email)
 
     cfg = config.load()
 
     assert type(cfg.openalex_key_configured) is bool
     assert type(cfg.semantic_scholar_key_configured) is bool
+    assert type(cfg.ncbi_key_configured) is bool
     assert cfg.openalex_key_configured is True
     assert cfg.semantic_scholar_key_configured is True
+    assert cfg.ncbi_key_configured is True
     assert cfg.contact_email == fake_email
 
     texto_repr = repr(cfg)
@@ -166,7 +185,7 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
     dicionario_vars = str(vars(cfg))
     dicionario_asdict = str(asdict(cfg))
 
-    for segredo in (fake_oa_key, fake_s2_key):
+    for segredo in (fake_oa_key, fake_s2_key, fake_ncbi_key):
         assert segredo not in texto_repr
         assert segredo not in texto_str
         assert segredo not in dicionario_vars
@@ -182,10 +201,12 @@ def test_nfr03_erro_cache_days_nao_expoe_chaves(
 ) -> None:
     fake_oa_key = "fake-key-123-openalex"
     fake_s2_key = "fake-key-456-s2"
+    fake_ncbi_key = "fake-key-789-ncbi"
     valor_invalido = "invalido-789"
 
     monkeypatch.setenv("OPENALEX_API_KEY", fake_oa_key)
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", fake_s2_key)
+    monkeypatch.setenv("NCBI_API_KEY", fake_ncbi_key)
     monkeypatch.setenv("RSL_CACHE_DAYS", valor_invalido)
 
     with pytest.raises(ValueError, match="RSL_CACHE_DAYS") as exc_info:
@@ -194,6 +215,7 @@ def test_nfr03_erro_cache_days_nao_expoe_chaves(
     mensagem_erro = str(exc_info.value)
     assert fake_oa_key not in mensagem_erro
     assert fake_s2_key not in mensagem_erro
+    assert fake_ncbi_key not in mensagem_erro
     assert valor_invalido not in mensagem_erro
     assert exc_info.value.__cause__ is None
     assert exc_info.value.__suppress_context__ is True

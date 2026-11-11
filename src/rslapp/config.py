@@ -30,6 +30,7 @@ class Config:
     contact_email: str | None = field(default=None, repr=False)
     openalex_key_configured: bool = False
     semantic_scholar_key_configured: bool = False
+    ncbi_key_configured: bool = False
 
 
 def _is_key_configured(env_var: str) -> bool:
@@ -80,6 +81,7 @@ def load() -> Config:
         contact_email=contact_email,
         openalex_key_configured=_is_key_configured("OPENALEX_API_KEY"),
         semantic_scholar_key_configured=_is_key_configured("SEMANTIC_SCHOLAR_API_KEY"),
+        ncbi_key_configured=_is_key_configured("NCBI_API_KEY"),
     )
 
 
