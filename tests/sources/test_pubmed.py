@@ -271,6 +271,67 @@ async def test_fr01_fr03_fr14_d004_d020_mapeamento_completo_campos() -> None:
     assert w3.year == 2019
 
 
+# FR-03, FR-14, D-020: DOI próprio não confunde com DOIs em ReferenceList
+@pytest.mark.anyio
+async def test_fr03_d020_doi_proprio_nao_confunde_com_referencias() -> None:
+    # Caso (a): DOI só em ELocationID + ReferenceList com DOIs -> doi do ELocationID
+    art_eloc_xml = _make_article_xml(
+        pmid="55551",
+        title="Artigo com DOI apenas em ELocationID",
+        doi=None,
+        eloc_doi="10.1000/OWN.ELOC",
+        references=["10.9000/REF.DOI.1", "10.9000/REF.DOI.2"],
+    )
+
+    # Caso (b): sem DOI nenhum + referências com DOI -> doi None
+    art_no_doi_xml = _make_article_xml(
+        pmid="55552",
+        title="Artigo sem nenhum DOI próprio",
+        doi=None,
+        eloc_doi=None,
+        references=["10.9000/REF.DOI.3"],
+    )
+
+    xml_set = f"<PubmedArticleSet>{art_eloc_xml}{art_no_doi_xml}</PubmedArticleSet>"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        url_str = str(request.url)
+        if "esearch.fcgi" in url_str:
+            return httpx.Response(
+                200,
+                json={
+                    "esearchresult": {
+                        "count": "2",
+                        "retmax": "2",
+                        "retstart": "0",
+                        "querykey": "1",
+                        "webenv": "NCID_DOI_TEST",
+                        "idlist": ["55551", "55552"],
+                    }
+                },
+            )
+        if "efetch.fcgi" in url_str:
+            return httpx.Response(200, content=xml_set.encode())
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = PubmedSource(client=client)
+        result = await source.search("teste doi", max_results=2)
+
+    assert result.status == "ok"
+    assert len(result.works) == 2
+
+    # Caso (a)
+    w_eloc = result.works[0]
+    assert w_eloc.doi == "10.1000/own.eloc"
+    assert w_eloc.references == ["10.9000/ref.doi.1", "10.9000/ref.doi.2"]
+
+    # Caso (b)
+    w_no_doi = result.works[1]
+    assert w_no_doi.doi is None
+    assert w_no_doi.references == ["10.9000/ref.doi.3"]
+
+
 # FR-01, D-020: ESearch pede usehistory=y e EFetch pagina em lotes de 200 pelo WebEnv
 @pytest.mark.anyio
 async def test_fr01_d020_esearch_usehistory_e_efetch_lotes_de_200() -> None:
@@ -301,12 +362,12 @@ async def test_fr01_d020_esearch_usehistory_e_efetch_lotes_de_200() -> None:
         if "efetch.fcgi" in url_str:
             assert request.url.params["WebEnv"] == "NCID_ENV_LOTES"
             assert request.url.params["query_key"] == "2"
-            assert request.url.params["retmax"] == "200"
             retstart = int(request.url.params["retstart"])
-            # Gera 200 artigos para cada lote
+            retmax = int(request.url.params["retmax"])
+            # Gera artigos para cada lote
             batch = [
                 _make_article_xml(pmid=str(retstart + i), title=f"Artigo {retstart + i}")
-                for i in range(1, 201)
+                for i in range(1, retmax + 1)
             ]
             content = f"<PubmedArticleSet>{''.join(batch)}</PubmedArticleSet>"
             return httpx.Response(200, content=content.encode())
@@ -321,13 +382,13 @@ async def test_fr01_d020_esearch_usehistory_e_efetch_lotes_de_200() -> None:
     assert result.fetched == 300
     assert len(result.works) == 300
 
-    # 1 chamada ESearch + 2 chamadas EFetch (retstart 0 e 200)
+    # 1 chamada ESearch + 2 chamadas EFetch (retstart 0 com retmax 200, retstart 200 com retmax 100)
     assert len(captured_requests) == 3
     assert "esearch.fcgi" in str(captured_requests[0].url)
     assert captured_requests[1].url.params["retstart"] == "0"
     assert captured_requests[1].url.params["retmax"] == "200"
     assert captured_requests[2].url.params["retstart"] == "200"
-    assert captured_requests[2].url.params["retmax"] == "200"
+    assert captured_requests[2].url.params["retmax"] == "100"
 
 
 # FR-01, D-020: Busca sem resultados no ESearch devolve ok com zero artigos sem chamar EFetch
@@ -383,7 +444,7 @@ async def test_nfr04_d020_retentativas_e_estados_de_erro(
         current_time += sec
         await asyncio.sleep(0)
 
-    reset_rate_limiter(clock=fake_clock, sleep=fake_sleep)
+    reset_rate_limiter()
 
     async def handler(request: httpx.Request) -> httpx.Response:
         nonlocal attempts
@@ -548,7 +609,7 @@ async def test_nfr04_d020_ritmo_pedidos_sequenciais_e_intervalo_minimo(
         current_time += seconds
         await asyncio.sleep(0)
 
-    reset_rate_limiter(clock=fake_clock, sleep=fake_sleep)
+    reset_rate_limiter()
 
     async def handler(request: httpx.Request) -> httpx.Response:
         nonlocal current_time
