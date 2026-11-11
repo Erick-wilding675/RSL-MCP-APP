@@ -1,6 +1,6 @@
 # RSL.app
 
-**Servidor MCP gratuito para revisão sistemática de literatura.** Você pede à sua IA, em linguagem natural, os artigos de um tema. Ela busca no OpenAlex, na Crossref e na Semantic Scholar, junta os resultados sem duplicatas e grava um arquivo pronto para abrir no [VOSviewer](https://www.vosviewer.com/), com autores, afiliações, palavras-chave, referências e citações.
+**Servidor MCP gratuito para revisão sistemática de literatura.** Você pede à sua IA, em linguagem natural, os artigos de um tema. Ela busca no OpenAlex, na Crossref e na Semantic Scholar (e, em temas de saúde e biologia, também no PubMed e no Europe PMC), junta os resultados sem duplicatas e grava um arquivo pronto para abrir no [VOSviewer](https://www.vosviewer.com/), com autores, afiliações, palavras-chave, referências e citações.
 
 > Exemplo: *"Quero os artigos sobre burnout em professores da educação básica e, separado, sobre inteligência artificial na correção de redações. Exporte cada um em RIS."*
 > A IA faz duas buscas, monta duas listas e entrega dois arquivos `.ris`. Cada busca fica registrada num log legível, que você pode anexar à metodologia do seu artigo.
@@ -9,17 +9,18 @@ O RSL.app roda **na sua máquina** (self-hosted), com as **suas** chaves gratuit
 
 ## O que ele faz
 
-- **Busca por tema, palavra-chave, subtema ou título** nas três bases abertas, ao mesmo tempo.
+- **Busca por tema, palavra-chave, subtema ou título** nas três bases abertas, ao mesmo tempo. Em temas de saúde, medicina e biologia, a IA pode pedir também o **PubMed** e o **Europe PMC** (desde a 1.2).
 - **Tira as duplicatas.** O mesmo artigo vindo de mais de uma base aparece uma vez só, com os ids de cada base.
 - **Avisa quando a lista está incompleta.** Se uma base falha ou um limite corta a busca, a lista sai marcada como incompleta, com o motivo. Nenhuma lista incompleta passa por completa.
 - **Acha um artigo específico** pelo título ou pelo DOI.
 - **Traz as referências de um artigo e quem o cita**, como uma lista própria.
 - **Registra cada busca num log** (`log.md`): o pedido, a string enviada a cada base, a data, quantos artigos cada base achou e se veio do cache.
 - **Repete uma busca do log** com as mesmas strings, para atualizar uma revisão.
-- **Exporta em cinco formatos:** RIS, CSV no padrão do Scopus, JSON completo, lista de DOIs e URL de consulta do OpenAlex. O RIS, o CSV e a lista de DOIs abrem no VOSviewer sem edição.
+- **Junta listas do mesmo assunto** (desde a 1.2): várias strings sobre um tema viram uma lista só, sem duplicatas, e a junção entra no log.
+- **Exporta em seis formatos:** RIS, CSV no padrão do Scopus, JSON completo, lista de DOIs, URL de consulta do OpenAlex e BibTeX (desde a 1.2). O RIS, o CSV e a lista de DOIs abrem no VOSviewer sem edição; o BibTeX abre no Zotero, no Mendeley e no JabRef.
 - **Guarda tudo na sua máquina:** listas, log, exportações e um cache das respostas, que expira em 7 dias e economiza sua cota.
 
-Ele **não** baixa texto completo de artigos, não abre o VOSviewer sozinho e não junta buscas diferentes numa lista só: cada pedido vira a sua própria lista.
+Ele **não** baixa texto completo de artigos e não abre o VOSviewer sozinho. Cada pedido vira a sua própria lista; só listas do mesmo assunto devem ser juntadas.
 
 ## Do que você precisa
 
@@ -28,7 +29,7 @@ Ele **não** baixa texto completo de artigos, não abre o VOSviewer sozinho e n�
 3. **Uma chave gratuita do OpenAlex**, obrigatória. Crie em [openalex.org/settings/api](https://openalex.org/settings/api) e **ative pelo link que chega no e-mail**: a chave só funciona depois disso. Ela dá 10.000 créditos por dia, e uma busca gasta cerca de 10.
 4. **Opcional: uma chave gratuita da [Semantic Scholar](https://www.semanticscholar.org/product/api#api-key-form).** Sem ela a Semantic Scholar funciona, mas recusa pedidos com mais frequência.
 
-A Crossref não precisa de chave.
+A Crossref e o Europe PMC não precisam de chave. O PubMed funciona sem chave; com uma chave gratuita do NCBI (`NCBI_API_KEY`), aceita mais pedidos por segundo.
 
 ## Instalação no Claude Desktop
 
@@ -51,7 +52,7 @@ A Crossref não precisa de chave.
 }
 ```
 
-4. Salve e abra o Claude Desktop de novo. O `rslapp` aparece na lista de ferramentas, com oito ferramentas.
+4. Salve e abra o Claude Desktop de novo. O `rslapp` aparece na lista de ferramentas, com nove ferramentas.
 5. Para conferir, peça: *"Quais fontes do rslapp estão prontas?"*. A IA chama `list_sources` e deve mostrar as três fontes como `ok`.
 
 **Se o Claude Desktop não achar o `uvx`:** troque `"uvx"` pelo caminho completo. No Windows, costuma ser `C:\\Users\\<seu-usuário>\\.local\\bin\\uvx.exe`. No macOS e no Linux, rode `which uvx` no terminal para descobrir.
@@ -92,6 +93,7 @@ A IA planeja antes de buscar: se o pedido tem assuntos diferentes, ela faz uma b
 | `.csv` | Create → *Create a map based on bibliographic data* → *Read data from bibliographic database files* → aba **Scopus** |
 | `.dois.txt` | Create → *Create a map based on bibliographic data* → *Read data through API* |
 | `.openalex.txt` | A URL da consulta ao OpenAlex (uma por linha, até 100 artigos cada), com os artigos da lista que vieram do OpenAlex |
+| `.bib` | Não abre no VOSviewer: importe no Zotero (*Arquivo → Importar*), no Mendeley ou no JabRef |
 
 O CSV leva as referências como DOIs, o que permite mapas de citação e de acoplamento bibliográfico.
 
@@ -114,7 +116,8 @@ Tudo por variáveis de ambiente, no bloco `env` da configuração do cliente. Ne
 |---|---|---|
 | `OPENALEX_API_KEY` | Chave do OpenAlex (obrigatória para o OpenAlex) | - |
 | `SEMANTIC_SCHOLAR_API_KEY` | Chave da Semantic Scholar (opcional) | - |
-| `RSL_CONTACT_EMAIL` | Seu e-mail, enviado à Crossref, que atende mais rápido quem se identifica (opcional) | - |
+| `NCBI_API_KEY` | Chave do NCBI para o PubMed (opcional) | - |
+| `RSL_CONTACT_EMAIL` | Seu e-mail, enviado à Crossref, ao NCBI e ao Europe PMC, que atendem melhor quem se identifica (opcional) | - |
 | `RSL_DATA_DIR` | Onde guardar listas, log e cache | `~/RSL.app` |
 | `RSL_EXPORT_DIR` | Onde gravar as exportações | `<RSL_DATA_DIR>/exports` |
 | `RSL_CACHE_DAYS` | Por quantos dias o cache vale | `7` |
@@ -123,14 +126,15 @@ Tudo por variáveis de ambiente, no bloco `env` da configuração do cliente. Ne
 
 | Ferramenta | O que faz |
 |---|---|
-| `search_works` | Busca por termos nas três bases e cria uma lista |
+| `search_works` | Busca por termos nas três bases (e no PubMed e no Europe PMC, quando pedidos) e cria uma lista |
 | `find_work` | Acha um artigo específico por título ou DOI |
 | `get_related_works` | Traz as referências ou as citações de um artigo, até um teto por base (padrão 1.000) |
 | `repeat_search` | Repete uma busca do log |
 | `get_list` | Mostra uma lista salva, por páginas |
 | `get_search_log` | Mostra o log e o caminho do `log.md` |
-| `export_list` | Grava a lista em `ris`, `csv`, `json`, `dois` ou `openalex_url` |
-| `list_sources` | Diz quais bases estão prontas |
+| `merge_lists` | Junta listas do mesmo assunto numa lista nova, sem duplicatas |
+| `export_list` | Grava a lista em `ris`, `csv`, `json`, `dois`, `openalex_url` ou `bibtex` |
+| `list_sources` | Diz quais das cinco bases estão prontas |
 | `plan_search` (prompt) | Orienta a IA a planejar e dividir o pedido antes de buscar |
 
 O contrato completo, com entradas, respostas e códigos de erro, está em [`docs/interface-contract.md`](docs/interface-contract.md).

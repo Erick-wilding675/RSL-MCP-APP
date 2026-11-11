@@ -1,6 +1,6 @@
 # Juntar listas
 
-**Fase:** 9 · Versão 1.2 · **Situação:** a fazer
+**Fase:** 9 · Versão 1.2 · **Situação:** para testar
 
 ## O que faz
 
@@ -88,3 +88,20 @@ Cerca de 350 linhas. Um commit para a junção no miolo e no armazenamento, outr
 2. **Verificar listagem de ferramentas e execução via cliente MCP:**
    No servidor stdio ou HTTP autenticado, chamar `tools/list` e verificar que 9 ferramentas são listadas, incluindo `merge_lists`.
    Chamar `merge_lists` com `list_ids` de listas existentes e verificar retorno com `search_id`, `list_id`, `merged_from`, `duplicates_removed`, `status`, `total` e `works` da primeira página.
+
+**Revisão do Claude (2026-11-11, run `b20261111-144701` do Playmaker):** uma rodada (Gemini 3.8 Flash), aprovada pelo agente revisor, que juntou duas listas e exportou o resultado em RIS, BibTeX e CSV, e integrada com os gates refeitos pelo `board integrate`.
+
+Os pontos mais arriscados, nesta ordem:
+1. A deduplicação entre listas reaproveita `core/dedup.py`. A volta de dicionário para `Work` não perde campo, conferido com autores, ORCID, afiliações, referências e palavras-chave. Os ids e as citações dos repetidos se juntam.
+2. Uma lista inexistente não grava nada: nem lista, nem registro, nem log.
+3. No modo HTTP, uma pessoa não junta a lista de outra.
+
+Também conferido: o log antigo e o novo são refeitos iguais por `rebuild_log`, e `repeat_search` de uma junção dá a mensagem da spec.
+
+Acompanhamentos, não bloqueiam:
+- `_item_to_work` em `core/merge.py` copia o de `core/views.py`;
+- o teste ficou em `tests/test_merge_lists.py`, não no nome da spec;
+- falta um teste de ordem e de ida e volta sem perda (o teste do revisor confirma que hoje funciona);
+- comentários de testes ainda dizem "8 ferramentas".
+
+O README, o contrato e a arquitetura foram atualizados para nove ferramentas pelo Claude.

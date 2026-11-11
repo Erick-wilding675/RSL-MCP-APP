@@ -38,7 +38,7 @@ O servidor roda só na máquina de quem usa e só fala por stdio com o cliente M
 
 | Parte | Onde roda | O que faz |
 |---|---|---|
-| Servidor MCP | Máquina do usuário, iniciado pelo cliente MCP | Expõe as oito ferramentas, o prompt `plan_search` e as instruções de conexão. Valida a entrada e devolve as respostas (`interface-contract.md`) |
+| Servidor MCP | Máquina do usuário, iniciado pelo cliente MCP | Expõe as nove ferramentas (desde a 1.2), o prompt `plan_search` e as instruções de conexão. Valida a entrada e devolve as respostas (`interface-contract.md`) |
 | Miolo (core) | Mesmo processo | Orquestra uma busca: chama as fontes, tira duplicatas (FR-04), define se a lista é completa (FR-08), aplica o teto das listas relacionadas (D-010) |
 | Fontes | Mesmo processo, chamam a internet | Um módulo por API (OpenAlex, Crossref, Semantic Scholar). Cada um monta a consulta, respeita o limite da API, tenta de novo e devolve artigos no formato comum, com o estado da fonte |
 | Exportadores | Mesmo processo | Um módulo por formato (RIS, CSV, JSON, lista de DOIs, URL do OpenAlex). Outra ferramenta de revisão entra como mais um módulo |

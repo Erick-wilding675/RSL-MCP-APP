@@ -2,7 +2,7 @@
 
 **Projeto:** RSL.app · **Versão:** 0.1 · **Data:** 2026-11-02
 
-> **Em resumo:** O servidor MCP oferece oito ferramentas e um prompt à IA do pesquisador, por stdio, na máquina do usuário.
+> **Em resumo:** O servidor MCP oferece nove ferramentas (oito até a 1.1; `merge_lists` desde a 1.2) e um prompt à IA do pesquisador, por stdio, na máquina do usuário.
 > Toda busca roda direto, sem etapa de aprovação, e gera uma lista própria e uma entrada no log.
 > A promessa que não pode quebrar: nenhuma lista incompleta sai como se fosse completa.
 
