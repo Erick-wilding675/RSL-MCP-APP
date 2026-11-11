@@ -1,6 +1,6 @@
 # Fonte Europe PMC
 
-**Fase:** 9 · Versão 1.2 · **Situação:** a fazer
+**Fase:** 9 · Versão 1.2 · **Situação:** para testar
 
 ## O que faz
 
@@ -101,3 +101,10 @@ Cerca de 300 linhas, testes incluídos. Um commit para o conector e outro para o
    1. **Isolamento de `RSL_CONTACT_EMAIL` (`src/rslapp/sources/europe_pmc.py` — `EuropePMCSource.search`, `cache_query`, `_request_page`, `__repr__`, NFR-04, D-020):** conferir que o e-mail vai apenas no parâmetro `email` da URL ao Europe PMC e nunca vaza em `SourceResult.query`, `SourceResult.reason`, `cache_query`, logs do `caplog` nem no `repr`.
    2. **Mapeamento de metadados, autores, HTML e IDs (`src/rslapp/sources/europe_pmc.py` — `_parse_work`, `_parse_author`, `_clean_html_text`, `_clean_title`, FR-03, FR-14, D-004, D-020):** verificar a limpeza de tags HTML e ponto final solto em títulos, decodificação de entidades em resumos, mapeamento de autor coletivo (`collectiveName`), autores com múltiplas afiliações, preprints (`source_ids={"europe_pmc": "PPR:..."}` sem `pubmed`), e `source_ids` com `MED:<id>` e `pubmed:<pmid>` quando presentes.
    3. **Paginação com cursorMark e retentativas (`src/rslapp/sources/europe_pmc.py` — `_request_page` e laço em `search`, FR-01, NFR-04, D-020):** confirmar parada correta em `max_results`, em página menor que `pageSize`, em cursor repetido ou ausente, e retentativas com recuo exponencial (1, 2, 4 s) para 429 transitório, 5xx, timeout e rede, mantendo os registros já coletados de páginas anteriores.
+
+**Revisão do Claude (2026-11-11, run `b20261111-144701` do Playmaker):** feita pelo Gemini 3.8 Flash na segunda rodada (a primeira, no Gemini 4 Argon, parou pela cota). Aprovada pelo agente revisor e integrada com os gates refeitos pelo `board integrate`. Conferido: o e-mail só vai no parâmetro `email`, nunca em `query`, `reason`, `cache_query` ou `repr`; a paginação e as novas tentativas fazem o mesmo que a Crossref. Acompanhamentos, não bloqueiam:
+- o apelido `EuropePmcSource` (fim de `europe_pmc.py`) não é usado por ninguém;
+- `_clean_title` tira todos os pontos finais (`rstrip(".")`), e a spec pede tirar só o ponto solto;
+- falta `assert year is None` para o registro sem `pubYear`, e um teste de 429 seguido de 200;
+- `str.isdigit()` aceita dígitos Unicode; o mais seguro é `isascii() and isdigit()`;
+- o registrador `httpx` grava a URL completa, com o e-mail, em nível INFO. Vale para todas as fontes, não só esta.
