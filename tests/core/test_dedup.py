@@ -485,3 +485,47 @@ def test_fr04_ano_ausente_nao_e_emprestado_do_grupo_em_nenhuma_ordem() -> None:
         assert len(res.works) == 2, [w.source_ids for w in res.works]
         ids = sorted(tuple(sorted(w.source_ids)) for w in res.works)
         assert ids == [("crossref", "openalex"), ("semantic_scholar",)]
+
+
+# D-020: um artigo que vem do OpenAlex e do PubMed com o mesmo DOI vira um só, com source_ids das duas fontes e os campos da fonte de maior precedência
+def test_d020_dedup_openalex_e_pubmed_mesmo_doi_mescla_com_precedencia() -> None:
+    w_oa = _make_work(
+        "openalex",
+        title="Título do OpenAlex",
+        doi="10.1234/biomed.2024",
+        venue="OpenAlex Journal",
+        source_id="W12345",
+        citations_count=15,
+    )
+    w_pm = _make_work(
+        "pubmed",
+        title="Título do PubMed",
+        doi="10.1234/biomed.2024",
+        venue="PubMed Journal",
+        source_id="38123456",
+        citations_count=0,
+    )
+
+    for perm in itertools.permutations([w_oa, w_pm]):
+        res = deduplicate_works_with_merge(list(perm))
+        assert len(res.works) == 1
+        merged = res.works[0]
+        assert merged.title == "Título do OpenAlex"
+        assert merged.venue == "OpenAlex Journal"
+        assert merged.source_ids == {"openalex": "W12345", "pubmed": "38123456"}
+        assert merged.citations["openalex"] == 15
+
+    # Precedência entre Europe PMC e PubMed (europe_pmc > pubmed)
+    w_epmc = _make_work(
+        "europe_pmc",
+        title="Título Europe PMC",
+        doi="10.1234/biomed.2024",
+        source_id="PMC123",
+        citations_count=8,
+    )
+    res_epmc_pm = deduplicate_works_with_merge([w_pm, w_epmc])
+    assert len(res_epmc_pm.works) == 1
+    assert res_epmc_pm.works[0].title == "Título Europe PMC"
+    assert res_epmc_pm.works[0].source_ids == {"pubmed": "38123456", "europe_pmc": "PMC123"}
+    assert res_epmc_pm.works[0].citations["europe_pmc"] == 8
+

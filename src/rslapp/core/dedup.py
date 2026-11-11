@@ -9,8 +9,14 @@ from typing import Any
 
 from rslapp.core.models import Author, Work
 
-# FR-04: Ordem canônica de prevalência de fontes acadêmicas
-SOURCE_PRECEDENCE: tuple[str, ...] = ("openalex", "crossref", "semantic_scholar")
+# FR-04, D-020: Ordem canônica de prevalência de fontes acadêmicas
+SOURCE_PRECEDENCE: tuple[str, ...] = (
+    "openalex",
+    "crossref",
+    "semantic_scholar",
+    "europe_pmc",
+    "pubmed",
+)
 
 _DOI_PREFIXES: tuple[str, ...] = (
     "https://doi.org/",

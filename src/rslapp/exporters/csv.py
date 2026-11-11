@@ -10,6 +10,7 @@ from typing import Any
 from rslapp.core.models import Affiliation, Author, Work
 from rslapp.exporters.base import Exporter
 
+# FR-06, D-020: Colunas do CSV compatível com Scopus com PubMed e Europe PMC no fim
 CSV_COLUMNS: tuple[str, ...] = (
     "Authors",
     "Author full names",
@@ -30,6 +31,9 @@ CSV_COLUMNS: tuple[str, ...] = (
     "Citations OpenAlex",
     "Citations Crossref",
     "Citations Semantic Scholar",
+    "PubMed ID",
+    "Europe PMC ID",
+    "Citations Europe PMC",
 )
 
 
@@ -250,15 +254,20 @@ class CSVExporter(Exporter):
             openalex_id_str = ""
             crossref_doi_str = ""
             semantic_scholar_id_str = ""
+            pubmed_id_str = ""
+            europe_pmc_id_str = ""
             if isinstance(source_ids, dict):
                 openalex_id_str = str(source_ids.get("openalex") or "")
                 crossref_doi_str = str(source_ids.get("crossref") or "")
                 semantic_scholar_id_str = str(source_ids.get("semantic_scholar") or "")
+                pubmed_id_str = str(source_ids.get("pubmed") or "")
+                europe_pmc_id_str = str(source_ids.get("europe_pmc") or "")
 
             # Citações por fonte
             cit_openalex_str = ""
             cit_crossref_str = ""
             cit_s2_str = ""
+            cit_europe_pmc_str = ""
             if isinstance(raw_citations, dict):
                 oa_cit = raw_citations.get("openalex")
                 if isinstance(oa_cit, int) and not isinstance(oa_cit, bool) and oa_cit >= 0:
@@ -269,6 +278,9 @@ class CSVExporter(Exporter):
                 s2_cit = raw_citations.get("semantic_scholar")
                 if isinstance(s2_cit, int) and not isinstance(s2_cit, bool) and s2_cit >= 0:
                     cit_s2_str = str(s2_cit)
+                epmc_cit = raw_citations.get("europe_pmc")
+                if isinstance(epmc_cit, int) and not isinstance(epmc_cit, bool) and epmc_cit >= 0:
+                    cit_europe_pmc_str = str(epmc_cit)
 
             row = [
                 authors_str,
@@ -290,6 +302,9 @@ class CSVExporter(Exporter):
                 cit_openalex_str,
                 cit_crossref_str,
                 cit_s2_str,
+                pubmed_id_str,
+                europe_pmc_id_str,
+                cit_europe_pmc_str,
             ]
             writer.writerow(row)
 

@@ -85,6 +85,9 @@ def test_fr06_fr12_d002_csv_cabecalho_scopus_e_bom() -> None:
         "Citations OpenAlex",
         "Citations Crossref",
         "Citations Semantic Scholar",
+        "PubMed ID",
+        "Europe PMC ID",
+        "Citations Europe PMC",
     ]
 
     data = rows[1]
@@ -108,6 +111,9 @@ def test_fr06_fr12_d002_csv_cabecalho_scopus_e_bom() -> None:
     assert data[16] == "45"
     assert data[17] == "30"
     assert data[18] == "50"
+    assert data[19] == ""
+    assert data[20] == ""
+    assert data[21] == ""
 
 
 # FR-06, FR-14, D-010: Referências sem DOI não entram na coluna de referências do CSV
@@ -368,3 +374,70 @@ def test_fr06_csv_normalizacao_titulo_doi_e_resumo_com_espaco_ou_quebra_antes_de
     assert rows[1]["Title"] == "'=1+1"
     assert rows[1]["DOI"] == "10.1000/clean"
     assert rows[1]["Abstract"] == "Resumo normal\ncom duas linhas"
+
+
+# D-020: o CSV tem as três colunas novas no fim, e as colunas antigas continuam iguais
+def test_d020_csv_tres_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None:
+    original_19_columns = (
+        "Authors",
+        "Author full names",
+        "Title",
+        "Year",
+        "Source title",
+        "DOI",
+        "Abstract",
+        "Author Keywords",
+        "References",
+        "Cited by",
+        "Affiliations",
+        "Document Type",
+        "Source",
+        "OpenAlex ID",
+        "Crossref DOI",
+        "Semantic Scholar ID",
+        "Citations OpenAlex",
+        "Citations Crossref",
+        "Citations Semantic Scholar",
+    )
+    new_3_columns = ("PubMed ID", "Europe PMC ID", "Citations Europe PMC")
+
+    # Verifica que as colunas no CSV_COLUMNS mantêm as 19 originais idênticas e acrescentam 3 no fim
+    assert CSV_COLUMNS[:19] == original_19_columns
+    assert CSV_COLUMNS[19:] == new_3_columns
+    assert len(CSV_COLUMNS) == 22
+
+    # Renderiza artigo com metadados de PubMed e Europe PMC
+    work = Work(
+        title="Genomic analysis of oncology markers",
+        doi="10.1000/markers.2024",
+        year=2024,
+        venue="Biomedical Journal",
+        authors=[Author(name="Watson, James")],
+        source_ids={"pubmed": "38999999", "europe_pmc": "MED:38999999"},
+        citations={"europe_pmc": 42},
+    )
+
+    exporter = CSVExporter()
+    content = exporter.render({"works": [work]})
+    reader = csv.reader(io.StringIO(content.lstrip("\ufeff")), delimiter=",")
+    rows = list(reader)
+
+    header = rows[0]
+    assert tuple(header) == CSV_COLUMNS
+
+    data = rows[1]
+    # Colunas originais mantêm os valores correspondentes
+    assert data[0] == "Watson, James"
+    assert data[2] == "Genomic analysis of oncology markers"
+    assert data[3] == "2024"
+    assert data[5] == "10.1000/markers.2024"
+    assert data[9] == "42"  # Cited by (máximo entre as fontes)
+    assert data[13] == ""   # OpenAlex ID
+    assert data[14] == ""   # Crossref DOI
+    assert data[15] == ""   # Semantic Scholar ID
+
+    # Três colunas novas no fim (índices 19, 20, 21)
+    assert data[19] == "38999999"      # PubMed ID
+    assert data[20] == "MED:38999999"  # Europe PMC ID
+    assert data[21] == "42"            # Citations Europe PMC
+
