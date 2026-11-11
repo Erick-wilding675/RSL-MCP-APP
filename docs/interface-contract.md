@@ -23,6 +23,7 @@
 | `repeat_search` | Repete uma busca do log com as mesmas strings e bases (FR-11) | `search_id` | Uma lista nova, com `repeated_from` |
 | `get_list` | Mostra uma lista salva, por páginas (FR-12) | `list_id` | A página pedida |
 | `get_search_log` | Mostra entradas do log (FR-05, FR-13) | Nada | As entradas e o caminho do arquivo legível |
+| `merge_lists` | Junta listas salvas numa lista nova, sem duplicatas (D-021, desde a 1.2) | `list_ids` | Uma lista nova, com `merged_from` e `duplicates_removed` |
 | `export_list` | Grava a lista num arquivo (FR-06, FR-12) | `list_id` e `format` | O caminho do arquivo gravado |
 | `list_sources` | Diz quais fontes estão configuradas e prontas (FR-07) | Nada | Uma linha por fonte |
 | `plan_search` (prompt) | Orienta a IA a planejar antes de buscar (FR-10) | `request` | O texto de orientação |
@@ -44,7 +45,7 @@ search_works(
 |---|---|---|---|
 | `query` | Os termos técnicos da busca | sim | - |
 | `request_summary` | O pedido do pesquisador, em linguagem natural, resumido (vai para o log) | não | vazio |
-| `sources` | As fontes a consultar | não | todas as configuradas |
+| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar`, `pubmed`, `europe_pmc` | não | `openalex`, `crossref` e `semantic_scholar`; `pubmed` e `europe_pmc` só quando pedidas (D-020, desde a 1.2) |
 | `max_results` | O máximo de artigos a trazer por fonte | não | definido no spec |
 
 **Volta:**
@@ -84,7 +85,7 @@ get_related_works(doi="10.1234/exemplo", direction="citations", max_results=200)
 | `doi` ou `work_id` | O artigo de origem. Um dos dois | sim | - |
 | `direction` | `references` (o que ele cita) ou `citations` (quem o cita) | sim | - |
 | `request_summary` | O pedido, resumido | não | vazio |
-| `sources` | As fontes a consultar | não | todas as configuradas |
+| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar`, `pubmed`, `europe_pmc` | não | `openalex`, `crossref` e `semantic_scholar`; `pubmed` e `europe_pmc` só quando pedidas (D-020, desde a 1.2) |
 | `max_results` | O máximo de trabalhos a trazer por fonte; a lista juntada pode passar disso (Erick, 2026-11-05) | não | 1.000 (D-010) |
 
 **Volta:** o mesmo formato de `search_works`. O log guarda o artigo de origem e a direção.
@@ -99,7 +100,7 @@ export_list(list_id="l-0001", format="ris")
 | Entrada | O que é | Obrigatório | Padrão |
 |---|---|---|---|
 | `list_id` | A lista a exportar | sim | - |
-| `format` | `ris`, `csv`, `json`, `dois` ou `openalex_url` | sim | - |
+| `format` | `ris`, `csv`, `json`, `dois`, `openalex_url` ou `bibtex` (desde a 1.2) | sim | - |
 
 **Volta:** `{"path": "…/l-0001.ris", "format": "ris", "count": 187}`. Em `openalex_url`, volta também `url`.
 Se o formato precisa de DOI nas referências, o servidor troca os ids por DOI nesse momento, o que pode gastar cota (T-005).
@@ -113,16 +114,19 @@ O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos n
 - **Login:** toda chamada a `/mcp` precisa de um token de acesso OAuth. Sem token, ou com um token inválido ou de pessoa revogada, a resposta é 401, antes de qualquer ferramenta.
 - **Dados por pessoa:** cada pessoa logada vê só as próprias buscas, listas e log. Um `list_id` de outra pessoa dá `list_not_found` (D-012).
 - **`export_list`:** devolve `download_url` (link que vale 1 hora) e `expires_at`, e não devolve `path` (D-014). No stdio, nada muda.
+- **`get_search_log`** (desde a 1.2): devolve `log_download_url` e `expires_at`, um link que vale o mesmo tempo e baixa o `log.md` da pessoa, e não devolve `log_file`. No stdio, nada muda.
+- **Exportações antigas** (desde a 1.2): os arquivos exportados ficam no servidor por `RSL_EXPORT_RETENTION_HOURS` (padrão 24 horas) e depois são apagados na exportação seguinte da mesma pessoa.
 
 ## As outras chamadas
 
 | Chamada | Entrada | Volta |
 |---|---|---|
-| `find_work` | `title` ou `doi` (um é obrigatório); `request_summary`, `sources` opcionais | Como `search_works` |
-| `repeat_search` | `search_id` (obrigatório) | Como `search_works`, mais `repeated_from` |
+| `find_work` | `title` ou `doi` (um é obrigatório); `request_summary`, `sources` opcionais (sem `pubmed` e `europe_pmc`) | Como `search_works` |
+| `repeat_search` | `search_id` (obrigatório) | Como `search_works`, mais `repeated_from`. Uma junção (`merge_lists`) não pode ser repetida |
+| `merge_lists` | `list_ids` (2 a 20, obrigatório); `request_summary` opcional | Como `search_works`, sem `sources`, mais `merged_from`, `duplicates_removed` e, quando incompleta, `incomplete_from` |
 | `get_list` | `list_id` (obrigatório); `page`, `page_size` e `detail` (`summary` ou `full`, padrão `summary`) | `works`, `page`, `next_page`, `total`, `status` |
 | `get_search_log` | `search_id` e `limit`, ambos opcionais | `entries` e `log_file` (o caminho do arquivo legível) |
-| `list_sources` | Nada | Por fonte: `name`, `configured`, `needs_key`, `status` |
+| `list_sources` | Nada | Por fonte: `name`, `configured`, `needs_key`, `status`. Desde a 1.2, também `pubmed` e `europe_pmc` |
 | `plan_search` | `request` (obrigatório) | Orientação em texto: separar o que é melhor buscado à parte, montar a string de cada fonte, chamar `search_works` uma vez por assunto e entregar cada lista separada |
 
 ## Erros e estados

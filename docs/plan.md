@@ -84,6 +84,28 @@ Decidida com o Erick em 2026-11-10 (D-011 a D-018). Um servidor hospedado por qu
 
 As tarefas andam nessa ordem: cada uma usa a anterior. A 08-02 não depende da 08-01 e pode rodar em paralelo com ela. Antes de anunciar o modo hospedado, a LGPD (T-007) precisa ser conferida (D-018).
 
+### 9 · Versão 1.2: mais bases, BibTeX, juntar listas e polimento
+
+Decidida com o Erick em 2026-11-11 (D-020 e D-021). Pronto quando: uma busca de saúde traz PubMed e Europe PMC sem duplicatas, a lista sai em BibTeX e abre no Zotero, duas buscas do mesmo assunto viram uma lista com `merge_lists`, e o log baixa por link no servidor hospedado.
+
+1. Fonte PubMed: conector das E-utilities do NCBI, com chave opcional. Spec: `specs/09-01-fonte-pubmed.md`
+2. Fonte Europe PMC: conector da API REST do Europe PMC. Spec: `specs/09-02-fonte-europe-pmc.md`
+3. PubMed e Europe PMC no servidor: nomes novos em `sources`, `list_sources`, deduplicação, CSV e orientação à IA. Spec: `specs/09-03-fontes-novas-no-servidor.md`
+4. Exportação em BibTeX: formato `bibtex` em `export_list`. Spec: `specs/09-04-exportacao-bibtex.md`
+5. Juntar listas: ferramenta `merge_lists`. Spec: `specs/09-05-juntar-listas.md`
+6. Polimento do modo hospedado: proteção de domínio em todas as rotas, link de download do log, limpeza das exportações, Actions atualizadas. Spec: `specs/09-06-polimento-do-modo-hospedado.md`
+7. Publicação da 1.2.0 e teste real. Spec: `specs/09-07-publicacao-1-2-e-teste-real.md`
+
+A 09-01, a 09-02 e a 09-06 não dependem uma da outra e rodam em paralelo. A 09-03 espera a 09-01 e a 09-02. A 09-04 e a 09-05 mexem em `server.py`, como a 09-06 e a 09-03, e por isso entram uma de cada vez nesse arquivo.
+
+### Depois da 1.2: a versão maior (2.0)
+
+O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo:
+
+- **App desktop** para Windows e Linux, com busca e lista sem IA no meio. Falta decidir a pilha da interface.
+- **Scopus e Web of Science** com a chave de cada pessoa. Falta ler os termos de uso de cada API e decidir como a chave é guardada.
+- **Servidor mantido pelo projeto** (opções A e B da D-011): um link público para qualquer pesquisador. Falta pesquisar hospedagem e custo mensal, e a LGPD (T-007) resolvida antes.
+
 ## Próximos passos (depois da v1)
 
 A v1 (fases 1 a 6) foi publicada em 2026-11-05 como `rslapp` 1.0.0 no PyPI. O que vem depois:

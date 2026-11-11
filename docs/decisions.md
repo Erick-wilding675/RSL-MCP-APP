@@ -184,3 +184,21 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Erick · **Data:** 2026-11-11
 - **Fontes:** conversa de 2026-11-11 (Claude Code); azure.microsoft.com/en-us/pricing/offers/ms-azr-0170p e publicsuffix.org/list, lidos em 2026-11-11; fórum community.letsencrypt.org ("Policy forbids issuing for name on Amazon EC2 domain")
 - **Situação:** decidida
+
+## D-020 · PubMed e Europe PMC como fontes pedidas, não automáticas
+
+- **Decisão:** a 1.2 acrescenta o PubMed (E-utilities do NCBI, com a chave `NCBI_API_KEY` opcional) e o Europe PMC como fontes de `search_works` e `repeat_search`. Sem `sources`, a busca continua nas três fontes de antes; as novas entram quando a IA ou o pesquisador as pedem. O prompt `plan_search` orienta a pedir as duas em temas de saúde, medicina e biologia. `find_work` e `get_related_works` não usam as fontes novas por enquanto.
+- **Motivo:** o Erick escolheu as duas bases para a 1.2. Deixar o padrão como está evita mudar o resultado e o tempo das buscas de quem já usa: são duas bases de ciências da vida, que pouco acrescentam em outros temas. O critério fica com a IA, que já planeja a busca.
+- **Alternativas:** as cinco fontes sempre; uma variável de ambiente com as fontes padrão; só o Europe PMC, que já inclui o PubMed (perde os DOIs das referências e o MeSH completo, que o PubMed traz).
+- **Decidido por:** Erick (as fontes) e Claude Code (fontes pedidas, barato de desfazer) · **Data:** 2026-11-11
+- **Fontes:** NCBI Bookshelf NBK25497 e NBK25499; descrição OpenAPI do Europe PMC (`/rest/v3/api-docs`), lidas em 2026-11-11, com chamadas reais
+- **Situação:** decidida
+
+## D-021 · Uma ferramenta nova para juntar listas
+
+- **Decisão:** a 1.2 acrescenta `merge_lists`, que une de 2 a 20 listas salvas da mesma pessoa numa lista nova, sem duplicatas, com registro e entrada no log metodológico. As listas de origem não mudam. O servidor passa de 8 para 9 ferramentas; os nomes e campos das 8 de antes não mudam.
+- **Motivo:** o Erick incluiu na 1.2 o que tinha ficado fora da v1 ("juntar buscas"). Uma revisão sistemática costuma usar várias strings para o mesmo assunto e precisa de uma lista única para exportar e de um registro de como ela foi montada.
+- **Alternativas:** um parâmetro em `search_works` para acrescentar a uma lista existente (muda uma lista que já foi registrada); juntar só na exportação (a junção não fica registrada no log).
+- **Decidido por:** Erick (incluir) e Claude Code (a forma) · **Data:** 2026-11-11
+- **Fontes:** conversa de 2026-11-11 (Claude Code)
+- **Situação:** decidida
