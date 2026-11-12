@@ -19,6 +19,7 @@ ENV_VARS = (
     "NCBI_API_KEY",
     "SCOPUS_API_KEY",
     "SCOPUS_INSTTOKEN",
+    "WOS_STARTER_API_KEY",
     "RSL_CONTACT_EMAIL",
 )
 
@@ -58,6 +59,7 @@ def test_fr07_nfr02_padroes_sem_variaveis_e_sem_criar_pastas(isolated_env: Path)
     assert cfg.ncbi_key_configured is False
     assert cfg.scopus_key_configured is False
     assert cfg.scopus_insttoken_configured is False
+    assert cfg.wos_key_configured is False
     assert not cfg.data_dir.exists()
     assert not cfg.export_dir.exists()
 
@@ -113,6 +115,7 @@ def test_fr07_nfr03_chaves_vazias_ou_espacos_contam_como_nao_configuradas(
     monkeypatch.setenv("NCBI_API_KEY", empty_val)
     monkeypatch.setenv("SCOPUS_API_KEY", empty_val)
     monkeypatch.setenv("SCOPUS_INSTTOKEN", empty_val)
+    monkeypatch.setenv("WOS_STARTER_API_KEY", empty_val)
     monkeypatch.setenv("RSL_CONTACT_EMAIL", empty_val)
 
     cfg = config.load()
@@ -122,6 +125,7 @@ def test_fr07_nfr03_chaves_vazias_ou_espacos_contam_como_nao_configuradas(
     assert cfg.ncbi_key_configured is False
     assert cfg.scopus_key_configured is False
     assert cfg.scopus_insttoken_configured is False
+    assert cfg.wos_key_configured is False
     assert cfg.contact_email is None
 
 
@@ -162,6 +166,14 @@ def test_fr07_nfr03_cada_chave_controla_apenas_seu_booleano(
     cfg_token = config.load()
     assert cfg_token.scopus_key_configured is False
     assert cfg_token.scopus_insttoken_configured is True
+    assert cfg_token.wos_key_configured is False
+
+    monkeypatch.delenv("SCOPUS_INSTTOKEN")
+    monkeypatch.setenv("WOS_STARTER_API_KEY", "fake-key-wos")
+    cfg_wos = config.load()
+    assert cfg_wos.scopus_key_configured is False
+    assert cfg_wos.scopus_insttoken_configured is False
+    assert cfg_wos.wos_key_configured is True
 
 
 # NFR-03: repr, str, vars e asdict nunca expõem o valor das chaves nem o email de contato em repr/str
@@ -179,18 +191,21 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
         "ncbi_key_configured",
         "scopus_key_configured",
         "scopus_insttoken_configured",
+        "wos_key_configured",
     }
     assert campos["openalex_key_configured"] in (bool, "bool")
     assert campos["semantic_scholar_key_configured"] in (bool, "bool")
     assert campos["ncbi_key_configured"] in (bool, "bool")
     assert campos["scopus_key_configured"] in (bool, "bool")
     assert campos["scopus_insttoken_configured"] in (bool, "bool")
+    assert campos["wos_key_configured"] in (bool, "bool")
 
     fake_oa_key = "fake-key-123-openalex"
     fake_s2_key = "fake-key-456-s2"
     fake_ncbi_key = "fake-key-789-ncbi"
     fake_scopus_key = "fake-key-scopus"
     fake_insttoken = "fake-insttoken"
+    fake_wos_key = "fake-key-wos-starter"
     fake_email = "pesquisador@exemplo.org"
 
     monkeypatch.setenv("OPENALEX_API_KEY", fake_oa_key)
@@ -198,6 +213,7 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
     monkeypatch.setenv("NCBI_API_KEY", fake_ncbi_key)
     monkeypatch.setenv("SCOPUS_API_KEY", fake_scopus_key)
     monkeypatch.setenv("SCOPUS_INSTTOKEN", fake_insttoken)
+    monkeypatch.setenv("WOS_STARTER_API_KEY", fake_wos_key)
     monkeypatch.setenv("RSL_CONTACT_EMAIL", fake_email)
 
     cfg = config.load()
@@ -207,11 +223,13 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
     assert type(cfg.ncbi_key_configured) is bool
     assert type(cfg.scopus_key_configured) is bool
     assert type(cfg.scopus_insttoken_configured) is bool
+    assert type(cfg.wos_key_configured) is bool
     assert cfg.openalex_key_configured is True
     assert cfg.semantic_scholar_key_configured is True
     assert cfg.ncbi_key_configured is True
     assert cfg.scopus_key_configured is True
     assert cfg.scopus_insttoken_configured is True
+    assert cfg.wos_key_configured is True
     assert cfg.contact_email == fake_email
 
     texto_repr = repr(cfg)
@@ -219,7 +237,7 @@ def test_nfr03_repr_e_str_nao_expoem_chaves_nem_email(
     dicionario_vars = str(vars(cfg))
     dicionario_asdict = str(asdict(cfg))
 
-    for segredo in (fake_oa_key, fake_s2_key, fake_ncbi_key, fake_scopus_key, fake_insttoken):
+    for segredo in (fake_oa_key, fake_s2_key, fake_ncbi_key, fake_scopus_key, fake_insttoken, fake_wos_key):
         assert segredo not in texto_repr
         assert segredo not in texto_str
         assert segredo not in dicionario_vars
@@ -238,6 +256,7 @@ def test_nfr03_erro_cache_days_nao_expoe_chaves(
     fake_ncbi_key = "fake-key-789-ncbi"
     fake_scopus_key = "fake-key-scopus"
     fake_insttoken = "fake-insttoken"
+    fake_wos_key = "fake-key-wos-starter"
     valor_invalido = "invalido-789"
 
     monkeypatch.setenv("OPENALEX_API_KEY", fake_oa_key)
@@ -245,6 +264,7 @@ def test_nfr03_erro_cache_days_nao_expoe_chaves(
     monkeypatch.setenv("NCBI_API_KEY", fake_ncbi_key)
     monkeypatch.setenv("SCOPUS_API_KEY", fake_scopus_key)
     monkeypatch.setenv("SCOPUS_INSTTOKEN", fake_insttoken)
+    monkeypatch.setenv("WOS_STARTER_API_KEY", fake_wos_key)
     monkeypatch.setenv("RSL_CACHE_DAYS", valor_invalido)
 
     with pytest.raises(ValueError, match="RSL_CACHE_DAYS") as exc_info:
@@ -256,6 +276,7 @@ def test_nfr03_erro_cache_days_nao_expoe_chaves(
     assert fake_ncbi_key not in mensagem_erro
     assert fake_scopus_key not in mensagem_erro
     assert fake_insttoken not in mensagem_erro
+    assert fake_wos_key not in mensagem_erro
     assert valor_invalido not in mensagem_erro
     assert exc_info.value.__cause__ is None
     assert exc_info.value.__suppress_context__ is True
