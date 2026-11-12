@@ -62,8 +62,27 @@ Cerca de 350 linhas. Um commit para o servidor e a configuração, outro para a 
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Liguei os conectores das bases pagas `scopus` (10-02) e `web_of_science` (10-03) ao servidor MCP e suas ferramentas, com as regras estritas da D-023:
+- **Ferramentas MCP:** `search_works` e `repeat_search` aceitam `scopus` e `web_of_science` em `sources`. Sem `sources`, continuam consultando exclusivamente as três fontes abertas padrão (`openalex`, `crossref`, `semantic_scholar`).
+- **`list_sources`:** no transporte stdio lista as 7 fontes acadêmicas. `scopus` e `web_of_science` dizem `needs_key: true`, com `configured` e `status` (`ok` ou `missing_key`) conforme `SCOPUS_API_KEY` e `WOS_STARTER_API_KEY`. Nenhum valor de chave é exposto. A docstring esclarece que as duas são bases pagas e só funcionam com a chave e assinatura do próprio usuário ou instituição.
+- **Modo hospedado (HTTP):** `list_sources` não lista as bases pagas (mantém apenas as 5 fontes abertas); `search_works` e `repeat_search` com `scopus` ou `web_of_science` recusam antes de chamar qualquer fonte com `invalid_input: scopus e web_of_science só funcionam no RSL.app instalado no seu computador, com a sua chave e o acesso da sua instituição (D-023)`; `_build_sources` não instancia os conectores de bases pagas no modo HTTP.
+- **Bloqueio em `find_work` e `get_related_works`:** recusam `scopus` e `web_of_science` com `invalid_input: fonte não suportada nesta ferramenta: <nome>`, sem acionar fontes nem rede.
+- **Deduplicação:** `SOURCE_PRECEDENCE` atualizada para `("openalex", "crossref", "semantic_scholar", "scopus", "web_of_science", "europe_pmc", "pubmed")`. Artigos com mesmo DOI unem `source_ids` e `citations` de todas as fontes mantendo os campos da fonte de maior prevalência.
+- **Exportador CSV:** inclusão de 4 colunas novas no fim (`Scopus EID`, `Web of Science UID`, `Citations Scopus`, `Citations Web of Science`), preservando a ordem e integridade das 22 colunas anteriores para compatibilidade com o VOSviewer.
+- **Crédito à fonte no `log.md`:** buscas que trouxeram dados de bases pagas terminam com a linha de crédito correspondente ("Dados do Scopus (Elsevier)" e/ou "Source: Clarivate Analytics (Web of Science)"); buscas sem dados de bases pagas não recebem a linha.
+- **Limpeza da 10-01:** removido `try/except TypeError` em volta de `cache_query` e `search` em `core/search.py`, passando `include_peer_review` apenas às fontes que o aceitam (OpenAlex); se uma fonte levantar `TypeError`, ela é marcada como `failed` com uma única chamada (sem retentativa cega). Em `core/repeat.py`, `include_peer_review = orig_params.get("include_peer_review") is True` e grava no novo registro o valor efetivamente utilizado.
+- **Prompt e orientações:** `render_plan_search` e a descrição de `search_works` orientam que `scopus` e `web_of_science` entram quando a pessoa pedir e tiver configurado as chaves (`list_sources` mostra), e que o Web of Science não traz resumo nem afiliações.
 
 ## Como testar
 
-(preenche quem entrega)
+Onde olhar primeiro (pontos mais arriscados, o mais difícil primeiro):
+1. **Isolamento de segredos e bloqueio no modo hospedado (D-023):** rodar `pytest tests/test_server_paid_sources.py -k "test_d023_modo_http_recusa_bases_pagas or test_d023_list_sources_stdio"` para certificar que chaves nunca vazam e que o modo HTTP não lista nem permite acionar bases pagas.
+2. **Exportação CSV e integridade das colunas:** rodar `pytest tests/exporters/test_csv.py -k test_d023_csv_quatro_colunas_novas_no_fim_e_colunas_antigas_iguais` para conferir que as 22 colunas preexistentes continuam intactas e as 4 novas estão no final.
+3. **Crédito no `log.md` e deduplicação:** rodar `pytest tests/test_server_paid_sources.py -k test_d023_search_works_grava_linha_de_credito_no_log_md` e `pytest tests/core/test_dedup.py -k test_d023_dedup_openalex_e_scopus_mesmo_doi_mescla_com_precedencia`.
+4. **Limpeza da 10-01 com TypeError de dentro de fonte:** rodar `pytest tests/test_server_paid_sources.py -k test_d023_fonte_falsa_que_levanta_typeerror_da_failed_com_um_pedido_so`.
+
+Para rodar a suíte completa de testes da integração das bases pagas no servidor:
+```bash
+uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_paid_sources.py -v
+```
+Deve exibir os 8 testes passando com sucesso.

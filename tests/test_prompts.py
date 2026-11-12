@@ -91,3 +91,22 @@ def test_d021_render_plan_search_orienta_merge_lists() -> None:
     assert "mesmo assunto" in res_vazio.lower()
 
 
+# D-023, FR-10: render_plan_search orienta sobre bases pagas (scopus e web_of_science), chaves e limitações do WoS
+def test_d023_render_plan_search_orienta_scopus_e_wos() -> None:
+    res_pedido = render_plan_search("Modelos generativos em química")
+    res_lower = res_pedido.lower()
+    assert "scopus" in res_lower
+    assert "web_of_science" in res_lower
+    assert "bases pagas" in res_lower
+    assert "list_sources mostra" in res_pedido
+    assert "Web of Science não traz resumo nem afiliações" in res_pedido
+
+    res_vazio = render_plan_search("")
+    res_vazio_lower = res_vazio.lower()
+    assert "scopus" in res_vazio_lower
+    assert "web_of_science" in res_vazio_lower
+    assert "bases pagas" in res_vazio_lower
+    assert "list_sources mostra" in res_vazio
+    assert "Web of Science não traz resumo nem afiliações" in res_vazio
+
+

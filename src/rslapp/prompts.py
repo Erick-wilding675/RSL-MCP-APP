@@ -12,7 +12,7 @@ INSTRUCTIONS = (
 )
 
 
-# FR-10, UC-01, D-002, D-003, D-020, D-021, D-022: Renderiza o texto de orientação do prompt plan_search
+# FR-10, UC-01, D-002, D-003, D-020, D-021, D-022, D-023: Renderiza o texto de orientação do prompt plan_search
 def render_plan_search(request: str) -> str:
     """Gera o texto de orientação do prompt plan_search para o pedido fornecido."""
     cleaned_request = request.strip() if request else ""
@@ -23,7 +23,9 @@ def render_plan_search(request: str) -> str:
             "siga as seguintes orientações:\n"
             "1. Separar assuntos distintos: divida temas independentes em buscas separadas.\n"
             "2. Montar a string de cada fonte: elabore os termos adequados para OpenAlex, Crossref e Semantic Scholar. "
-            "Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources.\n"
+            "Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. "
+            "As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); "
+            "o Web of Science não traz resumo nem afiliações.\n"
             "3. Chamar search_works uma vez por assunto: envie 'query' técnica e 'request_summary' resumido. "
             "Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=true apenas para quem estuda o processo de revisão por pares.\n"
             "4. Entregar cada lista separada e usar merge_lists quando apropriado: não una resultados de temas distintos numa única lista. "
@@ -43,7 +45,9 @@ def render_plan_search(request: str) -> str:
         "ou assunto independente, divida-o em buscas separadas em vez de combiná-los numa única consulta.\n"
         "2. Montar a string de cada fonte: elabore os termos técnicos e palavras-chave mais adequados "
         "para as fontes acadêmicas disponíveis (OpenAlex, Crossref, Semantic Scholar). "
-        "Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources.\n"
+        "Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. "
+        "As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); "
+        "o Web of Science não traz resumo nem afiliações.\n"
         "3. Chamar search_works uma vez por assunto: execute a ferramenta search_works para cada assunto "
         "identificado, passando a consulta técnica no parâmetro 'query' e o resumo em linguagem natural no parâmetro 'request_summary'. "
         "Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=true apenas para quem estuda o processo de revisão por pares.\n"
