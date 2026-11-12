@@ -117,3 +117,18 @@ Cerca de 300 linhas, testes incluídos. Um commit para o conector, outro para os
    1. **Isolamento de credencial (`WOS_STARTER_API_KEY`) (`src/rslapp/sources/web_of_science.py` — `headers`, `cache_query`, `_format_query_text`, `__repr__`, NFR-03, D-023):** conferir que a chave vai exclusivamente no cabeçalho `X-ApiKey`, nunca na URL (evitando logging do `httpx`), em `query`, `reason`, `cache_query`, `repr` nem no `caplog`.
    2. **Tratamento de 429 com limite diário e intervalo de pelo menos 1,1 s entre pedidos (`src/rslapp/sources/web_of_science.py` — `search`, `_request_page`, NFR-04, D-023):** verificar o aguardo de `REQUEST_INTERVAL` (1,1 s) antes de cada página subsequente, as 3 retentativas (1, 2 e 4 s) para 429 transitório e a mensagem exata de limite diário do plano de teste ao esgotar as tentativas.
    3. **Mapeamento de citações do WOS e descarte de registros sem título (`src/rslapp/sources/web_of_science.py` — `_parse_work`, `_extract_citations`, `_parse_authors`, FR-03, FR-14, D-004, D-023):** verificar que apenas entradas com `db == "WOS"` geram citação (evitando que a ausência seja mapeada como 0), que autores levam `ids={"web_of_science": researcherId}` sem afiliações, e que registros sem título são descartados.
+
+**Revisão do Claude (2026-11-12, run `b20261111-211913` do Playmaker):** uma rodada (Gemini 3.8 Flash), aprovada pelo agente revisor e integrada com os gates refeitos pelo `board integrate`.
+
+Conferido pelo revisor com testes próprios, inclusive pelo transporte real do `httpx` em DEBUG contra um servidor local:
+- a chave só vai em `X-ApiKey`;
+- as páginas esperam 1,1 s, e as novas tentativas esperam 1, 2 e 4 s;
+- o 429 até o fim dá a mensagem do limite diário;
+- `citations` sem a entrada WOS fica sem a chave, não zero, e `count: 0` vira `{"web_of_science": 0}`.
+
+Acompanhamentos, não bloqueiam:
+- os dados simulados dos testes foram escritos à mão, não tirados do exemplo oficial (`source.pages` é objeto lá, string aqui);
+- faltam testes para `citations` ausente, para `count: 0` e para as esperas 1, 2 e 4 s do 429;
+- "BMI=30 obesity" casa com a regra de etiquetas e iria cru para a API (400, `failed`). É raro e segue a regex da spec;
+- sem `displayName`, o nome do autor vem de `wosStandard`;
+- a entrega tem 1.102 linhas, a maior parte em testes.
