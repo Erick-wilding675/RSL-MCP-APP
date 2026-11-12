@@ -100,9 +100,21 @@ A 09-01, a 09-02 e a 09-06 não dependem uma da outra e rodam em paralelo. A 09-
 
 **Fase 9 pronta em 2026-11-11:** `rslapp` 1.2.0 no PyPI e no ghcr.io. O Erick conferiu o BibTeX no Zotero, a lista juntada no VOSviewer e a busca no Claude Desktop.
 
+### 10 · Bases pagas e filtros (1.3)
+
+Primeira leva da 2.0, decidida com o Erick em 2026-11-11 (D-022, D-023). O Scopus e o Web of Science só funcionam com as chaves e o acesso de quem usa, e só no RSL.app instalado no computador.
+
+1. Pareceres de revisão fora da busca, com opção para incluir. Spec: `specs/10-01-pareceres-fora-da-busca.md`
+2. Fonte Scopus (Scopus Search API, visão COMPLETE). Spec: `specs/10-02-fonte-scopus.md`
+3. Fonte Web of Science (Starter API). Spec: `specs/10-03-fonte-web-of-science.md`
+4. Scopus e Web of Science no servidor: nomes, `list_sources`, recusa no modo hospedado, deduplicação, CSV e crédito no log. Spec: `specs/10-04-bases-pagas-no-servidor.md`
+5. Publicação da 1.3.0 e teste real. Spec: `specs/10-05-publicacao-1-3-e-teste-real.md`
+
+A 10-01, a 10-02 e a 10-03 não dependem uma da outra e rodam em paralelo. A 10-02 e a 10-03 mexem em `config.py` só para acrescentar uma linha cada. A 10-04 espera as três.
+
 ### Depois da 1.2: a versão maior (2.0)
 
-O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo:
+O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):
 
 - **App desktop** para Windows e Linux, com busca e lista sem IA no meio. Falta decidir a pilha da interface.
 - **Scopus e Web of Science** com a chave de cada pessoa. Falta ler os termos de uso de cada API e decidir como a chave é guardada.

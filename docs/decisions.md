@@ -211,3 +211,19 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Erick · **Data:** 2026-11-11
 - **Fontes:** teste da 09-07 (`docs/specs/09-07-publicacao-1-2-e-teste-real.md`, "Achados do teste")
 - **Situação:** decidida; o nome da entrada e se ela vale para outras fontes ficam para a spec
+
+## D-023 · Scopus e Web of Science com as chaves de quem usa, só no computador dele
+
+- **Decisão:** a 2.0 começa pelo Scopus (Scopus Search API, visão COMPLETE) e pelo Web of Science (Starter API). Cada pessoa configura as próprias chaves em variáveis de ambiente (`SCOPUS_API_KEY`, `SCOPUS_INSTTOKEN` opcional, `WOS_STARTER_API_KEY`), e o RSL.app usa a conta e o acesso dela ou da instituição dela, do mesmo jeito que já usa as chaves de quem hospeda (D-013). As duas bases só funcionam no modo stdio. No modo hospedado, `search_works` as recusa, e a documentação explica por quê. O README e as respostas deixam claro que toda base paga só funciona com as chaves e a assinatura do próprio usuário ou da instituição.
+- **Motivo:**
+  - Os termos da Elsevier (uso "Academic Research") não permitem acesso de terceiros.
+  - A Elsevier confere a assinatura pelo IP de quem chama, então um servidor hospedado não receberia os dados nem com a chave da pessoa.
+  - Os termos de usuário da Clarivate proíbem entregar o conteúdo a quem é de fora da organização.
+  - O Erick quis as duas bases, desde que o usuário use as próprias chaves.
+- **Alternativas:**
+  - Só o Scopus: o Starter é magro, mas o Erick quis as duas.
+  - Chave no cofre do sistema: dependência nova, diferente das outras chaves.
+  - Oferecer no modo hospedado: contraria os termos e não funciona com a checagem por IP.
+- **Decidido por:** Erick · **Data:** 2026-11-11
+- **Fontes:** `docs/research.md`, perguntas "Scopus e Web of Science na 2.0" e "Onde fica a chave de cada pessoa"
+- **Situação:** decidida. A API Expanded do Web of Science (paga) fica para quando alguém com licença puder testar.
