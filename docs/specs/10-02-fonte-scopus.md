@@ -127,3 +127,16 @@ Cerca de 350 linhas, testes incluídos. Um commit para o conector, outro para os
    1. **Isolamento de credenciais (`SCOPUS_API_KEY` e `SCOPUS_INSTTOKEN`) (`src/rslapp/sources/scopus.py` — `headers`, `cache_query`, `_format_query_text`, `__repr__`, NFR-03, D-023):** verificar que a chave e o token institucional vão exclusivamente nos cabeçalhos `X-ELS-APIKey` e `X-ELS-Insttoken`, nunca na URL (evitando logging do `httpx`), em `query`, `reason`, `cache_query`, `repr` nem no `caplog`.
    2. **Fallback para visão STANDARD em 403 e intervalo entre requisições (`src/rslapp/sources/scopus.py` — `search`, D-023):** verificar o aguardo de `REQUEST_INTERVAL` (0,2 s) antes da requisição STANDARD de fallback, aviso em `reason` na visão reduzida, fluxo unificado de falha quando ambas recusam, além da paginação por `start` (0, 25, 50).
    3. **Mapeamento de autores, afiliações e resumo na visão COMPLETE (`src/rslapp/sources/scopus.py` — `_parse_work`, `_parse_author`, `_extract_affiliations`, `_clean_abstract`, FR-03, FR-14, D-004, D-023):** conferir a associação de afiliações por `afid` em autores com mais de uma afiliação, formatação de `raw_affiliations`, normalização de ORCID curto, corte da última frase a partir de `©` (e `Copyright`/`(C)` logo antes) apenas sem encerramento de frase posterior, e descarte seguro de registros sem título.
+
+**Revisão do Claude (2026-11-12, run `b20261111-211913` do Playmaker):** duas rodadas (Gemini 3.8 Flash).
+- **Primeira rodada:** voltou pelo parecer do agente revisor. Faltava a espera de 0,2 s antes do pedido STANDARD, sobrava uma variável sem uso, três retornos de erro estavam duplicados, o corte do "©" apagava o resto do resumo quando o símbolo aparecia no meio, e os itens de "Pronto quando" estavam marcados.
+- **Segunda rodada:** os cinco pontos foram corrigidos, conferidos pelo Claude Code, e a tarefa foi integrada com os gates refeitos pelo `board integrate`.
+
+Conferido pelo revisor com testes próprios, inclusive pelo transporte real do `httpx` em DEBUG:
+- a chave e o token só vão nos cabeçalhos e não aparecem em log, URL, `query`, `reason`, `repr` nem `cache_query`, nem quando o servidor ecoa a chave na resposta;
+- as esperas das novas tentativas são 1, 2 e 4 s;
+- a visão reduzida segue na STANDARD nas páginas seguintes;
+- a paginação para em 5.000;
+- o mapeamento bate com o exemplo oficial.
+
+O comportamento com a API real (403 fora da rede da instituição, `insttoken`) espera a chave do Erick (10-05). O conector tem 593 linhas; a estimativa da spec era baixa, já que o molde tem 512.
