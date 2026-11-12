@@ -91,7 +91,7 @@ def _select_sources(
     return selected
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003: Orquestração da busca por termos
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-022: Orquestração da busca por termos
 async def run_search(
     store: Store,
     sources: Sequence[Source],
@@ -100,6 +100,7 @@ async def run_search(
     request_summary: str = "",
     max_results: int = DEFAULT_MAX_RESULTS,
     source_names: Sequence[str] | None = None,
+    include_peer_review: bool = False,
 ) -> dict[str, Any]:
     """Executa busca nas fontes em paralelo, deduplica, grava lista/busca/log e devolve resumo."""
     if not isinstance(query, str) or not query.strip():
@@ -108,6 +109,13 @@ async def run_search(
 
     if not isinstance(request_summary, str):
         raise RSLError("invalid_input", "request_summary deve ser texto")
+
+    # D-022: include_peer_review deve ser booleano estrito
+    if not isinstance(include_peer_review, bool):
+        raise RSLError(
+            "invalid_input",
+            "include_peer_review deve ser um booleano (True ou False)",
+        )
 
     if (
         not isinstance(max_results, int)
@@ -122,13 +130,22 @@ async def run_search(
 
     selected_sources = _select_sources(sources, source_names)
 
-    # NFR-06: Consulta o cache antes de chamar cada fonte e só grava no cache resultados ok
+    # NFR-06, D-022: Consulta o cache antes de chamar cada fonte e só grava no cache resultados ok
     async def _fetch_from_source(source: Source) -> tuple[SourceResult, bool, str | None]:
-        c_query = source.cache_query(clean_query, max_results)
+        try:
+            c_query = source.cache_query(clean_query, max_results, include_peer_review=include_peer_review)  # type: ignore[call-arg]
+        except TypeError:
+            c_query = source.cache_query(clean_query, max_results)
+
         cached = store.get_cache(source.name, c_query)
         if cached is not None:
             return SourceResult.from_dict(cached["response"]), True, cached.get("fetched_at")
-        result = await source.search(clean_query, max_results)
+
+        try:
+            result = await source.search(clean_query, max_results, include_peer_review=include_peer_review)  # type: ignore[call-arg]
+        except TypeError:
+            result = await source.search(clean_query, max_results)
+
         if result.status == "ok":
             store.set_cache(source.name, c_query, result.to_dict())
         return result, False, None
@@ -142,19 +159,32 @@ async def run_search(
     raw_works: list[Work] = []
 
     for result, from_cache, fetched_at in fetch_outcomes:
-        raw_works.extend(result.works)
-        source_entries.append(
-            {
-                "name": result.name,
-                "query": result.query,
-                "status": result.status,
-                "reason": result.reason,
-                "found": result.found,
-                "fetched": result.fetched,
-                "from_cache": from_cache,
-                "fetched_at": fetched_at,
-            }
-        )
+        works = result.works
+        excluded_peer_review = 0
+        # D-022: Fontes que não filtram na API têm registros do tipo peer-review excluídos se include_peer_review for False
+        if not include_peer_review and result.name != "openalex":
+            filtered_works: list[Work] = []
+            for w in works:
+                if (w.type or "").strip().lower() == "peer-review":
+                    excluded_peer_review += 1
+                else:
+                    filtered_works.append(w)
+            works = filtered_works
+
+        raw_works.extend(works)
+        entry: dict[str, Any] = {
+            "name": result.name,
+            "query": result.query,
+            "status": result.status,
+            "reason": result.reason,
+            "found": result.found,
+            "fetched": result.fetched,
+            "from_cache": from_cache,
+            "fetched_at": fetched_at,
+        }
+        if excluded_peer_review > 0:
+            entry["excluded_peer_review"] = excluded_peer_review
+        source_entries.append(entry)
 
     # D-002: Erro no_source_available quando todas as fontes estão sem chave, sem gravar nada
     if all(entry["status"] == "missing_key" for entry in source_entries):
@@ -175,7 +205,7 @@ async def run_search(
         else "incomplete"
     )
 
-    # FR-05, FR-09, FR-12: Cada busca gera lista própria e entrada em searches/ e log.md
+    # FR-05, FR-09, FR-12, D-022: Cada busca gera lista própria e entrada em searches/ e log.md
     search_data: dict[str, Any] = {
         "kind": "terms",
         "request_summary": request_summary,
@@ -185,6 +215,7 @@ async def run_search(
             "query": clean_query,
             "max_results": max_results,
             "sources": [src.name for src in selected_sources],
+            "include_peer_review": include_peer_review,
         },
         "merge": dedup_result.merge,
         "sources": source_entries,

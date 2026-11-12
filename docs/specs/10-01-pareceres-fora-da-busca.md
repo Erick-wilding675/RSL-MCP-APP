@@ -46,8 +46,32 @@ Cerca de 200 linhas, testes incluídos. Um commit, com D-022 no comentário e no
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **Entrada `include_peer_review` em `search_works` (D-022):** adicionado parâmetro booleano com padrão `false`. Criado o validador estrito `NonIntBool` em `server.py`, recusando números inteiros com `invalid_input` antes de chamar o miolo.
+- **OpenAlex com filtro `type:!peer-review`:** quando `include_peer_review=false`, o conector adiciona o filtro `type:!peer-review` na requisição (e combina com vírgula caso já exista outro filtro). A string de consulta (`query`) da fonte reflete o filtro aplicado.
+- **Exclusão pós-busca nas outras fontes:** quando `include_peer_review=false`, registros com `type` igual a `peer-review` (sem distinguir maiúsculas) são removidos dos resultados, e a fonte registra o campo `excluded_peer_review` com a quantidade quando for maior que zero.
+- **Gravação e log (FR-12, FR-13):** `params` da busca registra `include_peer_review`. O arquivo `log.md` exibe na linha da lista `"pareceres de revisão excluídos"` ou `"pareceres de revisão incluídos"`, e na linha de cada fonte exibe quantos saíram quando houver (ex.: `"1 parecer de revisão excluído"`).
+- **Repetição (`repeat_search`):** repete preservando o valor gravado de `include_peer_review`, usando `false` para buscas antigas gravadas antes desta tarefa.
+- **Cache do OpenAlex (NFR-06):** `cache_query` passa a incluir `include_peer_review` no dicionário identificador, evitando que buscas com e sem filtro compartilhem cache incorretamente.
+- **Orientação à IA (FR-10):** a docstring de `search_works` e o prompt `plan_search` orientam que os pareceres ficam de fora por padrão e que `include_peer_review=true` se destina a quem estuda o processo de revisão por pares.
+- **Testes automatizados:** criada suíte dedicada `tests/test_peer_review.py` com 11 testes cobrindo todos os critérios da spec, além de atualizadas as asserções de query padrão em `tests/sources/test_openalex.py`.
 
 ## Como testar
 
-(preenche quem entrega)
+1. **Rodar a suíte dedicada da tarefa:**
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q tests/test_peer_review.py
+   ```
+   Deve passar todos os 11 testes sem erros.
+
+2. **Rodar os três gates obrigatórios do projeto (um após o outro):**
+   ```bash
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+   Todos devem passar sem erros e com ruff limpo.
+
+3. **Onde olhar primeiro (pontos mais arriscados):**
+   - `src/rslapp/sources/openalex.py` (`search` e `cache_query`): verificar a injeção do filtro `type:!peer-review` e a inclusão de `include_peer_review` na chave de cache.
+   - `src/rslapp/core/search.py` (`run_search`): verificar a filtragem em memória para fontes que não sejam OpenAlex e o preenchimento de `excluded_peer_review`.
+   - `src/rslapp/server.py` (`NonIntBool` e `search_works`): verificar a rejeição estrita de números inteiros (`1`/`0`) com `invalid_input`.

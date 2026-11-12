@@ -67,6 +67,7 @@ def _format_source_line(src: Any) -> str:
     query = _one_line(strip_url_credentials(str(src.get("query") or "")))
     found, fetched, reason = src.get("found"), src.get("fetched"), src.get("reason")
     from_cache, fetched_at = bool(src.get("from_cache", False)), src.get("fetched_at")
+    exc_pr = src.get("excluded_peer_review")
 
     parts: list[str] = [name, status]
     # FR-13, FR-15: Quando a fonte não informa o total (found is None), exibe "total não informado"
@@ -75,6 +76,10 @@ def _format_source_line(src: Any) -> str:
             parts.append(f"total não informado, trazidos {fetched or 0}")
         else:
             parts.append(f"encontrados {found}, trazidos {fetched or 0}")
+    # D-022: Mostra quantos pareceres saíram por fonte quando houver
+    if type(exc_pr) is int and exc_pr > 0:
+        pr_unit = "parecer de revisão excluído" if exc_pr == 1 else "pareceres de revisão excluídos"
+        parts.append(f"{exc_pr} {pr_unit}")
     if reason:
         parts.append(_one_line(strip_url_credentials(str(reason))))
     if from_cache:
@@ -86,7 +91,7 @@ def _format_source_line(src: Any) -> str:
     return "- " + " · ".join(parts)
 
 
-# FR-04, FR-05, FR-13, NFR-03, NFR-06, D-007: Geração determinística de uma entrada de log.md em português
+# FR-04, FR-05, FR-13, NFR-03, NFR-06, D-007, D-022: Geração determinística de uma entrada de log.md em português
 def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | None = None) -> str:
     kind, origin = search_data.get("kind"), search_data.get("origin")
     if origin is not None and (
@@ -122,6 +127,16 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
             raise ValueError(f"Total de lista inválido: {total!r}")
         unit = "artigo" if total == 1 else "artigos"
         list_line = f"Lista: {list_id} · {_LIST_STATUS_LABELS[raw_status]} · {total} {unit}"
+
+    # D-022: Indica se pareceres de revisão foram excluídos ou incluídos quando include_peer_review estiver nos parâmetros
+    params = search_data.get("params")
+    if isinstance(params, dict) and "include_peer_review" in params:
+        pr_label = (
+            "pareceres de revisão incluídos"
+            if params["include_peer_review"]
+            else "pareceres de revisão excluídos"
+        )
+        list_line = f"{list_line} · {pr_label}"
 
     # D-021, FR-05, FR-13: Formatação específica para entradas de junção de listas no log.md
     if kind == "merge":

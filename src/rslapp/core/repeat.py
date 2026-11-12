@@ -70,10 +70,13 @@ async def run_repeat(
     source_names = orig_params.get("sources")
     summary = orig_search.get("request_summary", "")
 
-    # FR-11: Determina o caminho original (terms, work ou related) a partir do kind e dos parâmetros
+    # FR-11, D-022: Determina o caminho original (terms, work ou related) a partir do kind e dos parâmetros
     if orig_kind == "terms" or ("query" in orig_params and orig_kind != "related"):
         query = orig_params.get("query", "")
         max_results = orig_params.get("max_results", 100)
+        # D-022: Repete com o mesmo valor de include_peer_review; buscas antigas sem o campo usam False
+        raw_include = orig_params.get("include_peer_review", False)
+        include_peer_review = bool(raw_include) if isinstance(raw_include, bool) else False
         res = await run_search(
             proxy,  # type: ignore[arg-type]
             sources,
@@ -81,6 +84,7 @@ async def run_repeat(
             request_summary=summary,
             max_results=max_results,
             source_names=source_names,
+            include_peer_review=include_peer_review,
         )
     elif orig_kind == "work" or ("title" in orig_params or ("doi" in orig_params and "direction" not in orig_params)):
         title = orig_params.get("title")
@@ -121,6 +125,12 @@ async def run_repeat(
     new_search_data["kind"] = "repeat"
     new_search_data["repeated_from"] = orig_search["id"]
     new_search_data["params"] = copy.deepcopy(orig_params)
+    # D-022: Busca antiga sem include_peer_review repete gravando include_peer_review=False
+    if (
+        (orig_kind == "terms" or ("query" in orig_params and orig_kind != "related"))
+        and "include_peer_review" not in new_search_data["params"]
+    ):
+        new_search_data["params"]["include_peer_review"] = include_peer_review
     new_search_data["origin"] = copy.deepcopy(orig_search.get("origin"))
     if "request_summary" in orig_search:
         new_search_data["request_summary"] = orig_search["request_summary"]

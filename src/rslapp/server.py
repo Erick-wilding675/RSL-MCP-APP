@@ -62,6 +62,17 @@ def _reject_bool(v: Any, info: ValidationInfo) -> Any:
 NonBoolInt = Annotated[int, BeforeValidator(_reject_bool)]
 
 
+# D-022, D-002: Entrada booleana recusa número no lugar de booleano com invalid_input
+def _reject_int(v: Any, info: ValidationInfo) -> Any:
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        prefix = f"{info.field_name} " if info.field_name else ""
+        raise ValueError(f"invalid_input: {prefix}deve ser um booleano (true/false), não número")  # noqa: TRY004
+    return v
+
+
+NonIntBool = Annotated[bool, BeforeValidator(_reject_int)]
+
+
 # D-002, FR-07, NFR-03: Estrutura de retorno de list_sources sem expor o valor de chaves
 class SourceInfo(TypedDict):
     """Estado de configuração de uma fonte acadêmica."""
@@ -190,15 +201,16 @@ def _build_sources() -> list[Source]:
     ]
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020: Busca artigos nas fontes acadêmicas
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020, D-022: Busca artigos nas fontes acadêmicas
 @mcp.tool()
 async def search_works(
     query: str,
     request_summary: str = "",
     sources: list[str] | None = None,
     max_results: NonBoolInt = 100,
+    include_peer_review: NonIntBool = False,
 ) -> dict[str, Any]:
-    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources."""
+    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources."""
     store, _ = _build_tool_store()
     try:
         return await run_search(
@@ -208,6 +220,7 @@ async def search_works(
             request_summary=request_summary,
             max_results=max_results,
             source_names=sources,
+            include_peer_review=include_peer_review,
         )
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e

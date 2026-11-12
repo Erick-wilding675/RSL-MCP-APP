@@ -269,7 +269,15 @@ def _extract_error_tag(response: httpx.Response) -> str:
     return ""
 
 
-def _format_query_text(query: str, per_page: int, last_page: int) -> str:
+# D-022: Exibe o filtro na string de consulta do log quando presente
+def _format_query_text(
+    query: str,
+    per_page: int,
+    last_page: int,
+    filter_val: str | None = None,
+) -> str:
+    if filter_val:
+        return f"search={query} · filter={filter_val} · per_page={per_page} · páginas 1-{last_page}"
     return f"search={query} · per_page={per_page} · páginas 1-{last_page}"
 
 
@@ -325,15 +333,22 @@ class OpenAlexSource(Source):
     def __repr__(self) -> str:
         return f"OpenAlexSource(name={self.name!r}, needs_key={self.needs_key!r})"
 
-    # NFR-03: Parâmetros que identificam a consulta no cache, sem incluir a chave
-    def cache_query(self, query: str, max_results: int = 100) -> dict[str, Any]:
+    # NFR-03, D-022: Parâmetros que identificam a consulta no cache, sem incluir a chave
+    def cache_query(
+        self,
+        query: str,
+        max_results: int = 100,
+        include_peer_review: bool = False,
+    ) -> dict[str, Any]:
         effective_max = min(max(max_results, 1), MAX_RESULTS_LIMIT)
         per_page = min(effective_max, MAX_PER_PAGE)
+        # D-022: Chave do cache inclui include_peer_review
         return {
             "search": query.strip(),
             "max_results": max_results,
             "per_page": per_page,
             "select": SELECT_FIELDS,
+            "include_peer_review": include_peer_review,
         }
 
     @asynccontextmanager
@@ -401,11 +416,25 @@ class OpenAlexSource(Source):
 
         return None, err_status, err_reason
 
-    # FR-01, NFR-03, NFR-04, NFR-05: Busca paginada com chave via cabeçalho Authorization: Bearer
-    async def search(self, query: str, max_results: int = 100) -> SourceResult:
+    # FR-01, NFR-03, NFR-04, NFR-05, D-022: Busca paginada com chave via cabeçalho Authorization: Bearer
+    async def search(
+        self,
+        query: str,
+        max_results: int = 100,
+        include_peer_review: bool = False,
+        filter: str | None = None,
+    ) -> SourceResult:
         clean_query = query.strip()
         effective_max = min(max(max_results, 1), MAX_RESULTS_LIMIT)
         per_page = min(effective_max, MAX_PER_PAGE)
+
+        # D-022: Com include_peer_review=False, pedido leva o filtro type:!peer-review
+        filter_parts: list[str] = []
+        if filter and filter.strip():
+            filter_parts.append(filter.strip())
+        if not include_peer_review:
+            filter_parts.append("type:!peer-review")
+        combined_filter = ",".join(filter_parts) if filter_parts else None
 
         # NFR-03: Lê a chave diretamente do ambiente a cada chamada, sem guardá-la em atributo
         raw_key = os.environ.get("OPENALEX_API_KEY")
@@ -415,7 +444,7 @@ class OpenAlexSource(Source):
                 name=self.name,
                 status="missing_key",
                 reason="variável OPENALEX_API_KEY não configurada",
-                query=_format_query_text(clean_query, per_page, 1),
+                query=_format_query_text(clean_query, per_page, 1, combined_filter),
                 found=None,
                 fetched=0,
                 works=[],
@@ -425,7 +454,7 @@ class OpenAlexSource(Source):
                 name=self.name,
                 status="failed",
                 reason="OPENALEX_API_KEY tem caracteres inválidos",
-                query=_format_query_text(clean_query, per_page, 1),
+                query=_format_query_text(clean_query, per_page, 1, combined_filter),
                 found=None,
                 fetched=0,
                 works=[],
@@ -449,6 +478,8 @@ class OpenAlexSource(Source):
                         "page": str(page),
                         "select": SELECT_FIELDS,
                     }
+                    if combined_filter:
+                        params["filter"] = combined_filter
                     data, err_status, err_reason = await self._request_page(
                         client, params, headers
                     )
@@ -457,7 +488,7 @@ class OpenAlexSource(Source):
                             name=self.name,
                             status=err_status,
                             reason=err_reason,
-                            query=_format_query_text(clean_query, per_page, page),
+                            query=_format_query_text(clean_query, per_page, page, combined_filter),
                             found=found,
                             fetched=len(works),
                             works=works,
@@ -498,7 +529,7 @@ class OpenAlexSource(Source):
                 name=self.name,
                 status="failed",
                 reason="falha inesperada ao consultar o OpenAlex",
-                query=_format_query_text(clean_query, per_page, page),
+                query=_format_query_text(clean_query, per_page, page, combined_filter),
                 found=found,
                 fetched=len(works),
                 works=works,
@@ -508,7 +539,7 @@ class OpenAlexSource(Source):
             name=self.name,
             status="ok",
             reason=None,
-            query=_format_query_text(clean_query, per_page, page),
+            query=_format_query_text(clean_query, per_page, page, combined_filter),
             found=found,
             fetched=len(works),
             works=works,

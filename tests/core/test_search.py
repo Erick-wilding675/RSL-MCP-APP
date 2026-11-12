@@ -644,6 +644,7 @@ async def test_fr05_fr08_nfr06_busca_grava_params_e_merge_em_searches(tmp_path: 
         "query": "teste params",
         "max_results": 50,
         "sources": ["crossref", "openalex"],
+        "include_peer_review": False,
     }
     assert saved_search["merge"] == {
         "merged": 1,

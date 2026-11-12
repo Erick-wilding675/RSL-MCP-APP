@@ -317,7 +317,7 @@ async def test_fr01_nfr05_paginacao_max_results_fim_descartes_e_limite_10000(
 
     assert seen_per_page == ["10"]
     assert res_small.fetched == 10
-    assert res_small.query == "search=small · per_page=10 · páginas 1-1"
+    assert res_small.query == "search=small · filter=type:!peer-review · per_page=10 · páginas 1-1"
 
     # 2. Para em max_results (150 -> páginas 1 e 2) e preserva found da primeira página
     pages_called: list[int] = []
@@ -337,7 +337,7 @@ async def test_fr01_nfr05_paginacao_max_results_fim_descartes_e_limite_10000(
     assert res_max.found == 500
     assert res_max.fetched == 150
     assert len(res_max.works) == 150
-    assert res_max.query == "search=paging · per_page=100 · páginas 1-2"
+    assert res_max.query == "search=paging · filter=type:!peer-review · per_page=100 · páginas 1-2"
 
     # 3. max_results=100 com 5 sem título na página 1 pede a página 2 para completar 100
     pages_discard: list[int] = []
@@ -392,7 +392,7 @@ async def test_fr01_nfr05_paginacao_max_results_fim_descartes_e_limite_10000(
     assert len(pages_10k) == 100
     assert pages_10k[0] == 1 and pages_10k[-1] == 100
     assert res_10k.fetched == 10000
-    assert res_10k.query == "search=ten_k · per_page=100 · páginas 1-100"
+    assert res_10k.query == "search=ten_k · filter=type:!peer-review · per_page=100 · páginas 1-100"
 
     # 6. Se a segunda página falha, preserva os trabalhos já trazidos na primeira
     def handler_partial(request: httpx.Request) -> httpx.Response:
