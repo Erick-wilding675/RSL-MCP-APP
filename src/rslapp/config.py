@@ -31,6 +31,8 @@ class Config:
     openalex_key_configured: bool = False
     semantic_scholar_key_configured: bool = False
     ncbi_key_configured: bool = False
+    scopus_key_configured: bool = False
+    scopus_insttoken_configured: bool = False
 
 
 def _is_key_configured(env_var: str) -> bool:
@@ -82,6 +84,8 @@ def load() -> Config:
         openalex_key_configured=_is_key_configured("OPENALEX_API_KEY"),
         semantic_scholar_key_configured=_is_key_configured("SEMANTIC_SCHOLAR_API_KEY"),
         ncbi_key_configured=_is_key_configured("NCBI_API_KEY"),
+        scopus_key_configured=_is_key_configured("SCOPUS_API_KEY"),
+        scopus_insttoken_configured=_is_key_configured("SCOPUS_INSTTOKEN"),
     )
 
 
