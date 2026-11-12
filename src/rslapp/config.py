@@ -33,6 +33,7 @@ class Config:
     ncbi_key_configured: bool = False
     scopus_key_configured: bool = False
     scopus_insttoken_configured: bool = False
+    wos_key_configured: bool = False
 
 
 def _is_key_configured(env_var: str) -> bool:
@@ -86,6 +87,7 @@ def load() -> Config:
         ncbi_key_configured=_is_key_configured("NCBI_API_KEY"),
         scopus_key_configured=_is_key_configured("SCOPUS_API_KEY"),
         scopus_insttoken_configured=_is_key_configured("SCOPUS_INSTTOKEN"),
+        wos_key_configured=_is_key_configured("WOS_STARTER_API_KEY"),
     )
 
 
