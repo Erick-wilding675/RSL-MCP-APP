@@ -241,7 +241,15 @@ async def test_d020_list_sources_lista_cinco_e_nao_vaza_ncbi_key(
         payload = res.structured_content["result"]
         assert isinstance(payload, list)
         names = [item["name"] for item in payload]
-        assert names == ["openalex", "crossref", "semantic_scholar", "europe_pmc", "pubmed"]
+        assert names == [
+            "openalex",
+            "crossref",
+            "semantic_scholar",
+            "europe_pmc",
+            "pubmed",
+            "scopus",
+            "web_of_science",
+        ]
 
         pm_info = next(item for item in payload if item["name"] == "pubmed")
         assert pm_info["configured"] is True

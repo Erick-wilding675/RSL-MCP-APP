@@ -97,10 +97,15 @@ async def run_related(
     if (doi is None and work_id is None) or (doi is not None and work_id is not None):
         raise RSLError("invalid_input", "informe exatamente um entre doi ou work_id")
 
-    # D-020: pubmed e europe_pmc não são suportadas em get_related_works
+    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em get_related_works
     if source_names is not None:
         for raw_src in source_names:
-            if isinstance(raw_src, str) and raw_src.strip() in ("pubmed", "europe_pmc"):
+            if isinstance(raw_src, str) and raw_src.strip() in (
+                "pubmed",
+                "europe_pmc",
+                "scopus",
+                "web_of_science",
+            ):
                 raise RSLError(
                     "invalid_input",
                     f"fonte não suportada nesta ferramenta: {raw_src.strip()}",

@@ -62,10 +62,15 @@ async def run_find(
     if (title is None and doi is None) or (title is not None and doi is not None):
         raise RSLError("invalid_input", "informe exatamente um entre title ou doi")
 
-    # D-020: pubmed e europe_pmc não são suportadas em find_work
+    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em find_work
     if source_names is not None:
         for raw_src in source_names:
-            if isinstance(raw_src, str) and raw_src.strip() in ("pubmed", "europe_pmc"):
+            if isinstance(raw_src, str) and raw_src.strip() in (
+                "pubmed",
+                "europe_pmc",
+                "scopus",
+                "web_of_science",
+            ):
                 raise RSLError(
                     "invalid_input",
                     f"fonte não suportada nesta ferramenta: {raw_src.strip()}",

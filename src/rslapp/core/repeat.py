@@ -74,9 +74,8 @@ async def run_repeat(
     if orig_kind == "terms" or ("query" in orig_params and orig_kind != "related"):
         query = orig_params.get("query", "")
         max_results = orig_params.get("max_results", 100)
-        # D-022: Repete com o mesmo valor de include_peer_review; buscas antigas sem o campo usam False
-        raw_include = orig_params.get("include_peer_review", False)
-        include_peer_review = bool(raw_include) if isinstance(raw_include, bool) else False
+        # D-022, D-023: Repete com o mesmo valor de include_peer_review; buscas antigas usam False
+        include_peer_review = orig_params.get("include_peer_review") is True
         res = await run_search(
             proxy,  # type: ignore[arg-type]
             sources,
@@ -125,11 +124,8 @@ async def run_repeat(
     new_search_data["kind"] = "repeat"
     new_search_data["repeated_from"] = orig_search["id"]
     new_search_data["params"] = copy.deepcopy(orig_params)
-    # D-022: Busca antiga sem include_peer_review repete gravando include_peer_review=False
-    if (
-        (orig_kind == "terms" or ("query" in orig_params and orig_kind != "related"))
-        and "include_peer_review" not in new_search_data["params"]
-    ):
+    # D-022, D-023: Registro novo grava o valor de fato usado em include_peer_review
+    if orig_kind == "terms" or ("query" in orig_params and orig_kind != "related"):
         new_search_data["params"]["include_peer_review"] = include_peer_review
     new_search_data["origin"] = copy.deepcopy(orig_search.get("origin"))
     if "request_summary" in orig_search:

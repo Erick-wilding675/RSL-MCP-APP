@@ -43,11 +43,21 @@ from rslapp.sources.crossref import CrossrefSource
 from rslapp.sources.europe_pmc import EuropePMCSource
 from rslapp.sources.openalex import OpenAlexSource
 from rslapp.sources.pubmed import PubmedSource
+from rslapp.sources.scopus import ScopusSource
 from rslapp.sources.semantic_scholar import SemanticScholarSource
+from rslapp.sources.web_of_science import WebOfScienceSource
 from rslapp.store import Store
 
-# D-020: Nomes válidos de fontes acadêmicas disponíveis no servidor
-SourceName = Literal["openalex", "crossref", "semantic_scholar", "europe_pmc", "pubmed"]
+# D-020, D-023: Nomes válidos de fontes acadêmicas disponíveis no servidor
+SourceName = Literal[
+    "openalex",
+    "crossref",
+    "semantic_scholar",
+    "europe_pmc",
+    "pubmed",
+    "scopus",
+    "web_of_science",
+]
 SourceStatus = Literal["ok", "missing_key"]
 
 
@@ -148,14 +158,14 @@ def _build_tool_store(cfg: config.Config | None = None) -> tuple[Store, Path]:
     )
 
 
-# D-002, D-012, FR-07, NFR-03, D-020: Lista as fontes acadêmicas indicando se estão configuradas e prontas
+# D-002, D-012, FR-07, NFR-03, D-020, D-023: Lista as fontes acadêmicas indicando se estão configuradas e prontas
 @mcp.tool()
 def list_sources() -> list[SourceInfo]:
-    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite; a do PubMed também é opcional. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas."""
+    """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite; a do PubMed também é opcional. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas. Scopus e Web of Science são bases pagas e só funcionam com a chave e a assinatura do próprio usuário ou da instituição dele."""
     _resolve_person_id()
     cfg = config.load()
     openalex_configured = cfg.openalex_key_configured
-    return [
+    sources: list[SourceInfo] = [
         {
             "name": "openalex",
             "configured": openalex_configured,
@@ -187,21 +197,48 @@ def list_sources() -> list[SourceInfo]:
             "status": "ok",
         },
     ]
+    # D-023: No modo stdio lista as 7 fontes; no modo HTTP não lista as bases pagas
+    if not _is_http_mode():
+        scopus_configured = cfg.scopus_key_configured
+        wos_configured = cfg.wos_key_configured
+        sources.extend(
+            [
+                {
+                    "name": "scopus",
+                    "configured": scopus_configured,
+                    "needs_key": True,
+                    "status": "ok" if scopus_configured else "missing_key",
+                },
+                {
+                    "name": "web_of_science",
+                    "configured": wos_configured,
+                    "needs_key": True,
+                    "status": "ok" if wos_configured else "missing_key",
+                },
+            ]
+        )
+    return sources
 
 
-# FR-01, FR-04, FR-08, D-002, D-020: Monta os cinco conectores das fontes acadêmicas disponíveis
+# FR-01, FR-04, FR-08, D-002, D-020, D-023: Monta os conectores das fontes acadêmicas disponíveis
 def _build_sources() -> list[Source]:
-    """Instancia os conectores das fontes disponíveis no servidor."""
-    return [
+    """Instancia os conectores das fontes disponíveis no servidor (as bases pagas entram apenas no modo stdio)."""
+    sources: list[Source] = [
         OpenAlexSource(),
         CrossrefSource(),
         SemanticScholarSource(),
         EuropePMCSource(),
         PubmedSource(),
     ]
+    if not _is_http_mode():
+        sources.extend([
+            ScopusSource(),
+            WebOfScienceSource(),
+        ])
+    return sources
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020, D-022: Busca artigos nas fontes acadêmicas
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020, D-022, D-023: Busca artigos nas fontes acadêmicas
 @mcp.tool()
 async def search_works(
     query: str,
@@ -210,7 +247,14 @@ async def search_works(
     max_results: NonBoolInt = 100,
     include_peer_review: NonIntBool = False,
 ) -> dict[str, Any]:
-    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources."""
+    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); o Web of Science não traz resumo nem afiliações."""
+    # D-023: No modo HTTP, recusa scopus e web_of_science antes de chamar qualquer fonte
+    if _is_http_mode() and sources is not None:
+        for s in sources:
+            if isinstance(s, str) and s.strip() in ("scopus", "web_of_science"):
+                raise ToolError(
+                    "invalid_input: scopus e web_of_science só funcionam no RSL.app instalado no seu computador, com a sua chave e o acesso da sua instituição (D-023)"
+                )
     store, _ = _build_tool_store()
     try:
         return await run_search(
@@ -237,10 +281,15 @@ async def get_related_works(
     max_results: NonBoolInt = 1000,
 ) -> dict[str, Any]:
     """Busca referências ou citações de um artigo acadêmico nas fontes, deduplica e grava lista própria."""
-    # D-020: pubmed e europe_pmc não são suportadas em get_related_works
+    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em get_related_works
     if sources is not None:
         for s in sources:
-            if isinstance(s, str) and s.strip() in ("pubmed", "europe_pmc"):
+            if isinstance(s, str) and s.strip() in (
+                "pubmed",
+                "europe_pmc",
+                "scopus",
+                "web_of_science",
+            ):
                 raise ToolError(f"invalid_input: fonte não suportada nesta ferramenta: {s.strip()}")
     store, _ = _build_tool_store()
     try:
@@ -267,10 +316,15 @@ async def find_work(
     max_results: NonBoolInt = 10,
 ) -> dict[str, Any]:
     """Busca um artigo específico por título ou DOI nas fontes, deduplica candidatos e grava lista própria."""
-    # D-020: pubmed e europe_pmc não são suportadas em find_work
+    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em find_work
     if sources is not None:
         for s in sources:
-            if isinstance(s, str) and s.strip() in ("pubmed", "europe_pmc"):
+            if isinstance(s, str) and s.strip() in (
+                "pubmed",
+                "europe_pmc",
+                "scopus",
+                "web_of_science",
+            ):
                 raise ToolError(f"invalid_input: fonte não suportada nesta ferramenta: {s.strip()}")
     store, _ = _build_tool_store()
     try:
@@ -287,13 +341,28 @@ async def find_work(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-11, UC-03, D-002, D-012, D-013: Repete uma busca salva do log com os mesmos parâmetros
+# FR-11, UC-03, D-002, D-012, D-013, D-023: Repete uma busca salva do log com os mesmos parâmetros
 @mcp.tool()
 async def repeat_search(
     search_id: str,
 ) -> dict[str, Any]:
     """Repete uma busca salva do log com as mesmas strings e fontes, gravando busca e lista novas."""
     store, _ = _build_tool_store()
+    # D-023: No modo HTTP, recusa scopus e web_of_science antes de chamar qualquer fonte
+    if _is_http_mode():
+        clean_id = search_id.strip() if isinstance(search_id, str) else ""
+        if clean_id:
+            try:
+                orig = store.get_search(clean_id)
+                orig_params = orig.get("params") or {}
+                orig_sources = orig_params.get("sources") or []
+            except (FileNotFoundError, ValueError, OSError):
+                orig_sources = []
+            for s in orig_sources:
+                if isinstance(s, str) and s.strip() in ("scopus", "web_of_science"):
+                    raise ToolError(
+                        "invalid_input: scopus e web_of_science só funcionam no RSL.app instalado no seu computador, com a sua chave e o acesso da sua instituição (D-023)"
+                    )
     try:
         return await run_repeat(
             store,

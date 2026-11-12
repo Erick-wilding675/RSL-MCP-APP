@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import Sequence
 from typing import Any
 
@@ -91,7 +92,19 @@ def _select_sources(
     return selected
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-022: Orquestração da busca por termos
+# D-022, D-023: Verifica uma vez se a fonte aceita o parâmetro include_peer_review
+def _accepts_peer_review(source: Source) -> bool:
+    """Indica se a fonte aceita include_peer_review por atributo ou assinatura."""
+    if getattr(source, "supports_peer_review", False):
+        return True
+    try:
+        sig = inspect.signature(source.search)
+        return "include_peer_review" in sig.parameters
+    except (ValueError, TypeError):
+        return False
+
+
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-022, D-023: Orquestração da busca por termos
 async def run_search(
     store: Store,
     sources: Sequence[Source],
@@ -130,11 +143,12 @@ async def run_search(
 
     selected_sources = _select_sources(sources, source_names)
 
-    # NFR-06, D-022: Consulta o cache antes de chamar cada fonte e só grava no cache resultados ok
+    # NFR-06, D-022, D-023: Consulta o cache antes de chamar cada fonte e só grava no cache resultados ok
     async def _fetch_from_source(source: Source) -> tuple[SourceResult, bool, str | None]:
-        try:
+        accepts_pr = _accepts_peer_review(source)
+        if accepts_pr:
             c_query = source.cache_query(clean_query, max_results, include_peer_review=include_peer_review)  # type: ignore[call-arg]
-        except TypeError:
+        else:
             c_query = source.cache_query(clean_query, max_results)
 
         cached = store.get_cache(source.name, c_query)
@@ -142,9 +156,21 @@ async def run_search(
             return SourceResult.from_dict(cached["response"]), True, cached.get("fetched_at")
 
         try:
-            result = await source.search(clean_query, max_results, include_peer_review=include_peer_review)  # type: ignore[call-arg]
-        except TypeError:
-            result = await source.search(clean_query, max_results)
+            if accepts_pr:
+                result = await source.search(clean_query, max_results, include_peer_review=include_peer_review)  # type: ignore[call-arg]
+            else:
+                result = await source.search(clean_query, max_results)
+        except TypeError as exc:
+            reason = str(exc) if str(exc) else "TypeError"
+            result = SourceResult(
+                name=source.name,
+                status="failed",
+                reason=reason,
+                query=f"query={clean_query}",
+                found=None,
+                fetched=0,
+                works=[],
+            )
 
         if result.status == "ok":
             store.set_cache(source.name, c_query, result.to_dict())

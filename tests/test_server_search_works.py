@@ -16,7 +16,9 @@ from rslapp.sources.crossref import CrossrefSource
 from rslapp.sources.europe_pmc import EuropePMCSource
 from rslapp.sources.openalex import OpenAlexSource
 from rslapp.sources.pubmed import PubmedSource
+from rslapp.sources.scopus import ScopusSource
 from rslapp.sources.semantic_scholar import SemanticScholarSource
+from rslapp.sources.web_of_science import WebOfScienceSource
 
 ENV_VARS = (
     "RSL_DATA_DIR",
@@ -81,12 +83,14 @@ async def test_fr01_fr05_fr12_d002_d003_search_works_em_memoria_responde_como_no
     isolated_env: Path,
 ) -> None:
     default_sources = server._build_sources()
-    assert len(default_sources) == 5
+    assert len(default_sources) == 7
     assert isinstance(default_sources[0], OpenAlexSource)
     assert isinstance(default_sources[1], CrossrefSource)
     assert isinstance(default_sources[2], SemanticScholarSource)
     assert isinstance(default_sources[3], EuropePMCSource)
     assert isinstance(default_sources[4], PubmedSource)
+    assert isinstance(default_sources[5], ScopusSource)
+    assert isinstance(default_sources[6], WebOfScienceSource)
 
     monkeypatch.setenv("RSL_CACHE_DAYS", "14")
     fake_work = Work(
