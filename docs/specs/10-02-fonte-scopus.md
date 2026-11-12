@@ -80,14 +80,14 @@ Tomadas pelo Claude Code em 2026-11-11, baratas de desfazer:
 
 ## Pronto quando
 
-- [ ] Teste com respostas simuladas (`httpx.MockTransport`), a partir do exemplo oficial da visão COMPLETE: os campos acima são mapeados, inclusive autor sem ORCID, autor com duas afiliações, resumo com "©", `authkeywords` vazio, `prism:coverDate` ausente e registro sem título descartado
-- [ ] Teste: texto simples vira `TITLE-ABS-KEY(...)`, e `AUTH(silva) AND TITLE(x)` vai como está
-- [ ] Teste: a paginação pede `start` 0, 25 e 50 e para em `max_results` ou em `totalResults`
-- [ ] Teste: 403 na COMPLETE e 200 na STANDARD seguem com o aviso; 403 nas duas dá `failed` com a mensagem da decisão 4
-- [ ] Teste: 401, 429 e 5xx seguem os estados acima
-- [ ] Teste: com `SCOPUS_API_KEY` e `SCOPUS_INSTTOKEN`, os dois vão nos cabeçalhos e não aparecem na URL, em `query`, `reason`, `cache_query`, `repr` nem nos registros do `caplog`
-- [ ] Teste: sem `SCOPUS_API_KEY`, `missing_key` sem pedido nenhum
-- [ ] Os três gates passam
+- [x] Teste com respostas simuladas (`httpx.MockTransport`), a partir do exemplo oficial da visão COMPLETE: os campos acima são mapeados, inclusive autor sem ORCID, autor com duas afiliações, resumo com "©", `authkeywords` vazio, `prism:coverDate` ausente e registro sem título descartado
+- [x] Teste: texto simples vira `TITLE-ABS-KEY(...)`, e `AUTH(silva) AND TITLE(x)` vai como está
+- [x] Teste: a paginação pede `start` 0, 25 e 50 e para em `max_results` ou em `totalResults`
+- [x] Teste: 403 na COMPLETE e 200 na STANDARD seguem com o aviso; 403 nas duas dá `failed` com a mensagem da decisão 4
+- [x] Teste: 401, 429 e 5xx seguem os estados acima
+- [x] Teste: com `SCOPUS_API_KEY` e `SCOPUS_INSTTOKEN`, os dois vão nos cabeçalhos e não aparecem na URL, em `query`, `reason`, `cache_query`, `repr` nem nos registros do `caplog`
+- [x] Teste: sem `SCOPUS_API_KEY`, `missing_key` sem pedido nenhum
+- [x] Os três gates passam
 
 ## Vem de
 
@@ -101,8 +101,29 @@ Cerca de 350 linhas, testes incluídos. Um commit para o conector, outro para os
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **O que mudou:**
+  - `src/rslapp/config.py`: adicionados os campos `scopus_key_configured` e `scopus_insttoken_configured` ao dataclass `Config`, carregados a partir de `SCOPUS_API_KEY` e `SCOPUS_INSTTOKEN` via `_is_key_configured` (**FR-07**, **NFR-03**, **D-023**).
+  - `src/rslapp/sources/scopus.py`: conector `ScopusSource` implementando o protocolo `Source` para a API Scopus Search (`https://api.elsevier.com/content/search/scopus`). Configurado com `needs_key = True`. Realiza paginação simples (`count=min(25, falta)`, `start=0, 25, 50...`) com intervalo de pelo menos 0,2 s entre pedidos e teto de 5.000 resultados. Mantém sintaxe nativa do Scopus quando detectado código de campo (`\b[A-Z][A-Z-]+\(`) ou encapsula a consulta em `TITLE-ABS-KEY(...)`. Passa `X-ELS-APIKey` e opcionalmente `X-ELS-Insttoken` estritamente em cabeçalhos HTTP, sem expor credenciais em URL, query, reason, cache_query, repr ou caplog; devolve `missing_key` sem requisições de rede quando `SCOPUS_API_KEY` não está configurada. Mapeia a visão `COMPLETE` com título, DOI em minúsculas, ano de 4 dígitos de `prism:coverDate`, periódico de `prism:publicationName`, resumo sem o trecho final de direitos autorais (`©`) e com espaços simples, palavras-chave divididas por `|` sem repetição e sem espaços nas pontas, tipo em minúsculas, autores na ordem com `given-name surname` (ou `authname`), ORCID curto, `ids={"scopus": authid}`, e afiliações correlacionadas por `afid` com nome e `raw_affiliations` no formato `affilname, cidade, país`. Descarte de registros sem título ou com erro. Em caso de 403 na visão `COMPLETE`, executa tentativa de fallback para a visão reduzida `STANDARD` (notificando em `reason` quando bem-sucedida, ou reportando `failed` com orientação de rede institucional/insttoken se ambas recusarem). Trata retentativas com recuo exponencial (1, 2 e 4 s) para 429 transitório, 5xx, timeout e erros de rede, preservando páginas parciais já trazidas em caso de falha posterior (**FR-01**, **FR-03**, **FR-14**, **NFR-04**, **D-004**, **D-023**).
+  - `tests/test_config.py`: atualizados os testes de configuração para verificar `scopus_key_configured` e `scopus_insttoken_configured` em isolamento, valores vazios, valores válidos, e não exposição em representações (`repr`, `str`, `asdict`, `vars`) e mensagens de erro (**FR-07**, **NFR-03**).
+  - `tests/sources/test_scopus.py`: suíte completa com 10 testes unitários sem rede (`httpx.MockTransport`), cobrindo mapeamento da visão COMPLETE (inclusive autor sem ORCID, autor com duas afiliações, resumo com "©", `authkeywords` vazio, `prism:coverDate` ausente e registros sem título descartados), sintaxe Scopus e texto simples, paginação com `start` 0, 25, 50 até limites, fallback de 403 para visão STANDARD e falha dupla, estados 401, 429, 5xx, timeout e rede com páginas parciais mantidas, retry de 429 seguido de 200, isolamento rigoroso de credenciais em cabeçalhos, e `missing_key` sem rede (**FR-01**, **FR-03**, **FR-14**, **NFR-04**, **D-004**, **D-023**).
+- **O que foi assumido:**
+  - Registros com `dc:title` ausente, vazio ou contendo apenas espaços são descartados.
+  - Na visão `STANDARD`, apenas `dc:creator` entra como autor único e `abstract` e `keywords` ficam vazios/nulos, conforme a especificação.
+- **O que não deu para verificar:**
+  - Chamadas com rede aberta à API real da Elsevier (testes executados com `httpx.MockTransport`, conforme regra do projeto de não fazer requisições externas nos testes automatizados).
 
 ## Como testar
 
-(preenche quem entrega)
+1. **Comandos para rodar:**
+   ```powershell
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+   uv run --isolated --no-editable --reinstall-package rslapp --python 3.14 --extra dev pytest -q
+   ```
+2. **O que deve aparecer:**
+   - `All checks passed!` na verificação do `ruff check .`
+   - `632 passed` no `pytest` em Python 3.10 e em Python 3.14.
+3. **Onde olhar primeiro (pontos de risco, do mais difícil ao mais simples):**
+   1. **Isolamento de credenciais (`SCOPUS_API_KEY` e `SCOPUS_INSTTOKEN`) (`src/rslapp/sources/scopus.py` — `headers`, `cache_query`, `_format_query_text`, `__repr__`, NFR-03, D-023):** verificar que a chave e o token institucional vão exclusivamente nos cabeçalhos `X-ELS-APIKey` e `X-ELS-Insttoken`, nunca na URL (evitando logging do `httpx`), em `query`, `reason`, `cache_query`, `repr` nem no `caplog`.
+   2. **Mapeamento de autores, afiliações e resumo na visão COMPLETE (`src/rslapp/sources/scopus.py` — `_parse_work`, `_parse_author`, `_extract_affiliations`, `_clean_abstract`, FR-03, FR-14, D-004, D-023):** conferir a associação de afiliações por `afid` em autores com mais de uma afiliação, formatação de `raw_affiliations`, normalização de ORCID curto, remoção do trecho de direitos autorais a partir de `©` no resumo, e descarte seguro de registros sem título.
+   3. **Fallback para visão STANDARD em 403 e paginação por start (`src/rslapp/sources/scopus.py` — `search`, D-023):** verificar a transição da visão COMPLETE para STANDARD ao receber HTTP 403 com continuidade da coleta e aviso em `reason`, ou `failed` quando ambas as visões respondem 403, além da correta progressão de `start` (0, 25, 50) e parada em `max_results` ou `totalResults`.
