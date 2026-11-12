@@ -20,6 +20,9 @@ Liga os conectores da 10-02 e da 10-03 ao servidor, com as regras da D-023: as b
 - **CSV:** quatro colunas novas **no fim**: `Scopus EID`, `Web of Science UID`, `Citations Scopus` e `Citations Web of Science`. As colunas de hoje não mudam.
 - **Crédito à fonte:** a entrada do `log.md` de uma busca que trouxe dados de uma base paga termina com uma linha de crédito: "Dados do Scopus (Elsevier)" e/ou "Source: Clarivate Analytics (Web of Science)".
 - **Pareceres (10-01):** valem para as duas fontes novas como para as outras: um artigo com `type` `peer-review` sai quando `include_peer_review` é falso.
+- **Limpeza da 10-01** (achados da revisão):
+  - em `core/search.py`, tirar o `try/except TypeError` em volta de `cache_query` e `search`. `include_peer_review` vai só às fontes que o aceitam: hoje só o OpenAlex, conferido uma vez pela assinatura ou por um atributo da classe. Assim, um `TypeError` de dentro de uma fonte não fica escondido nem repete a busca;
+  - em `core/repeat.py`, `include_peer_review = orig_params.get("include_peer_review") is True`, e o registro novo grava o valor de fato usado.
 - **Orientação à IA:** o prompt `plan_search` e a descrição de `search_works` dizem que `scopus` e `web_of_science` entram quando a pessoa pedir e tiver configurado as chaves (`list_sources` mostra), e que o Web of Science não traz resumo nem afiliações.
 
 ## O que não faz
@@ -38,6 +41,7 @@ Liga os conectores da 10-02 e da 10-03 ao servidor, com as regras da D-023: as b
 - [ ] Teste: `repeat_search` de uma busca com `scopus` repete com `scopus`
 - [ ] Teste: o CSV tem as quatro colunas novas no fim, e as antigas continuam iguais
 - [ ] Teste: o `log.md` tem a linha de crédito quando a busca trouxe dados do Scopus ou do Web of Science, e não tem quando não trouxe
+- [ ] Teste: uma fonte falsa que levanta `TypeError` dentro de `search` dá `failed` para aquela fonte, com um pedido só (sem repetir)
 - [ ] Os três gates passam
 
 ## Vem de

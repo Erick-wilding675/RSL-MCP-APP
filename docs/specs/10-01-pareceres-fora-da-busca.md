@@ -75,3 +75,15 @@ Cerca de 200 linhas, testes incluídos. Um commit, com D-022 no comentário e no
    - `src/rslapp/sources/openalex.py` (`search` e `cache_query`): verificar a injeção do filtro `type:!peer-review` e a inclusão de `include_peer_review` na chave de cache.
    - `src/rslapp/core/search.py` (`run_search`): verificar a filtragem em memória para fontes que não sejam OpenAlex e o preenchimento de `excluded_peer_review`.
    - `src/rslapp/server.py` (`NonIntBool` e `search_works`): verificar a rejeição estrita de números inteiros (`1`/`0`) com `invalid_input`.
+
+**Revisão do Claude (2026-11-12, run `b20261111-211913` do Playmaker):** uma rodada (Gemini 3.8 Flash), aprovada pelo agente revisor e integrada com os gates refeitos pelo `board integrate`. Conferido:
+- `1`, `0`, `1.0` e `2` em `include_peer_review` dão `invalid_input` pelo cliente MCP;
+- o texto do log de registros antigos não muda, então `rebuild_log` não reescreve logs existentes;
+- o cache antigo do OpenAlex não pode devolver pareceres, porque a chave nova não casa com a antiga (o cache do OpenAlex é refeito uma vez);
+- `found` e `fetched` da fonte contam antes da remoção, e o total da lista conta depois.
+
+Acompanhamentos:
+- Em `core/search.py`, o `try/except TypeError` em volta de `cache_query`/`search` some na 10-04, com o parâmetro passado só a quem o aceita.
+- Em `repeat.py`, `include_peer_review` passa a ser `orig_params.get(...) is True`. Isso também entra na 10-04.
+- Os textos `"true"` e `"yes"` são aceitos como booleano, como `max_results="50"` já é aceito como número.
+- O commit (588 linhas) passou do tamanho de revisão, por causa dos dicionários repetidos em `tests/test_peer_review.py`.
