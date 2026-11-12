@@ -18,6 +18,19 @@ from rslapp.sources.scopus import ScopusSource
 from rslapp.sources.semantic_scholar import SemanticScholarSource
 from rslapp.sources.web_of_science import WebOfScienceSource
 
+ENV_VARS = (
+    "RSL_DATA_DIR",
+    "RSL_EXPORT_DIR",
+    "RSL_CACHE_DAYS",
+    "OPENALEX_API_KEY",
+    "SEMANTIC_SCHOLAR_API_KEY",
+    "NCBI_API_KEY",
+    "SCOPUS_API_KEY",
+    "SCOPUS_INSTTOKEN",
+    "WOS_STARTER_API_KEY",
+    "RSL_CONTACT_EMAIL",
+)
+
 
 @pytest.fixture
 def anyio_backend() -> str:
@@ -26,6 +39,8 @@ def anyio_backend() -> str:
 
 @pytest.fixture(autouse=True)
 def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    for var in ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
     data_dir = tmp_path / "rsl_data"
     monkeypatch.setenv("RSL_DATA_DIR", str(data_dir))
     return data_dir

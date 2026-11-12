@@ -92,11 +92,9 @@ def _select_sources(
     return selected
 
 
-# D-022, D-023: Verifica uma vez se a fonte aceita o parâmetro include_peer_review
+# D-022, D-023: Verifica uma vez se a fonte aceita o parâmetro include_peer_review pela assinatura
 def _accepts_peer_review(source: Source) -> bool:
-    """Indica se a fonte aceita include_peer_review por atributo ou assinatura."""
-    if getattr(source, "supports_peer_review", False):
-        return True
+    """Indica se a fonte aceita include_peer_review pela assinatura do método search."""
     try:
         sig = inspect.signature(source.search)
         return "include_peer_review" in sig.parameters

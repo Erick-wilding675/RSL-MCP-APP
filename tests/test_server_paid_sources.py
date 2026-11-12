@@ -239,6 +239,10 @@ async def test_d023_modo_http_recusa_bases_pagas_e_nao_lista_em_list_sources(
         assert len(names_listed) == 5
 
         # 3. search_works com scopus ou web_of_science responde invalid_input com a mensagem exata da D-023
+        # Usa fonte rastreada para provar que nenhuma fonte é chamada (zero chamadas)
+        tracked_source = TrackingFakeSource("openalex")
+        monkeypatch.setattr(server, "_build_sources", lambda: [tracked_source])
+
         msg_esperada = "invalid_input: scopus e web_of_science só funcionam no RSL.app instalado no seu computador, com a sua chave e o acesso da sua instituição (D-023)"
         with pytest.raises(ToolError) as exc_info:
             await server.search_works(query="teste", sources=["scopus"])
@@ -262,6 +266,21 @@ async def test_d023_modo_http_recusa_bases_pagas_e_nao_lista_em_list_sources(
         with pytest.raises(ToolError) as exc_repeat:
             await server.repeat_search(search_id=saved_s["id"])
         assert str(exc_repeat.value) == msg_esperada
+
+        # 5. repeat_search com params não-dict não levanta AttributeError e usa o caminho de erro de run_repeat
+        search_bad_params = {
+            "kind": "terms",
+            "request_summary": "Busca sem dict em params",
+            "params": "string-nao-dict",
+            "sources": [],
+        }
+        saved_bad, _ = store.record_search(search_bad_params, list_data)
+        with pytest.raises(ToolError) as exc_bad_params:
+            await server.repeat_search(search_id=saved_bad["id"])
+        assert str(exc_bad_params.value) == "invalid_input: busca sem parâmetros gravados"
+
+        # Confere zero chamadas para provar "sem chamar fonte nenhuma"
+        assert len(tracked_source.calls) == 0
 
     finally:
         server._http_mode_var.reset(token_mode)

@@ -352,10 +352,14 @@ async def repeat_search(
     if _is_http_mode():
         clean_id = search_id.strip() if isinstance(search_id, str) else ""
         if clean_id:
+            orig_sources: list[Any] = []
             try:
                 orig = store.get_search(clean_id)
-                orig_params = orig.get("params") or {}
-                orig_sources = orig_params.get("sources") or []
+                orig_params = orig.get("params")
+                if isinstance(orig_params, dict):
+                    raw_sources = orig_params.get("sources")
+                    if isinstance(raw_sources, (list, tuple)):
+                        orig_sources = list(raw_sources)
             except (FileNotFoundError, ValueError, OSError):
                 orig_sources = []
             for s in orig_sources:
