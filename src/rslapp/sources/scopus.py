@@ -65,14 +65,36 @@ def _normalize_orcid(raw: Any) -> str | None:
     return val.upper() if val else None
 
 
-# FR-03, D-023: Remove trecho de direitos autorais a partir de © no fim e normaliza espaços simples
+# FR-03, D-023: Prefixo de direitos autorais logo antes de © como Copyright ou (C)
+_COPYRIGHT_PREFIX_RE = re.compile(r"(?i)(?:\bcopyright\s*(?:\([cс]\))?|\([cс]\))\s*$")
+_RIGHTS_RESERVED_RE = re.compile(
+    r"(?i)\s*(?:all rights reserved|tous droits r[eé]serv[eé]s|todos os direitos reservados)[\.\s]*$"
+)
+_ABBREVIATION_RE = re.compile(r"\b(?:[A-Z]\.)+\s")
+_COMPANY_ABBREV_RE = re.compile(r"\b(?:Inc|Ltd|Corp|Co|Pvt)\.\s", flags=re.IGNORECASE)
+_SENTENCE_END_RE = re.compile(r"\.\s+\S")
+
+
+def _has_sentence_end(text: str) -> bool:
+    t = _RIGHTS_RESERVED_RE.sub("", text)
+    t = _ABBREVIATION_RE.sub(" ", t)
+    t = _COMPANY_ABBREV_RE.sub(" ", t)
+    return bool(_SENTENCE_END_RE.search(t))
+
+
+# FR-03, D-023: Remove trecho de direitos autorais da última frase a partir de © (e Copyright/(C) logo antes)
 def _clean_abstract(raw: Any) -> str | None:
     if not isinstance(raw, str):
         return None
     text = raw
     c_idx = text.rfind("©")
     if c_idx != -1:
-        text = text[:c_idx]
+        after_c = text[c_idx + 1 :]
+        if not _has_sentence_end(after_c):
+            prefix = text[:c_idx]
+            match_prefix = _COPYRIGHT_PREFIX_RE.search(prefix)
+            cut_idx = match_prefix.start() if match_prefix else c_idx
+            text = text[:cut_idx]
     cleaned = " ".join(text.split())
     return cleaned if cleaned else None
 
@@ -482,51 +504,22 @@ class ScopusSource(Source):
                     # Trata 403 e fallback da visão COMPLETE para STANDARD (D-023)
                     if code == 403:
                         if current_view == "COMPLETE":
+                            await self._sleep(REQUEST_INTERVAL)
                             params["view"] = "STANDARD"
-                            data, code_std, err_status_std, err_reason_std = await self._request_page(
+                            data, code, err_status, err_reason = await self._request_page(
                                 client, params, headers
                             )
-                            if code_std == 200:
+                            if code == 200:
                                 current_view = "STANDARD"
                                 active_reason = (
                                     "visão reduzida do Scopus: só o primeiro autor, "
                                     "sem resumo nem palavras-chave"
                                 )
-                            elif code_std == 403:
-                                return SourceResult(
-                                    name=self.name,
-                                    status="failed",
-                                    reason=(
-                                        "o Scopus recusou o acesso: confira se está na rede da instituição "
-                                        "ou configure SCOPUS_INSTTOKEN"
-                                    ),
-                                    query=_format_query_text(query_param, last_count, last_start),
-                                    found=found,
-                                    fetched=len(works),
-                                    works=works,
-                                )
-                            elif err_status_std is not None:
-                                return SourceResult(
-                                    name=self.name,
-                                    status=err_status_std,
-                                    reason=err_reason_std,
-                                    query=_format_query_text(query_param, last_count, last_start),
-                                    found=found,
-                                    fetched=len(works),
-                                    works=works,
-                                )
-                        else:
-                            return SourceResult(
-                                name=self.name,
-                                status="failed",
-                                reason=(
-                                    "o Scopus recusou o acesso: confira se está na rede da instituição "
-                                    "ou configure SCOPUS_INSTTOKEN"
-                                ),
-                                query=_format_query_text(query_param, last_count, last_start),
-                                found=found,
-                                fetched=len(works),
-                                works=works,
+                        if code == 403:
+                            err_status = "failed"
+                            err_reason = (
+                                "o Scopus recusou o acesso: confira se está na rede da instituição "
+                                "ou configure SCOPUS_INSTTOKEN"
                             )
 
                     if err_status is not None:
@@ -565,12 +558,10 @@ class ScopusSource(Source):
                         else []
                     )
 
-                    valid_batch_works = 0
                     for raw_entry in entries:
                         parsed = _parse_work(raw_entry, view=current_view)
                         if parsed is not None:
                             works.append(parsed)
-                            valid_batch_works += 1
                             if len(works) >= effective_max:
                                 break
 

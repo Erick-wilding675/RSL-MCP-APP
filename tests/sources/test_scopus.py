@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from rslapp.sources.base import Source
-from rslapp.sources.scopus import ScopusSource
+from rslapp.sources.scopus import REQUEST_INTERVAL, ScopusSource, _clean_abstract
 
 
 @pytest.fixture
@@ -661,3 +661,91 @@ async def test_d023_resultado_vazio_scopus_com_error_na_entry(
     assert res.found == 0
     assert res.fetched == 0
     assert res.works == []
+
+
+# FR-03, D-023: Limpeza de direitos autorais no resumo e preservação de © no meio do texto
+def test_d023_fr03_clean_abstract_com_copyright_e_simbolo_no_meio() -> None:
+    assert (
+        _clean_abstract("Results here. Copyright © 2020 Wiley")
+        == "Results here."
+    )
+    assert (
+        _clean_abstract("O © aparece no meio. Fim.")
+        == "O © aparece no meio. Fim."
+    )
+    assert (
+        _clean_abstract("Results here. (C) © 2020 Wiley")
+        == "Results here."
+    )
+    assert (
+        _clean_abstract("Results here. Copyright (C) © 2020 Wiley")
+        == "Results here."
+    )
+    assert (
+        _clean_abstract(
+            "A comprehensive overview of NLP and deep learning in reviews. "
+            "© 2024 Elsevier B.V. All rights reserved."
+        )
+        == "A comprehensive overview of NLP and deep learning in reviews."
+    )
+
+
+# D-023: Fallback da visão COMPLETE para STANDARD aguarda REQUEST_INTERVAL antes do pedido
+@pytest.mark.anyio
+async def test_d023_fallback_visao_reduzida_aguarda_intervalo_antes_de_standard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOPUS_API_KEY", "chave-falsa-scopus")
+
+    # Sucesso no fallback: aguarda REQUEST_INTERVAL antes da requisição STANDARD
+    recorded_sleeps: list[float] = []
+
+    async def record_sleep(seconds: float) -> None:
+        recorded_sleeps.append(seconds)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        view = request.url.params.get("view")
+        if view == "COMPLETE":
+            return httpx.Response(403, json={"error": "Not Entitled"})
+        return httpx.Response(
+            200,
+            json={
+                "search-results": {
+                    "opensearch:totalResults": "1",
+                    "entry": [
+                        {
+                            "eid": "2-s2.0-85012345678",
+                            "dc:title": "Paper after fallback",
+                            "dc:creator": "Silva, João P.",
+                        }
+                    ],
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = ScopusSource(client=client, sleep=record_sleep)
+        res = await source.search("genomics", max_results=10)
+
+    assert res.status == "ok"
+    assert res.reason == (
+        "visão reduzida do Scopus: só o primeiro autor, sem resumo nem palavras-chave"
+    )
+    assert recorded_sleeps == [REQUEST_INTERVAL]
+
+    # Recusa dupla no fallback: também aguarda REQUEST_INTERVAL antes de tentar STANDARD
+    recorded_sleeps_denied: list[float] = []
+
+    async def record_sleep_denied(seconds: float) -> None:
+        recorded_sleeps_denied.append(seconds)
+
+    def handler_denied(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"error": "Forbidden"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_denied)) as client:
+        source = ScopusSource(client=client, sleep=record_sleep_denied)
+        res_denied = await source.search("genomics", max_results=10)
+
+    assert res_denied.status == "failed"
+    assert recorded_sleeps_denied == [REQUEST_INTERVAL]
+
