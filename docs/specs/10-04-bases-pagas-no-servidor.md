@@ -86,3 +86,28 @@ Para rodar a suíte completa de testes da integração das bases pagas no servid
 uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest tests/test_server_paid_sources.py -v
 ```
 Deve exibir os 8 testes passando com sucesso.
+
+**Revisão do Claude (2026-11-12, run `b20261111-211913` do Playmaker):** duas rodadas (Gemini 3.8 Flash). A segunda rodada correu com o id `10-04-bases-pagas-servidor`, porque o nome do worker passava do limite de 31 caracteres do Playmaker.
+
+A primeira rodada voltou pelo parecer do agente revisor:
+- um teste de `list_sources` falhava com as chaves pagas definidas no ambiente, exatamente o caso do Erick;
+- o teste HTTP não provava "sem chamar fonte nenhuma";
+- havia um ramo morto (`supports_peer_review`);
+- `repeat_search` levantava `AttributeError` com `params` corrompido;
+- o relatório tinha contagens erradas.
+
+Na segunda rodada, os testes do servidor passaram com chaves falsas definidas (31 testes, conferido pelo Claude Code), e a tarefa foi integrada com os gates refeitos pelo `board integrate`.
+
+Conferido pelo revisor pelo app HTTP real (uvicorn com token), com as chaves definidas:
+- `list_sources` mostra só as cinco fontes abertas;
+- `search_works` e `repeat_search` com `scopus` ou `web_of_science` dão a mensagem da D-023 sem chamar fonte, e `_build_sources` não cria os conectores no modo HTTP;
+- o modo HTTP não pode ser ligado nem desligado pelo cliente.
+
+Também conferido:
+- a limpeza da 10-01: sem `try/except TypeError`, e `include_peer_review` só vai ao OpenAlex, pela assinatura;
+- `rebuild_log` gera o mesmo texto, byte a byte, para registros sem bases pagas.
+
+Acompanhamentos:
+- as descrições de `list_sources`, `search_works` e do prompt citam Scopus e Web of Science também no modo hospedado;
+- um `TypeError` vindo de `cache_query` ainda derruba a busca inteira;
+- a entrega tem cerca de 960 linhas em 20 arquivos, acima do tamanho de revisão.

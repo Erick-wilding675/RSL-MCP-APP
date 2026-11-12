@@ -32,6 +32,8 @@ O projeto não mantém servidor central: quem hospeda administra a própria inst
    - um e-mail de contato (`RSL_CONTACT_EMAIL`), enviado à Crossref, ao NCBI e ao Europe PMC para identificar o servidor.
 
    As chaves ficam somente no servidor e atendem a todas as pessoas cadastradas (**D-013**, **D-020**).
+
+   **O Scopus e o Web of Science não entram no servidor hospedado** (**D-023**). Os termos das duas bases proíbem servir os dados a quem é de fora da instituição, e o Scopus confere a assinatura pelo IP de quem chama, que aqui seria o do servidor. No modo hospedado, `list_sources` não as mostra, e uma busca que as peça recebe `invalid_input` com a explicação. Quem tem acesso usa as duas no RSL.app instalado no próprio computador (veja o README).
 6. **Uma máquina pequena basta:** 1 vCPU e 1 GB de memória, com 1 GB de swap. Na **Azure for Students**, a assinatura só permite criar recursos em algumas regiões; confira quais com `az policy assignment list` no Cloud Shell, e quais tamanhos estão liberados com `az vm list-skus -l <região> --size Standard_B`. No teste do projeto, só a North Central US tinha a série B liberada (**D-019**).
 
 ---

@@ -45,8 +45,9 @@ search_works(
 |---|---|---|---|
 | `query` | Os termos técnicos da busca | sim | - |
 | `request_summary` | O pedido do pesquisador, em linguagem natural, resumido (vai para o log) | não | vazio |
-| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar`, `pubmed`, `europe_pmc` | não | `openalex`, `crossref` e `semantic_scholar`; `pubmed` e `europe_pmc` só quando pedidas (D-020, desde a 1.2) |
+| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar`, `pubmed`, `europe_pmc`, `scopus`, `web_of_science` | não | `openalex`, `crossref` e `semantic_scholar`; as outras só quando pedidas (D-020, desde a 1.2). `scopus` e `web_of_science` só funcionam no RSL.app instalado no computador, com as chaves e o acesso de quem usa; no modo hospedado dão `invalid_input` (D-023, desde a 1.3) |
 | `max_results` | O máximo de artigos a trazer por fonte | não | definido no spec |
+| `include_peer_review` | Incluir os pareceres de revisão por pares (tipo `peer-review`, como os do Publons). Só `true` ou `false`: um número dá `invalid_input` | não | `false`: os pareceres ficam de fora (D-022, desde a 1.3) |
 
 **Volta:**
 
@@ -72,6 +73,8 @@ search_works(
 
 A resposta à IA é um resumo (deduzido, para não encher o contexto da IA). O registro completo, com afiliações, identificadores e referências, fica salvo na lista e vai nas exportações. `get_list` aceita `detail="full"` para vê-lo.
 
+Desde a 1.3, quando `include_peer_review` é falso, a entrada de uma fonte em `sources` pode trazer `excluded_peer_review` com quantos pareceres saíram. `found` e `fetched` contam antes da remoção, e o `total` da lista conta depois.
+
 **Quando falha:** uma fonte que falha não é erro. A busca segue, `status` vira `incomplete` e a fonte aparece em `sources` com o motivo (FR-08). Só é erro quando nada pode ser feito.
 
 ## `get_related_works`
@@ -85,7 +88,7 @@ get_related_works(doi="10.1234/exemplo", direction="citations", max_results=200)
 | `doi` ou `work_id` | O artigo de origem. Um dos dois | sim | - |
 | `direction` | `references` (o que ele cita) ou `citations` (quem o cita) | sim | - |
 | `request_summary` | O pedido, resumido | não | vazio |
-| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar` (`pubmed` e `europe_pmc` dão `invalid_input`, D-020) | não | todas as configuradas |
+| `sources` | As fontes a consultar: `openalex`, `crossref`, `semantic_scholar` (`pubmed`, `europe_pmc`, `scopus` e `web_of_science` dão `invalid_input`, D-020 e D-023) | não | todas as configuradas |
 | `max_results` | O máximo de trabalhos a trazer por fonte; a lista juntada pode passar disso (Erick, 2026-11-05) | não | 1.000 (D-010) |
 
 **Volta:** o mesmo formato de `search_works`. O log guarda o artigo de origem e a direção.
@@ -121,12 +124,12 @@ O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos n
 
 | Chamada | Entrada | Volta |
 |---|---|---|
-| `find_work` | `title` ou `doi` (um é obrigatório); `request_summary`, `sources` opcionais (sem `pubmed` e `europe_pmc`) | Como `search_works` |
-| `repeat_search` | `search_id` (obrigatório) | Como `search_works`, mais `repeated_from`. Uma junção (`merge_lists`) não pode ser repetida |
+| `find_work` | `title` ou `doi` (um é obrigatório); `request_summary`, `sources` opcionais (sem `pubmed`, `europe_pmc`, `scopus` e `web_of_science`) | Como `search_works` |
+| `repeat_search` | `search_id` (obrigatório) | Como `search_works`, mais `repeated_from`. Repete com as mesmas fontes e o mesmo `include_peer_review` (uma busca anterior à 1.3 repete com `false`). Uma junção (`merge_lists`) não pode ser repetida |
 | `merge_lists` | `list_ids` (2 a 20, obrigatório); `request_summary` opcional | Como `search_works`, sem `sources`, mais `merged_from`, `duplicates_removed` e, quando incompleta, `incomplete_from` |
 | `get_list` | `list_id` (obrigatório); `page`, `page_size` e `detail` (`summary` ou `full`, padrão `summary`) | `works`, `page`, `next_page`, `total`, `status` |
 | `get_search_log` | `search_id` e `limit`, ambos opcionais | `entries` e `log_file` (o caminho do arquivo legível) |
-| `list_sources` | Nada | Por fonte: `name`, `configured`, `needs_key`, `status`. Desde a 1.2, também `pubmed` e `europe_pmc` |
+| `list_sources` | Nada | Por fonte: `name`, `configured`, `needs_key`, `status`. Desde a 1.2, também `pubmed` e `europe_pmc`. Desde a 1.3, também `scopus` e `web_of_science` (`needs_key: true`), só no RSL.app instalado no computador; o modo hospedado não as lista (D-023) |
 | `plan_search` | `request` (obrigatório) | Orientação em texto: separar o que é melhor buscado à parte, montar a string de cada fonte, chamar `search_works` uma vez por assunto e entregar cada lista separada |
 
 ## Erros e estados

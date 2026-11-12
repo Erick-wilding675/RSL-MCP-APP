@@ -10,6 +10,8 @@ O RSL.app roda **na sua máquina** (self-hosted), com as **suas** chaves gratuit
 ## O que ele faz
 
 - **Busca por tema, palavra-chave, subtema ou título** nas três bases abertas, ao mesmo tempo. Em temas de saúde, medicina e biologia, a IA pode pedir também o **PubMed** e o **Europe PMC** (desde a 1.2).
+- **Usa o Scopus e o Web of Science com as suas chaves** (desde a 1.3), se você ou a sua instituição tiverem acesso. Veja "Bases pagas", abaixo.
+- **Deixa de fora os pareceres de revisão** (desde a 1.3): pareceres, cartas de decisão e respostas de autores que algumas bases trazem como se fossem artigos. Quem estuda a revisão por pares pode pedir para incluí-los.
 - **Tira as duplicatas.** O mesmo artigo vindo de mais de uma base aparece uma vez só, com os ids de cada base.
 - **Avisa quando a lista está incompleta.** Se uma base falha ou um limite corta a busca, a lista sai marcada como incompleta, com o motivo. Nenhuma lista incompleta passa por completa.
 - **Acha um artigo específico** pelo título ou pelo DOI.
@@ -30,6 +32,27 @@ Ele **não** baixa texto completo de artigos e não abre o VOSviewer sozinho. Ca
 4. **Opcional: uma chave gratuita da [Semantic Scholar](https://www.semanticscholar.org/product/api#api-key-form).** Sem ela a Semantic Scholar funciona, mas recusa pedidos com mais frequência.
 
 A Crossref e o Europe PMC não precisam de chave. O PubMed funciona sem chave; com uma chave gratuita do NCBI (`NCBI_API_KEY`), aceita mais pedidos por segundo.
+
+## Bases pagas: Scopus e Web of Science
+
+**O RSL.app não dá acesso a bases pagas.** O Scopus e o Web of Science só funcionam com as chaves e a assinatura do próprio pesquisador ou da instituição dele. O RSL.app usa a sua conta, do mesmo jeito que usa a sua chave do OpenAlex. Elas só funcionam no RSL.app instalado no seu computador: o servidor hospedado não as oferece, porque os termos das duas bases proíbem servir os dados a quem é de fora da instituição.
+
+**Scopus (Elsevier):**
+1. Crie uma chave gratuita em [dev.elsevier.com](https://dev.elsevier.com/), em "My API Key", com o e-mail da instituição. Ponha em `SCOPUS_API_KEY`.
+2. A chave sozinha não traz dados. A Elsevier confere a assinatura pelo IP: rode as buscas **na rede da instituição** ou na VPN dela. O login pela CAFe, no Portal de Periódicos da CAPES, vale para o site do Scopus, mas a API não o usa.
+3. Fora da rede, só com um token institucional, que a biblioteca pede à Elsevier. Ponha em `SCOPUS_INSTTOKEN`.
+4. Sem acesso completo, o RSL.app tenta a visão reduzida (só o primeiro autor, sem resumo) e avisa. Sem acesso nenhum, diz para conferir a rede ou o token.
+
+**Web of Science (Clarivate):**
+1. Peça uma chave da Starter API em [developer.clarivate.com](https://developer.clarivate.com/apis/wos-starter) e ponha em `WOS_STARTER_API_KEY`. O plano de teste é aberto a qualquer um, mas dá só **50 pedidos por dia** e não traz o número de citações. O plano de membro, para quem é de instituição assinante, dá 5.000 por dia, com citações.
+2. A Starter API não traz resumo, afiliações nem referências. Para mapas de coautoria por instituição ou de cocitação, use as bases abertas ou o Scopus.
+
+**O que os termos pedem de você:**
+- use os dados na sua própria pesquisa e cite a base como fonte (o log do RSL.app já faz o crédito);
+- não repasse as listas a quem é de fora da sua instituição;
+- pelos termos gerais da Clarivate, o conteúdo baixado do Web of Science só pode ser guardado por 3 meses, a não ser que a instituição tenha licença de arquivo.
+
+O contrato da sua instituição vale mais do que este resumo.
 
 ## Instalação no Claude Desktop
 
@@ -117,6 +140,9 @@ Tudo por variáveis de ambiente, no bloco `env` da configuração do cliente. Ne
 | `OPENALEX_API_KEY` | Chave do OpenAlex (obrigatória para o OpenAlex) | - |
 | `SEMANTIC_SCHOLAR_API_KEY` | Chave da Semantic Scholar (opcional) | - |
 | `NCBI_API_KEY` | Chave do NCBI para o PubMed (opcional) | - |
+| `SCOPUS_API_KEY` | Sua chave do Scopus (só com acesso da instituição) | - |
+| `SCOPUS_INSTTOKEN` | Token institucional do Scopus, para buscar fora da rede da instituição (opcional) | - |
+| `WOS_STARTER_API_KEY` | Sua chave da Web of Science Starter API | - |
 | `RSL_CONTACT_EMAIL` | Seu e-mail, enviado à Crossref, ao NCBI e ao Europe PMC, que atendem melhor quem se identifica (opcional) | - |
 | `RSL_DATA_DIR` | Onde guardar listas, log e cache | `~/RSL.app` |
 | `RSL_EXPORT_DIR` | Onde gravar as exportações | `<RSL_DATA_DIR>/exports` |
@@ -126,7 +152,7 @@ Tudo por variáveis de ambiente, no bloco `env` da configuração do cliente. Ne
 
 | Ferramenta | O que faz |
 |---|---|
-| `search_works` | Busca por termos nas três bases (e no PubMed e no Europe PMC, quando pedidos) e cria uma lista |
+| `search_works` | Busca por termos nas três bases (e no PubMed, no Europe PMC, no Scopus e no Web of Science, quando pedidos) e cria uma lista, sem os pareceres de revisão (a não ser que se peça `include_peer_review`) |
 | `find_work` | Acha um artigo específico por título ou DOI |
 | `get_related_works` | Traz as referências ou as citações de um artigo, até um teto por base (padrão 1.000) |
 | `repeat_search` | Repete uma busca do log |
