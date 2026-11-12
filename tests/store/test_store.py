@@ -423,3 +423,80 @@ def test_fr13_fr15_log_md_total_nao_informado_quando_found_none_e_encontrados_0_
     assert (
         "- openalex · ok · encontrados 0, trazidos 0 · cache: não · string: `filter=cites:W1`\n"
     ) in log_text
+
+
+# D-023, FR-13: o log.md tem a linha de crédito quando a busca trouxe dados do Scopus ou do Web of Science, e não tem quando não trouxe
+def test_d023_log_md_linha_de_credito_scopus_e_wos(tmp_path: Path) -> None:
+    # 1. Busca traz dados do Scopus -> termina com "Dados do Scopus (Elsevier)"
+    store1 = Store(tmp_path / "data1")
+    s_scopus = _search(
+        sources=[
+            _src("scopus", found=50, fetched=20, status="ok"),
+        ]
+    )
+    store1.record_search(s_scopus, _list(total=20))
+    log1 = store1.read_log()
+    assert log1.strip().endswith("Dados do Scopus (Elsevier)")
+    assert "Clarivate Analytics" not in log1
+
+    # 2. Busca traz dados do Web of Science -> termina com "Source: Clarivate Analytics (Web of Science)"
+    store2 = Store(tmp_path / "data2")
+    s_wos = _search(
+        sources=[
+            _src("web_of_science", found=30, fetched=15, status="ok"),
+        ]
+    )
+    store2.record_search(s_wos, _list(total=15))
+    log2 = store2.read_log()
+    assert log2.strip().endswith("Source: Clarivate Analytics (Web of Science)")
+    assert "Dados do Scopus" not in log2
+
+    # 3. Busca traz dados de ambas as bases pagas -> termina com ambas as linhas de crédito
+    store3 = Store(tmp_path / "data3")
+    s_both = _search(
+        sources=[
+            _src("scopus", found=50, fetched=20, status="ok"),
+            _src("web_of_science", found=30, fetched=15, status="ok"),
+        ]
+    )
+    store3.record_search(s_both, _list(total=35))
+    log3 = store3.read_log()
+    assert "Dados do Scopus (Elsevier)\nSource: Clarivate Analytics (Web of Science)" in log3
+    assert log3.strip().endswith("Source: Clarivate Analytics (Web of Science)")
+
+    # 4. Busca não traz dados de bases pagas (só fontes abertas) -> sem linha de crédito
+    store4 = Store(tmp_path / "data4")
+    s_open = _search(
+        sources=[
+            _src("openalex", found=100, fetched=25, status="ok"),
+            _src("crossref", found=50, fetched=10, status="ok"),
+        ]
+    )
+    store4.record_search(s_open, _list(total=35))
+    log4 = store4.read_log()
+    assert "Dados do Scopus" not in log4
+    assert "Clarivate Analytics" not in log4
+
+    # 5. Scopus consultado mas com zero resultados (fetched=0) -> sem linha de crédito
+    store5 = Store(tmp_path / "data5")
+    s_zero = _search(
+        sources=[
+            _src("scopus", found=0, fetched=0, status="ok"),
+        ]
+    )
+    store5.record_search(s_zero, _list(total=0, works=[]))
+    log5 = store5.read_log()
+    assert "Dados do Scopus" not in log5
+    assert "Clarivate Analytics" not in log5
+
+    # 6. Scopus com falha ou missing_key (fetched=None) -> sem linha de crédito
+    store6 = Store(tmp_path / "data6")
+    s_fail = _search(
+        sources=[
+            _src("scopus", found=None, fetched=None, status="missing_key"),
+        ]
+    )
+    store6.record_search(s_fail, _list(total=0, works=[]))
+    log6 = store6.read_log()
+    assert "Dados do Scopus" not in log6
+    assert "Clarivate Analytics" not in log6

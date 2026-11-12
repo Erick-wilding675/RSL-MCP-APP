@@ -529,3 +529,50 @@ def test_d020_dedup_openalex_e_pubmed_mesmo_doi_mescla_com_precedencia() -> None
     assert res_epmc_pm.works[0].source_ids == {"pubmed": "38123456", "europe_pmc": "PMC123"}
     assert res_epmc_pm.works[0].citations["europe_pmc"] == 8
 
+
+# D-023: um artigo do OpenAlex e do Scopus com o mesmo DOI vira um só, com os source_ids e as citations das duas fontes
+def test_d023_dedup_openalex_e_scopus_mesmo_doi_mescla_com_precedencia() -> None:
+    w_oa = _make_work(
+        "openalex",
+        title="Título do OpenAlex",
+        doi="10.1234/quantum.2024",
+        venue="OpenAlex Journal",
+        source_id="W98765",
+        citations_count=25,
+    )
+    w_scopus = _make_work(
+        "scopus",
+        title="Título do Scopus",
+        doi="10.1234/quantum.2024",
+        venue="Scopus Journal",
+        source_id="2-s2.0-85000000001",
+        citations_count=30,
+    )
+
+    for perm in itertools.permutations([w_oa, w_scopus]):
+        res = deduplicate_works_with_merge(list(perm))
+        assert len(res.works) == 1
+        merged = res.works[0]
+        # Precedência: openalex > scopus
+        assert merged.title == "Título do OpenAlex"
+        assert merged.venue == "OpenAlex Journal"
+        assert merged.source_ids == {"openalex": "W98765", "scopus": "2-s2.0-85000000001"}
+        assert merged.citations == {"openalex": 25, "scopus": 30}
+
+    # Precedência entre Scopus e Web of Science (scopus > web_of_science)
+    w_wos = _make_work(
+        "web_of_science",
+        title="Título Web of Science",
+        doi="10.1234/quantum.2024",
+        source_id="WOS:000999999900001",
+        citations_count=22,
+    )
+    res_scopus_wos = deduplicate_works_with_merge([w_wos, w_scopus])
+    assert len(res_scopus_wos.works) == 1
+    assert res_scopus_wos.works[0].title == "Título do Scopus"
+    assert res_scopus_wos.works[0].source_ids == {
+        "scopus": "2-s2.0-85000000001",
+        "web_of_science": "WOS:000999999900001",
+    }
+    assert res_scopus_wos.works[0].citations == {"scopus": 30, "web_of_science": 22}
+

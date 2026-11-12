@@ -91,7 +91,29 @@ def _format_source_line(src: Any) -> str:
     return "- " + " · ".join(parts)
 
 
-# FR-04, FR-05, FR-13, NFR-03, NFR-06, D-007, D-022: Geração determinística de uma entrada de log.md em português
+# D-023: Verifica se a busca trouxe dados de uma base paga para emissão da linha de crédito
+def _has_paid_source_data(
+    search_data: dict[str, Any],
+    list_data: dict[str, Any] | None,
+    source_name: str,
+) -> bool:
+    sources = search_data.get("sources")
+    if isinstance(sources, list):
+        for src in sources:
+            if isinstance(src, dict) and src.get("name") == source_name:
+                fetched = src.get("fetched")
+                if isinstance(fetched, int) and fetched > 0:
+                    return True
+    if list_data and isinstance(list_data.get("works"), list):
+        for w in list_data["works"]:
+            if isinstance(w, dict):
+                sids = w.get("source_ids")
+                if isinstance(sids, dict) and sids.get(source_name):
+                    return True
+    return False
+
+
+# FR-04, FR-05, FR-13, NFR-03, NFR-06, D-007, D-022, D-023: Geração determinística de uma entrada de log.md em português
 def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | None = None) -> str:
     kind, origin = search_data.get("kind"), search_data.get("origin")
     if origin is not None and (
@@ -176,4 +198,9 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
     if search_data.get("merge") is not None:
         lines.append(_format_merge_line(search_data["merge"]))
     lines.extend(_format_source_line(src) for src in sources)
+    # D-023: Linha de crédito obrigatória quando a busca trouxe dados de bases pagas
+    if _has_paid_source_data(search_data, list_data, "scopus"):
+        lines.append("Dados do Scopus (Elsevier)")
+    if _has_paid_source_data(search_data, list_data, "web_of_science"):
+        lines.append("Source: Clarivate Analytics (Web of Science)")
     return "\n".join(lines)

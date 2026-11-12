@@ -10,7 +10,7 @@ from typing import Any
 from rslapp.core.models import Affiliation, Author, Work
 from rslapp.exporters.base import Exporter
 
-# FR-06, D-020: Colunas do CSV compatível com Scopus com PubMed e Europe PMC no fim
+# FR-06, D-020, D-023: Colunas do CSV compatível com Scopus com Scopus e Web of Science no fim
 CSV_COLUMNS: tuple[str, ...] = (
     "Authors",
     "Author full names",
@@ -34,6 +34,10 @@ CSV_COLUMNS: tuple[str, ...] = (
     "PubMed ID",
     "Europe PMC ID",
     "Citations Europe PMC",
+    "Scopus EID",
+    "Web of Science UID",
+    "Citations Scopus",
+    "Citations Web of Science",
 )
 
 
@@ -256,18 +260,24 @@ class CSVExporter(Exporter):
             semantic_scholar_id_str = ""
             pubmed_id_str = ""
             europe_pmc_id_str = ""
+            scopus_eid_str = ""
+            wos_uid_str = ""
             if isinstance(source_ids, dict):
                 openalex_id_str = str(source_ids.get("openalex") or "")
                 crossref_doi_str = str(source_ids.get("crossref") or "")
                 semantic_scholar_id_str = str(source_ids.get("semantic_scholar") or "")
                 pubmed_id_str = str(source_ids.get("pubmed") or "")
                 europe_pmc_id_str = str(source_ids.get("europe_pmc") or "")
+                scopus_eid_str = str(source_ids.get("scopus") or "")
+                wos_uid_str = str(source_ids.get("web_of_science") or "")
 
             # Citações por fonte
             cit_openalex_str = ""
             cit_crossref_str = ""
             cit_s2_str = ""
             cit_europe_pmc_str = ""
+            cit_scopus_str = ""
+            cit_wos_str = ""
             if isinstance(raw_citations, dict):
                 oa_cit = raw_citations.get("openalex")
                 if isinstance(oa_cit, int) and not isinstance(oa_cit, bool) and oa_cit >= 0:
@@ -281,6 +291,12 @@ class CSVExporter(Exporter):
                 epmc_cit = raw_citations.get("europe_pmc")
                 if isinstance(epmc_cit, int) and not isinstance(epmc_cit, bool) and epmc_cit >= 0:
                     cit_europe_pmc_str = str(epmc_cit)
+                scopus_cit = raw_citations.get("scopus")
+                if isinstance(scopus_cit, int) and not isinstance(scopus_cit, bool) and scopus_cit >= 0:
+                    cit_scopus_str = str(scopus_cit)
+                wos_cit = raw_citations.get("web_of_science")
+                if isinstance(wos_cit, int) and not isinstance(wos_cit, bool) and wos_cit >= 0:
+                    cit_wos_str = str(wos_cit)
 
             row = [
                 authors_str,
@@ -305,6 +321,10 @@ class CSVExporter(Exporter):
                 pubmed_id_str,
                 europe_pmc_id_str,
                 cit_europe_pmc_str,
+                scopus_eid_str,
+                wos_uid_str,
+                cit_scopus_str,
+                cit_wos_str,
             ]
             writer.writerow(row)
 

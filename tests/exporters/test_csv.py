@@ -88,6 +88,10 @@ def test_fr06_fr12_d002_csv_cabecalho_scopus_e_bom() -> None:
         "PubMed ID",
         "Europe PMC ID",
         "Citations Europe PMC",
+        "Scopus EID",
+        "Web of Science UID",
+        "Citations Scopus",
+        "Citations Web of Science",
     ]
 
     data = rows[1]
@@ -403,8 +407,8 @@ def test_d020_csv_tres_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None:
 
     # Verifica que as colunas no CSV_COLUMNS mantêm as 19 originais idênticas e acrescentam 3 no fim
     assert CSV_COLUMNS[:19] == original_19_columns
-    assert CSV_COLUMNS[19:] == new_3_columns
-    assert len(CSV_COLUMNS) == 22
+    assert CSV_COLUMNS[19:22] == new_3_columns
+    assert len(CSV_COLUMNS) == 26
 
     # Renderiza artigo com metadados de PubMed e Europe PMC
     work = Work(
@@ -436,8 +440,88 @@ def test_d020_csv_tres_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None:
     assert data[14] == ""   # Crossref DOI
     assert data[15] == ""   # Semantic Scholar ID
 
-    # Três colunas novas no fim (índices 19, 20, 21)
+    # Três colunas do PubMed e Europe PMC (índices 19, 20, 21)
     assert data[19] == "38999999"      # PubMed ID
     assert data[20] == "MED:38999999"  # Europe PMC ID
     assert data[21] == "42"            # Citations Europe PMC
+
+
+# D-023, FR-06: O CSV tem as quatro colunas novas no fim, e as 22 anteriores continuam iguais
+def test_d023_csv_quatro_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None:
+    previous_22_columns = (
+        "Authors",
+        "Author full names",
+        "Title",
+        "Year",
+        "Source title",
+        "DOI",
+        "Abstract",
+        "Author Keywords",
+        "References",
+        "Cited by",
+        "Affiliations",
+        "Document Type",
+        "Source",
+        "OpenAlex ID",
+        "Crossref DOI",
+        "Semantic Scholar ID",
+        "Citations OpenAlex",
+        "Citations Crossref",
+        "Citations Semantic Scholar",
+        "PubMed ID",
+        "Europe PMC ID",
+        "Citations Europe PMC",
+    )
+    paid_4_columns = (
+        "Scopus EID",
+        "Web of Science UID",
+        "Citations Scopus",
+        "Citations Web of Science",
+    )
+
+    # Verifica que as colunas anteriores permanecem idênticas e as 4 novas estão no fim
+    assert CSV_COLUMNS[:22] == previous_22_columns
+    assert CSV_COLUMNS[22:] == paid_4_columns
+    assert len(CSV_COLUMNS) == 26
+
+    # Renderiza artigo com metadados de Scopus e Web of Science
+    work = Work(
+        title="Quantum Error Correction",
+        doi="10.1000/qec.2024",
+        year=2024,
+        venue="Quantum Science Review",
+        authors=[Author(name="Shor, Peter")],
+        source_ids={
+            "scopus": "2-s2.0-85000000000",
+            "web_of_science": "WOS:000123456700001",
+        },
+        citations={
+            "scopus": 35,
+            "web_of_science": 28,
+        },
+    )
+
+    exporter = CSVExporter()
+    content = exporter.render({"works": [work]})
+    reader = csv.reader(io.StringIO(content.lstrip("\ufeff")), delimiter=",")
+    rows = list(reader)
+
+    header = rows[0]
+    assert tuple(header) == CSV_COLUMNS
+
+    data = rows[1]
+    # Colunas anteriores preservam integridade
+    assert data[0] == "Shor, Peter"
+    assert data[2] == "Quantum Error Correction"
+    assert data[3] == "2024"
+    assert data[5] == "10.1000/qec.2024"
+    assert data[9] == "35"  # Cited by (máximo entre as fontes)
+    assert data[13] == ""   # OpenAlex ID
+    assert data[19] == ""   # PubMed ID
+
+    # Quatro colunas novas no fim (índices 22, 23, 24, 25)
+    assert data[22] == "2-s2.0-85000000000"      # Scopus EID
+    assert data[23] == "WOS:000123456700001"     # Web of Science UID
+    assert data[24] == "35"                      # Citations Scopus
+    assert data[25] == "28"                      # Citations Web of Science
 

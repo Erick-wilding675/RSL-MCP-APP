@@ -378,3 +378,67 @@ async def test_d023_search_works_descricao_orienta_bases_pagas() -> None:
         assert "bases pagas" in desc
         assert "list_sources mostra" in desc
         assert "Web of Science não traz resumo nem afiliações" in desc
+
+
+# D-023: o log.md tem a linha de crédito quando a busca trouxe dados do Scopus ou do Web of Science, e não tem quando não trouxe
+@pytest.mark.anyio
+async def test_d023_search_works_grava_linha_de_credito_no_log_md(
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_env: Path,
+) -> None:
+    src_scopus = TrackingFakeSource(
+        "scopus",
+        works=[Work(title="Artigo Scopus", doi="10.1234/scopus1", source_ids={"scopus": "EID1"}, citations={"scopus": 5})],
+    )
+    src_wos = TrackingFakeSource(
+        "web_of_science",
+        works=[Work(title="Artigo WoS", doi="10.1234/wos1", source_ids={"web_of_science": "UID1"}, citations={"web_of_science": 3})],
+    )
+    src_oa = TrackingFakeSource(
+        "openalex",
+        works=[Work(title="Artigo OpenAlex", doi="10.1234/oa1", source_ids={"openalex": "W1"}, citations={"openalex": 10})],
+    )
+    monkeypatch.setattr(server, "_build_sources", lambda: [src_oa, src_scopus, src_wos])
+
+    store = Store(isolated_env)
+
+    async with Client(server.mcp) as client:
+        # 1. Busca traz dados do Scopus -> log.md termina com crédito do Scopus
+        res1 = await client.call_tool(
+            "search_works",
+            {"query": "quantum scopus", "sources": ["scopus"]},
+        )
+        assert res1.is_error is False
+        log1 = store.read_log()
+        assert log1.strip().endswith("Dados do Scopus (Elsevier)")
+        assert "Clarivate Analytics" not in log1
+
+        # 2. Busca traz dados do Web of Science -> log.md termina com crédito do WoS
+        res2 = await client.call_tool(
+            "search_works",
+            {"query": "quantum wos", "sources": ["web_of_science"]},
+        )
+        assert res2.is_error is False
+        log2 = store.read_log()
+        assert log2.strip().endswith("Source: Clarivate Analytics (Web of Science)")
+
+        # 3. Busca traz dados de ambos -> log.md termina com ambos os créditos
+        res3 = await client.call_tool(
+            "search_works",
+            {"query": "quantum both", "sources": ["scopus", "web_of_science"]},
+        )
+        assert res3.is_error is False
+        log3 = store.read_log()
+        assert log3.strip().endswith("Source: Clarivate Analytics (Web of Science)")
+        assert "Dados do Scopus (Elsevier)\nSource: Clarivate Analytics (Web of Science)" in log3
+
+        # 4. Busca traz dados apenas do OpenAlex -> log.md não tem linhas de crédito de bases pagas
+        res4 = await client.call_tool(
+            "search_works",
+            {"query": "quantum openalex", "sources": ["openalex"]},
+        )
+        assert res4.is_error is False
+        log4 = store.read_log()
+        ultima_entrada = log4.split("## s-")[-1]
+        assert "Dados do Scopus" not in ultima_entrada
+        assert "Clarivate Analytics" not in ultima_entrada
