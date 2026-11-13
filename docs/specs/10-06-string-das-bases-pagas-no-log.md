@@ -1,6 +1,6 @@
 # String das bases pagas no log
 
-**Fase:** 10 · Bases pagas e filtros (1.3) · **Situação:** a fazer
+**Fase:** 10 · Bases pagas e filtros (1.3) · **Situação:** para testar
 
 ## O que faz
 
@@ -41,3 +41,24 @@ FR-05, FR-13, D-023. São os ids que o código leva como âncoras.
 Ler `_format_query_text` e `search` em `src/rslapp/sources/scopus.py` e em `src/rslapp/sources/web_of_science.py`, e o `_format_query_text` de `src/rslapp/sources/openalex.py`, que é o modelo. Os testes estão em `tests/sources/test_scopus.py` e `tests/sources/test_web_of_science.py`.
 
 Cerca de 80 linhas, testes incluídos. Um commit, com FR-13 no comentário e no nome dos testes.
+
+## Resultado da entrega
+
+- **Scopus:** o texto passou a `query=<string> · view=<visão que trouxe os resultados> · count=<tamanho da página> · páginas 1-<última página pedida>`. Isso vale no sucesso, na falha no meio da paginação, sem chave e na queda de COMPLETE para STANDARD.
+- **Web of Science:** o texto passou a `q=<string> · limit=<tamanho da página> · páginas 1-<última página pedida>`.
+- Os testes `test_fr13_*` em `tests/sources/test_scopus.py` e `tests/sources/test_web_of_science.py` cobrem os casos da spec e um registro ilegível na primeira página.
+
+## Como testar
+
+1. `uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -v tests/sources/test_scopus.py tests/sources/test_web_of_science.py -k fr13`: os testes passam.
+2. Na rede da faculdade, uma busca de 40 artigos no Scopus deve gravar no `log.md` `query=TITLE-ABS-KEY(…) · view=COMPLETE · count=25 · páginas 1-2`.
+
+Onde olhar primeiro: o fim do laço de `search` em `src/rslapp/sources/scopus.py`, onde `page` só sobe quando outra página vai mesmo ser pedida.
+
+**Revisão do Claude (2026-11-13, run `b20261111-211913` do Playmaker):** três rodadas (Gemini 3.8 Flash).
+
+1. **Primeira rodada:** voltou pelo agente revisor. Com um registro que `_parse_work` recusa, a busca fazia 2 pedidos e o log dizia `páginas 1-3`.
+2. **Segunda rodada:** foi parada a pedido do Erick, que ia desligar o computador.
+3. **Terceira rodada:** partiu do commit da primeira e corrigiu só esse ponto, com um teste. Foi integrada com os três gates refeitos pelo `board integrate`.
+
+A parada `found <= start + count` não muda os pedidos às APIs, como o revisor conferiu.
