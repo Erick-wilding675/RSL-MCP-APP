@@ -342,8 +342,9 @@ def _parse_work(entry: Any, view: str = "COMPLETE") -> Work | None:
     )
 
 
-def _format_query_text(query: str, count: int, start: int) -> str:
-    return f"query={query} · count={count} · start={start}"
+# FR-13, D-023: Formata a string de consulta gravada no registro da busca (query do SourceResult)
+def _format_query_text(query: str, view: str, count: int, last_page: int) -> str:
+    return f"query={query} · view={view} · count={count} · páginas 1-{last_page}"
 
 
 def _retry_failure(status: str, prefix: str) -> tuple[str, str]:
@@ -438,11 +439,13 @@ class ScopusSource(Source):
 
         return None, None, err_status, err_reason
 
-    # FR-01, FR-03, FR-14, NFR-04, D-004, D-023: Busca no Scopus na visão COMPLETE com fallback para STANDARD
+    # FR-01, FR-03, FR-13, FR-14, NFR-04, D-004, D-023: Busca no Scopus na visão COMPLETE com fallback para STANDARD
     async def search(self, query: str, max_results: int = 100) -> SourceResult:
         clean_query = query.strip()
         query_param = _build_query_param(clean_query)
         effective_max = min(max(max_results, 1), MAX_RESULTS_LIMIT)
+        # FR-13: count no log é o tamanho de página usado (PAGE_SIZE, ou menos quando max_results for menor)
+        page_size = min(effective_max, PAGE_SIZE)
 
         raw_key = os.environ.get("SCOPUS_API_KEY")
         api_key = raw_key.strip(" \t\r\n") if raw_key else ""
@@ -451,7 +454,7 @@ class ScopusSource(Source):
                 name=self.name,
                 status="missing_key",
                 reason="variável SCOPUS_API_KEY não configurada",
-                query=_format_query_text(query_param, min(effective_max, PAGE_SIZE), 0),
+                query=_format_query_text(query_param, "COMPLETE", page_size, 1),
                 found=None,
                 fetched=0,
                 works=[],
@@ -473,8 +476,7 @@ class ScopusSource(Source):
         current_view = "COMPLETE"
         active_reason: str | None = None
         start = 0
-        last_count = min(effective_max, PAGE_SIZE)
-        last_start = 0
+        page = 1
 
         try:
             async with self._get_client() as client:
@@ -484,8 +486,6 @@ class ScopusSource(Source):
                     if falta <= 0:
                         break
                     count = min(PAGE_SIZE, falta)
-                    last_count = count
-                    last_start = start
 
                     if start > 0:
                         await self._sleep(REQUEST_INTERVAL)
@@ -527,7 +527,7 @@ class ScopusSource(Source):
                             name=self.name,
                             status=err_status,
                             reason=err_reason,
-                            query=_format_query_text(query_param, last_count, last_start),
+                            query=_format_query_text(query_param, current_view, page_size, page),
                             found=found,
                             fetched=len(works),
                             works=works,
@@ -569,14 +569,17 @@ class ScopusSource(Source):
                         break
                     if len(entries) < count:
                         break
+                    if found is not None and (start + count) >= found:
+                        break
 
                     start += count
+                    page += 1
         except Exception:  # noqa: BLE001
             return SourceResult(
                 name=self.name,
                 status="failed",
                 reason="falha inesperada ao consultar o Scopus",
-                query=_format_query_text(query_param, last_count, last_start),
+                query=_format_query_text(query_param, current_view, page_size, page),
                 found=found,
                 fetched=len(works),
                 works=works,
@@ -586,7 +589,7 @@ class ScopusSource(Source):
             name=self.name,
             status="ok",
             reason=active_reason,
-            query=_format_query_text(query_param, last_count, last_start),
+            query=_format_query_text(query_param, current_view, page_size, page),
             found=found,
             fetched=len(works),
             works=works,

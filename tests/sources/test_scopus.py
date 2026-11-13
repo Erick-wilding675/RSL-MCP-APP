@@ -302,6 +302,7 @@ async def test_d023_paginacao_start_0_25_50_para_em_max_results_ou_total_results
     assert res_a.found == 100
     assert res_a.fetched == 60
     assert len(res_a.works) == 60
+    assert res_a.query == "query=TITLE-ABS-KEY(ai) · view=COMPLETE · count=25 · páginas 1-3"
 
     # Caso B: max_results = 100, totalResults = 60 -> pede 0, 25, 50 e para em totalResults
     starts_b: list[str] = []
@@ -339,6 +340,7 @@ async def test_d023_paginacao_start_0_25_50_para_em_max_results_ou_total_results
     assert res_b.found == 60
     assert res_b.fetched == 60
     assert len(res_b.works) == 60
+    assert res_b.query == "query=TITLE-ABS-KEY(ai) · view=COMPLETE · count=25 · páginas 1-3"
 
 
 # D-023: Visão reduzida: 403 na COMPLETE e 200 na STANDARD segue com aviso; 403 nas duas dá failed
@@ -385,6 +387,7 @@ async def test_d023_fallback_visao_reduzida_403_complete_200_standard_e_403_nas_
     assert res.reason == (
         "visão reduzida do Scopus: só o primeiro autor, sem resumo nem palavras-chave"
     )
+    assert res.query == "query=TITLE-ABS-KEY(genomics) · view=STANDARD · count=10 · páginas 1-1"
     assert res.fetched == 1
     assert len(res.works) == 1
     work = res.works[0]
@@ -414,6 +417,7 @@ async def test_d023_fallback_visao_reduzida_403_complete_200_standard_e_403_nas_
         "o Scopus recusou o acesso: confira se está na rede da instituição "
         "ou configure SCOPUS_INSTTOKEN"
     )
+    assert res_denied.query == "query=TITLE-ABS-KEY(genomics) · view=COMPLETE · count=10 · páginas 1-1"
 
 
 # D-023: Tratamento de erros 401, 429, 5xx, timeout, rede e preservação de páginas já trazidas
@@ -524,6 +528,7 @@ async def test_d023_estados_401_429_5xx_timeout_rede_e_paginas_preservadas(
     assert res_partial.reason == "chave do Scopus recusada"
     assert res_partial.fetched == 25
     assert len(res_partial.works) == 25
+    assert res_partial.query == "query=TITLE-ABS-KEY(ai) · view=COMPLETE · count=25 · páginas 1-2"
 
 
 # D-023: Teste de nova tentativa 429 seguida de 200 com sucesso
@@ -748,4 +753,127 @@ async def test_d023_fallback_visao_reduzida_aguarda_intervalo_antes_de_standard(
 
     assert res_denied.status == "failed"
     assert recorded_sleeps_denied == [REQUEST_INTERVAL]
+
+
+# FR-13: String gravada no Scopus registra visão, tamanho de página e páginas consultadas
+@pytest.mark.anyio
+async def test_fr13_scopus_busca_40_artigos_grava_paginas_1_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOPUS_API_KEY", "chave-falsa-scopus")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        start = int(request.url.params["start"])
+        count = int(request.url.params["count"])
+        entries = [
+            {"eid": f"2-s2.0-{start + i}", "dc:title": f"Artigo {start + i}"}
+            for i in range(count)
+        ]
+        return httpx.Response(
+            200,
+            json={
+                "search-results": {
+                    "opensearch:totalResults": "100",
+                    "entry": entries,
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = ScopusSource(client=client, sleep=_noop_sleep)
+        res = await source.search("TITLE-ABS-KEY(telemedicine)", max_results=40)
+
+    assert res.status == "ok"
+    assert res.fetched == 40
+    assert res.query == "query=TITLE-ABS-KEY(telemedicine) · view=COMPLETE · count=25 · páginas 1-2"
+
+
+# FR-13: Com 403 na COMPLETE e queda para STANDARD, o texto diz view=STANDARD
+@pytest.mark.anyio
+async def test_fr13_scopus_fallback_standard_grava_view_standard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOPUS_API_KEY", "chave-falsa-scopus")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        view = request.url.params.get("view")
+        start = int(request.url.params["start"])
+        count = int(request.url.params["count"])
+        if view == "COMPLETE":
+            return httpx.Response(403, json={"error": "Not Entitled"})
+        entries = [
+            {
+                "eid": f"2-s2.0-{start + i}",
+                "dc:title": f"Artigo Standard {start + i}",
+                "dc:creator": "Autor Exemplo",
+            }
+            for i in range(count)
+        ]
+        return httpx.Response(
+            200,
+            json={
+                "search-results": {
+                    "opensearch:totalResults": "50",
+                    "entry": entries,
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = ScopusSource(client=client, sleep=_noop_sleep)
+        res = await source.search("TITLE-ABS-KEY(telemedicine)", max_results=40)
+
+    assert res.status == "ok"
+    assert res.fetched == 40
+    assert res.query == "query=TITLE-ABS-KEY(telemedicine) · view=STANDARD · count=25 · páginas 1-2"
+
+
+# FR-13: Falha na segunda página grava páginas 1-2 no Scopus
+@pytest.mark.anyio
+async def test_fr13_scopus_falha_segunda_pagina_grava_paginas_1_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOPUS_API_KEY", "chave-falsa-scopus")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        start = request.url.params.get("start")
+        if start == "0":
+            return httpx.Response(
+                200,
+                json={
+                    "search-results": {
+                        "opensearch:totalResults": "100",
+                        "entry": [
+                            {"eid": f"2-s2.0-{i}", "dc:title": f"Artigo {i}"}
+                            for i in range(25)
+                        ],
+                    }
+                },
+            )
+        return httpx.Response(500, text="Internal Error")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = ScopusSource(client=client, sleep=_noop_sleep)
+        res = await source.search("telemedicine", max_results=50)
+
+    assert res.status == "failed"
+    assert res.fetched == 25
+    assert res.query == "query=TITLE-ABS-KEY(telemedicine) · view=COMPLETE · count=25 · páginas 1-2"
+
+
+# FR-13: Sem chave, o Scopus grava view=COMPLETE, count adequado e páginas 1-1
+@pytest.mark.anyio
+async def test_fr13_scopus_sem_chave_grava_query_correta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SCOPUS_API_KEY", raising=False)
+    source = ScopusSource(sleep=_noop_sleep)
+    res_40 = await source.search("telemedicine", max_results=40)
+    assert res_40.status == "missing_key"
+    assert res_40.query == "query=TITLE-ABS-KEY(telemedicine) · view=COMPLETE · count=25 · páginas 1-1"
+
+    res_10 = await source.search("telemedicine", max_results=10)
+    assert res_10.status == "missing_key"
+    assert res_10.query == "query=TITLE-ABS-KEY(telemedicine) · view=COMPLETE · count=10 · páginas 1-1"
+
 

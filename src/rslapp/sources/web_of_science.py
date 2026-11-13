@@ -242,8 +242,9 @@ def _parse_work(hit: Any) -> Work | None:
     )
 
 
-def _format_query_text(query: str, limit: int, page: int) -> str:
-    return f"q={query} · limit={limit} · page={page}"
+# FR-13, D-023: Formata a string de consulta gravada no registro da busca (query do SourceResult)
+def _format_query_text(query: str, limit: int, last_page: int) -> str:
+    return f"q={query} · limit={limit} · páginas 1-{last_page}"
 
 
 def _retry_failure(status: str, prefix: str) -> tuple[str, str]:
@@ -336,7 +337,7 @@ class WebOfScienceSource(Source):
 
         return None, err_status, err_reason
 
-    # FR-01, FR-03, FR-14, NFR-04, D-004, D-023: Busca na Web of Science Starter API
+    # FR-01, FR-03, FR-13, FR-14, NFR-04, D-004, D-023: Busca na Web of Science Starter API
     async def search(self, query: str, max_results: int = 100) -> SourceResult:
         clean_query = query.strip()
         query_param = _build_query_param(clean_query)

@@ -293,6 +293,7 @@ async def test_d023_paginacao_page_1_2_3_para_em_max_results_ou_total_com_interv
     assert res_a.found == 150
     assert res_a.fetched == 120
     assert len(res_a.works) == 120
+    assert res_a.query == "q=TS=(ai) · limit=50 · páginas 1-3"
 
     # Caso B: max_results = 150, total = 70 -> pede page 1 e 2 e para no total de 70
     pages_b: list[str] = []
@@ -335,6 +336,7 @@ async def test_d023_paginacao_page_1_2_3_para_em_max_results_ou_total_com_interv
     assert res_b.found == 70
     assert res_b.fetched == 70
     assert len(res_b.works) == 70
+    assert res_b.query == "q=TS=(ai) · limit=50 · páginas 1-2"
 
 
 # D-023: Tratamento de erros 429 repetido, 401 e 403 imediatos, 5xx, timeout e rede
@@ -483,6 +485,7 @@ async def test_d023_preservacao_de_paginas_anteriores_em_falha(
     assert res.reason == "chave do Web of Science recusada ou sem acesso"
     assert res.fetched == 50
     assert len(res.works) == 50
+    assert res.query == "q=TS=(ai) · limit=50 · páginas 1-2"
 
 
 # D-023: Teste de nova tentativa 429 seguida de 200 com sucesso
@@ -575,6 +578,7 @@ async def test_d023_sem_wos_starter_api_key_responde_missing_key_sem_chamada_de_
     assert res.found is None
     assert res.fetched == 0
     assert res.works == []
+    assert res.query == "q=TS=(cancer) · limit=50 · páginas 1-1"
 
 
 # D-023: Resultado vazio no Web of Science responde status ok com 0 trabalhos
@@ -601,3 +605,86 @@ async def test_d023_resultado_vazio_wos(
     assert res.found == 0
     assert res.fetched == 0
     assert res.works == []
+    assert res.query == "q=TS=(termo_inexistente_xyz_123) · limit=50 · páginas 1-1"
+
+
+# FR-13: Busca simulada no Web of Science de duas páginas grava q=… · limit=50 · páginas 1-2
+@pytest.mark.anyio
+async def test_fr13_wos_busca_duas_paginas_grava_paginas_1_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WOS_STARTER_API_KEY", "chave-falsa-wos")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["page"])
+        limit = int(request.url.params["limit"])
+        hits = [
+            {
+                "uid": f"WOS:0001{(page - 1) * limit + i:08d}",
+                "title": f"Artigo {(page - 1) * limit + i}",
+            }
+            for i in range(limit)
+        ]
+        return httpx.Response(
+            200,
+            json={
+                "metadata": {"total": 100, "page": page, "limit": limit},
+                "hits": hits,
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = WebOfScienceSource(client=client, sleep=_noop_sleep)
+        res = await source.search("TS=(telemedicine)", max_results=100)
+
+    assert res.status == "ok"
+    assert res.fetched == 100
+    assert res.query == "q=TS=(telemedicine) · limit=50 · páginas 1-2"
+
+
+# FR-13: Falha na segunda página grava páginas 1-2 no Web of Science
+@pytest.mark.anyio
+async def test_fr13_wos_falha_segunda_pagina_grava_paginas_1_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("WOS_STARTER_API_KEY", "chave-falsa-wos")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        page = request.url.params.get("page")
+        if page == "1":
+            return httpx.Response(
+                200,
+                json={
+                    "metadata": {"total": 100, "page": 1, "limit": 50},
+                    "hits": [
+                        {"uid": f"WOS:0001000000000{i:02d}", "title": f"Artigo {i}"}
+                        for i in range(50)
+                    ],
+                },
+            )
+        return httpx.Response(500, text="Internal Server Error")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = WebOfScienceSource(client=client, sleep=_noop_sleep)
+        res = await source.search("telemedicine", max_results=100)
+
+    assert res.status == "failed"
+    assert res.fetched == 50
+    assert res.query == "q=TS=(telemedicine) · limit=50 · páginas 1-2"
+
+
+# FR-13: Sem chave, o Web of Science grava limit adequado e páginas 1-1
+@pytest.mark.anyio
+async def test_fr13_wos_sem_chave_grava_query_correta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("WOS_STARTER_API_KEY", raising=False)
+    source = WebOfScienceSource(sleep=_noop_sleep)
+    res_100 = await source.search("telemedicine", max_results=100)
+    assert res_100.status == "missing_key"
+    assert res_100.query == "q=TS=(telemedicine) · limit=50 · páginas 1-1"
+
+    res_10 = await source.search("telemedicine", max_results=10)
+    assert res_10.status == "missing_key"
+    assert res_10.query == "q=TS=(telemedicine) · limit=10 · páginas 1-1"
+
