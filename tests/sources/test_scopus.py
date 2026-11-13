@@ -877,3 +877,46 @@ async def test_fr13_scopus_sem_chave_grava_query_correta(
     assert res_10.query == "query=TITLE-ABS-KEY(telemedicine) · view=COMPLETE · count=10 · páginas 1-1"
 
 
+# FR-13: Registro ilegível em página anterior não faz log contar página a mais ao atingir teto
+@pytest.mark.anyio
+async def test_fr13_scopus_registro_invalido_nao_conta_pagina_a_mais(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SCOPUS_API_KEY", "chave-falsa-scopus")
+
+    requests_made: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests_made.append(request)
+        start = int(request.url.params["start"])
+        count = int(request.url.params["count"])
+        if start == 0:
+            # Página 1: 25 registros, sendo 1 inválido (sem título) recusado por _parse_work
+            entries = [{"eid": "2-s2.0-invalid"}] + [
+                {"eid": f"2-s2.0-{i}", "dc:title": f"Artigo {i}"}
+                for i in range(1, count)
+            ]
+        else:
+            # Página 2: 15 registros válidos
+            entries = [
+                {"eid": f"2-s2.0-{start + i}", "dc:title": f"Artigo {start + i}"}
+                for i in range(count)
+            ]
+        return httpx.Response(
+            200,
+            json={
+                "search-results": {
+                    "opensearch:totalResults": "1000",
+                    "entry": entries,
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = ScopusSource(client=client, sleep=_noop_sleep)
+        res = await source.search("TITLE-ABS-KEY(telemedicine)", max_results=40)
+
+    assert len(requests_made) == 2
+    assert res.status == "ok"
+    assert res.fetched == 39
+    assert res.query == "query=TITLE-ABS-KEY(telemedicine) · view=COMPLETE · count=25 · páginas 1-2"

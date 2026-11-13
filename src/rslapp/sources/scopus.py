@@ -569,7 +569,11 @@ class ScopusSource(Source):
                         break
                     if len(entries) < count:
                         break
+                    # FR-13: Não muda os pedidos, só evita contar uma página a mais
                     if found is not None and (start + count) >= found:
+                        break
+                    # FR-13: Não muda os pedidos, só evita contar página a mais ao atingir o teto
+                    if (start + count) >= effective_max:
                         break
 
                     start += count

@@ -687,4 +687,3 @@ async def test_fr13_wos_sem_chave_grava_query_correta(
     res_10 = await source.search("telemedicine", max_results=10)
     assert res_10.status == "missing_key"
     assert res_10.query == "q=TS=(telemedicine) · limit=10 · páginas 1-1"
-
