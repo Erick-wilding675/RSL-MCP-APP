@@ -21,3 +21,5 @@
 | T-010 | Como o academic-research-mcp e o paper-search-mcp montam as consultas ao OpenAlex e à Semantic Scholar, e o que dá para reaproveitar na licença MIT | research.md | Ler o código dos dois no GitHub antes de escrever os conectores | a fazer |
 
 - **(D-024, app desktop)** A janela nativa do NiceGUI abre num Ubuntu comum sem pacotes extras (senão, abre no navegador); medir o tamanho do executável do `nicegui-pack` no Windows.
+
+- **(D-025, D-026, app desktop)** O `.exe` abre a janela no Windows 11; o AppImage abre o navegador num Ubuntu comum; depois de salva, nenhuma chave aparece na página, no log ou num aviso do app.

@@ -113,11 +113,23 @@ Primeira leva da 2.0, decidida com o Erick em 2026-11-11 (D-022, D-023). O Scopu
 
 A 10-01, a 10-02 e a 10-03 não dependem uma da outra e rodam em paralelo. A 10-02 e a 10-03 mexem em `config.py` só para acrescentar uma linha cada. A 10-04 espera as três.
 
+### 11 · App desktop (2.0)
+
+Decidido em 2026-11-14 (D-024 a D-026): NiceGUI em janela própria, quatro telas, extra `rslapp[desktop]` e executáveis para Windows e Linux. Requisitos FR-16 a FR-18.
+
+1. Base do app: extra, configuração das chaves, serviço sobre o núcleo, janela com navegação e comando `rslapp-desktop`. Spec: `specs/11-01-base-do-app-desktop.md`
+2. Telas Buscar e Lista. Spec: `specs/11-02-telas-buscar-e-lista.md`
+3. Telas Histórico e Configurações. Spec: `specs/11-03-telas-historico-e-configuracoes.md`
+4. Executáveis para Windows e Linux e o README do app. Spec: `specs/11-04-executaveis-do-app.md`
+5. Publicação da 2.0.0 e teste real. Spec: `specs/11-05-publicacao-2-0-e-teste-real.md`
+
+A 11-02 e a 11-03 dependem da 11-01 e mexem em arquivos diferentes (uma página cada). A 11-04 espera as três. A 11-05 espera o ok do Erick para publicar.
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):
 
-- **App desktop** para Windows e Linux, com busca e lista sem IA no meio. Falta decidir a pilha da interface.
+- **App desktop** para Windows e Linux, com busca e lista sem IA no meio: virou a fase 11 (D-024 a D-026).
 - **Scopus e Web of Science** com a chave de cada pessoa. Falta ler os termos de uso de cada API e decidir como a chave é guardada.
 - **Servidor mantido pelo projeto** (opções A e B da D-011): um link público para qualquer pesquisador. Falta pesquisar hospedagem e custo mensal, e a LGPD (T-007) resolvida antes.
 

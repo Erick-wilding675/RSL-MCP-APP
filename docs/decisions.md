@@ -239,3 +239,26 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Fontes:** `docs/research.md`, pergunta "Com qual biblioteca fazer a interface do app desktop"
 - **A testar:** se a janela nativa abre num Ubuntu comum sem pacotes extras (senão, abre no navegador); tamanho do executável no Windows.
 - **Situação:** decidida. Ficam para a spec: o NiceGUI exige Python 3.11+, então o app é um extra (`rslapp[desktop]`) ou um pacote à parte; ler a documentação da 4.0 antes de escrever (T-009).
+
+## D-025 · App desktop na 2.0: quatro telas, extra do pacote e executáveis prontos
+
+- **Decisão:**
+  - **Telas da primeira versão do app:** Buscar (string, fontes, quantidade, pareceres), Lista (tabela e exportação em RIS, CSV, BibTeX, JSON e DOIs), Histórico (buscas do log, repetir, abrir o `log.md`) e Configurações (chaves, e-mail, pastas). Referências e citações, achar um artigo e juntar listas ficam para depois.
+  - **Instalação:** o extra `pip install "rslapp[desktop]"` (Python 3.11+, por causa do NiceGUI 4) com o comando `rslapp-desktop`, e executáveis prontos nas releases do GitHub, montados pelo GitHub Actions: um `.zip` com o `.exe` para Windows e um AppImage para Linux.
+  - **Linux:** o AppImage abre a interface no navegador padrão, em `127.0.0.1`. A janela própria no Linux exige o WebKitGTK e o PyGObject do sistema, que não cabem bem num executável; quem instala pelo `pip` num sistema com eles ganha a janela.
+  - **Rede:** o app só escuta em `127.0.0.1`, nunca na rede.
+  - **Versão:** o app sai na `rslapp` 2.0.0. Nada do servidor muda de forma incompatível; o número maior marca o produto novo.
+- **Motivo:** cobre a jornada principal (buscar, ver, exportar, repetir) para quem não usa IA, com a menor superfície. Os executáveis levam o app a quem não usa Python, e o extra mantém o servidor leve e no Python 3.10.
+- **Alternativas:** só o extra do `pip` (mais simples, mas não chega a quem não usa Python); a janela própria no Linux com Qt (executável de centenas de MB); todas as ferramentas do servidor já na primeira versão do app.
+- **Decidido por:** Erick, aceitando as recomendações de antemão (2026-11-14) · **Data:** 2026-11-14
+- **Fontes:** `docs/research.md`, pergunta "Com qual biblioteca fazer a interface do app desktop"; documentação do NiceGUI 4.0 (configuração, empacotamento, testes) e notas da versão 4.0.0, lidas em 2026-11-14
+- **A testar:** o `.exe` abre a janela no Windows 11 do Erick; o AppImage abre o navegador num Ubuntu comum.
+- **Situação:** decidida
+
+## D-026 · Chaves no app desktop: arquivo de configuração do app, fora da pasta de dados
+
+- **Decisão:** a tela de Configurações grava as chaves, o e-mail de contato e as pastas num arquivo JSON do app, na pasta de configuração do sistema: `%APPDATA%\RSL.app\desktop.json` no Windows e `$XDG_CONFIG_HOME/rslapp/desktop.json` (ou `~/.config/rslapp/desktop.json`) no Linux. A variável `RSL_DESKTOP_CONFIG` troca o caminho (para testes). Ao abrir, o app põe esses valores nas variáveis de ambiente do próprio processo, **sem sobrescrever** uma variável que já veio do sistema. No Linux, o arquivo é gravado só com permissão do dono (0600). A chave nunca vai para o log, para a tela depois de salva (aparece mascarada) nem para mensagens de erro.
+- **Motivo:** fica fora da pasta de dados (`~/RSL.app`), que a pessoa pode compactar e anexar à metodologia junto com o log; usa o caminho que o núcleo já lê (variáveis de ambiente, D-013, D-023), sem dependência nova; respeita NFR-03 e D-004 (tudo na máquina de quem usa).
+- **Alternativas:** cofre do sistema (keyring): mais seguro, mas é dependência nova e no Linux depende de um serviço que nem todo sistema tem; gravar na pasta de dados: arrisca ir junto quando a pessoa compartilha a pasta.
+- **Decidido por:** Erick, aceitando as recomendações de antemão · **Data:** 2026-11-14
+- **Situação:** decidida

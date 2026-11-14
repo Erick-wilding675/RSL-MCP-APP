@@ -32,6 +32,9 @@ O que o pesquisador, por meio da IA dele, precisa conseguir fazer.
 | FR-13 | O log é um arquivo legível por pessoas, que o pesquisador pode anexar na metodologia do artigo | Primeira versão | Erick, 2026-11-02: log "interpretável" |
 | FR-14 | Cada artigo traz as referências (os trabalhos que ele cita) e o número de citações recebidas, quando a fonte tiver. Quando nenhuma fonte entrega, o campo fica vazio e o log diz o motivo. Nunca é preenchido com valor suposto | Primeira versão | Erick, 2026-11-02: "é crucial que tenhamos esses dados também" |
 | FR-15 | A partir de um artigo, o servidor traz as referências dele ou os trabalhos que o citam, como uma lista própria, registrada no log e ligada ao artigo de origem | Primeira versão | Erick, 2026-11-02: referências e citações são cruciais; a lista própria segue FR-09 e o formato foi deduzido |
+| FR-16 | Um app desktop para Windows e Linux deixa a pessoa buscar, ver a lista e exportar sem uma IA no meio, usando o mesmo núcleo, a mesma pasta de dados e o mesmo log do servidor | 2.0 | Erick, 2026-11-11: "app desktop com busca e lista sem IA no meio"; D-024, D-025 |
+| FR-17 | No app, a pessoa vê as buscas já feitas, repete uma delas e abre o log | 2.0 | Deduzido de FR-11 e FR-13 para o app; aceito com as recomendações em 2026-11-14 |
+| FR-18 | No app, a pessoa configura as chaves de API, o e-mail de contato e as pastas, sem editar arquivos nem variáveis de ambiente | 2.0 | FR-07 levado ao app; D-026 |
 
 ## Requisitos não funcionais
 
@@ -54,7 +57,7 @@ O que o pesquisador, por meio da IA dele, precisa conseguir fazer.
 
 ## Fora da primeira versão
 
-- App desktop para Windows e Linux.
+- App desktop para Windows e Linux (entra na 2.0: FR-16 a FR-18).
 - Abrir o VOSviewer na máquina do usuário. O servidor só entrega o arquivo ou a URL prontos.
 - Scopus, Web of Science e Periódicos CAPES.
 - Juntar várias buscas numa lista só (decisão do Erick em 2026-11-02).
