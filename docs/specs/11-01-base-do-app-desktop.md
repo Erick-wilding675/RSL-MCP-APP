@@ -1,6 +1,6 @@
 # Base do app desktop
 
-**Fase:** 11 · App desktop (2.0) · **Situação:** a fazer
+**Fase:** 11 · App desktop (2.0) · **Situação:** para testar
 
 ## O que faz
 
@@ -144,3 +144,5 @@ FR-16, FR-17, FR-18, NFR-03, D-024, D-025, D-026. São os ids que o código leva
    uv run --python 3.12 --extra desktop rslapp-desktop
    ```
    Deve abrir a janela `RSL.app` (1200×800) escutando apenas em `127.0.0.1`, com o cabeçalho contendo `RSL.app` e os links **Buscar**, **Histórico** e **Configurações** navegando entre as telas.
+
+**Revisão do Claude (2026-11-14):** duas rodadas com o Gemini 4 Argon pelo `agy`. A primeira deixou no código de produção dois desvios que só existiam para os testes (`_ORIG_BUILD_SOURCES` com `_resolve_sources` e `ui.run is _ORIG_UI_RUN`), tirados na segunda. Conferido à mão no Windows 11: `rslapp-desktop` abre a janela nativa "RSL.app", escuta só em `127.0.0.1:8000`, e ao fechar a janela o processo encerra, sem reabrir no navegador (o NiceGUI sai por `os._exit`). Gates: 685 testes em 3.10 e 3.14, `tests_desktop` no 3.12, ruff limpo.
