@@ -6,28 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from rslapp import config
-from rslapp import sources as _sources_mod
 from rslapp.core.errors import RSLError
 from rslapp.core.repeat import run_repeat
 from rslapp.core.search import DEFAULT_MAX_RESULTS, run_search
 from rslapp.exporters import run_export
-from rslapp.sources import Source, SourceInfo, build_sources, list_sources_info
+from rslapp.sources import SourceInfo, build_sources, list_sources_info
 from rslapp.store import Store
-
-_ORIG_BUILD_SOURCES = build_sources
-
-
-def _resolve_sources() -> list[Source]:
-    """Obtém as fontes acadêmicas respeitando eventual monkeypatch em service ou rslapp.sources."""
-    fn = (
-        build_sources
-        if build_sources is not _ORIG_BUILD_SOURCES
-        else _sources_mod.build_sources
-    )
-    try:
-        return fn(include_paid=True)
-    except TypeError:
-        return fn()  # type: ignore[call-arg]
 
 
 # FR-16, FR-17, D-024, D-025: Serviço sem estado global que chama o núcleo com a mesma pasta e log do stdio
@@ -56,7 +40,7 @@ class DesktopService:
         store, _ = self._build_store()
         return await run_search(
             store,
-            _resolve_sources(),
+            build_sources(include_paid=True),
             query=query,
             request_summary="app desktop",
             max_results=max_results,
@@ -98,7 +82,7 @@ class DesktopService:
         store, _ = self._build_store()
         return await run_repeat(
             store,
-            _resolve_sources(),
+            build_sources(include_paid=True),
             search_id=search_id,
         )
 

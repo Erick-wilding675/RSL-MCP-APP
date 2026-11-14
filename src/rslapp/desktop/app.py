@@ -19,14 +19,12 @@ DESKTOP_WINDOW_SIZE: tuple[int, int] = (1200, 800)
 # D-024, D-025: Opções de app.native fora do bloco if __name__ conforme a documentação do NiceGUI
 app.native.window_args.setdefault("resizable", True)
 
-_ORIG_UI_RUN = ui.run
-
 
 def _ensure_native_backend() -> None:
     """Verifica se o pywebview e o backend gráfico do sistema estão disponíveis."""
     import webview  # noqa: F401
 
-    if sys.platform.startswith("linux") and ui.run is _ORIG_UI_RUN:
+    if sys.platform.startswith("linux"):
         for mod_name in ("webview.platforms.gtk", "webview.platforms.qt"):
             with contextlib.suppress(ImportError, ValueError, RuntimeError, OSError):
                 __import__(mod_name)
