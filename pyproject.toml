@@ -41,17 +41,26 @@ dev = [
     "pytest",
     "ruff",
 ]
+# D-024, D-025, FR-16: Extra do app desktop com NiceGUI 4 em modo nativo (Python 3.11+)
+desktop = [
+    "nicegui[native]>=4,<5; python_version >= '3.11'",
+]
+desktop-dev = [
+    "pytest-asyncio",
+]
 
 [project.scripts]
 # D-008, D-011: Comando de entrada do servidor MCP (stdio e subcomando serve)
 rslapp = "rslapp.cli:main"
+# D-024, D-025, FR-16: Comando de entrada do app desktop
+rslapp-desktop = "rslapp.desktop.app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rslapp"]
 
 # D-008: O pacote de código-fonte leva só o código, os testes, o README e a licença
 [tool.hatch.build.targets.sdist]
-include = ["src/rslapp", "tests", "README.md", "LICENSE", "pyproject.toml"]
+include = ["src/rslapp", "tests", "tests_desktop", "README.md", "LICENSE", "pyproject.toml"]
 exclude = ["**/__pycache__"]
 
 [tool.ruff]
