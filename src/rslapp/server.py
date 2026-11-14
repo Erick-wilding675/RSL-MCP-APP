@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextvars
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 import anyio
 import uvicorn
@@ -19,7 +19,6 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
-from typing_extensions import TypedDict
 
 from rslapp import __version__, config, downloads, people
 from rslapp.auth import (
@@ -38,27 +37,17 @@ from rslapp.core.search import run_search
 from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
 from rslapp.prompts import INSTRUCTIONS, render_plan_search
-from rslapp.sources.base import Source
-from rslapp.sources.crossref import CrossrefSource
-from rslapp.sources.europe_pmc import EuropePMCSource
-from rslapp.sources.openalex import OpenAlexSource
-from rslapp.sources.pubmed import PubmedSource
-from rslapp.sources.scopus import ScopusSource
-from rslapp.sources.semantic_scholar import SemanticScholarSource
-from rslapp.sources.web_of_science import WebOfScienceSource
+from rslapp.sources import (
+    Source,
+    SourceInfo,
+    SourceName,
+    SourceStatus,
+    build_sources,
+    list_sources_info,
+)
 from rslapp.store import Store
 
-# D-020, D-023: Nomes válidos de fontes acadêmicas disponíveis no servidor
-SourceName = Literal[
-    "openalex",
-    "crossref",
-    "semantic_scholar",
-    "europe_pmc",
-    "pubmed",
-    "scopus",
-    "web_of_science",
-]
-SourceStatus = Literal["ok", "missing_key"]
+__all__ = ["SourceInfo", "SourceName", "SourceStatus"]
 
 
 # D-002: Entradas numéricas inteiras das ferramentas recusam true/false com invalid_input
@@ -81,16 +70,6 @@ def _reject_int(v: Any, info: ValidationInfo) -> Any:
 
 
 NonIntBool = Annotated[bool, BeforeValidator(_reject_int)]
-
-
-# D-002, FR-07, NFR-03: Estrutura de retorno de list_sources sem expor o valor de chaves
-class SourceInfo(TypedDict):
-    """Estado de configuração de uma fonte acadêmica."""
-
-    name: SourceName
-    configured: bool
-    needs_key: bool
-    status: SourceStatus
 
 
 # D-006, NFR-02: Servidor MCP padrão para transporte stdio
@@ -164,78 +143,14 @@ def list_sources() -> list[SourceInfo]:
     """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite; a do PubMed também é opcional. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas. Scopus e Web of Science são bases pagas e só funcionam com a chave e a assinatura do próprio usuário ou da instituição dele."""
     _resolve_person_id()
     cfg = config.load()
-    openalex_configured = cfg.openalex_key_configured
-    sources: list[SourceInfo] = [
-        {
-            "name": "openalex",
-            "configured": openalex_configured,
-            "needs_key": True,
-            "status": "ok" if openalex_configured else "missing_key",
-        },
-        {
-            "name": "crossref",
-            "configured": True,
-            "needs_key": False,
-            "status": "ok",
-        },
-        {
-            "name": "semantic_scholar",
-            "configured": True,
-            "needs_key": False,
-            "status": "ok",
-        },
-        {
-            "name": "europe_pmc",
-            "configured": True,
-            "needs_key": False,
-            "status": "ok",
-        },
-        {
-            "name": "pubmed",
-            "configured": True,
-            "needs_key": False,
-            "status": "ok",
-        },
-    ]
     # D-023: No modo stdio lista as 7 fontes; no modo HTTP não lista as bases pagas
-    if not _is_http_mode():
-        scopus_configured = cfg.scopus_key_configured
-        wos_configured = cfg.wos_key_configured
-        sources.extend(
-            [
-                {
-                    "name": "scopus",
-                    "configured": scopus_configured,
-                    "needs_key": True,
-                    "status": "ok" if scopus_configured else "missing_key",
-                },
-                {
-                    "name": "web_of_science",
-                    "configured": wos_configured,
-                    "needs_key": True,
-                    "status": "ok" if wos_configured else "missing_key",
-                },
-            ]
-        )
-    return sources
+    return list_sources_info(include_paid=not _is_http_mode(), cfg=cfg)
 
 
 # FR-01, FR-04, FR-08, D-002, D-020, D-023: Monta os conectores das fontes acadêmicas disponíveis
 def _build_sources() -> list[Source]:
     """Instancia os conectores das fontes disponíveis no servidor (as bases pagas entram apenas no modo stdio)."""
-    sources: list[Source] = [
-        OpenAlexSource(),
-        CrossrefSource(),
-        SemanticScholarSource(),
-        EuropePMCSource(),
-        PubmedSource(),
-    ]
-    if not _is_http_mode():
-        sources.extend([
-            ScopusSource(),
-            WebOfScienceSource(),
-        ])
-    return sources
+    return build_sources(include_paid=not _is_http_mode())
 
 
 # FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020, D-022, D-023: Busca artigos nas fontes acadêmicas
