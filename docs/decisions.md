@@ -227,3 +227,15 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Erick · **Data:** 2026-11-11
 - **Fontes:** `docs/research.md`, perguntas "Scopus e Web of Science na 2.0" e "Onde fica a chave de cada pessoa"
 - **Situação:** decidida. A API Expanded do Web of Science (paga) fica para quando alguém com licença puder testar.
+
+## D-024 · Interface do app desktop: NiceGUI em janela própria
+
+- **Decisão:** o app desktop da 2.0 (Windows e Linux, busca e lista sem IA no meio) é feito com o NiceGUI em modo nativo (janela própria pelo pywebview) e empacotado com `nicegui-pack` (PyInstaller). Ele chama o núcleo `src/rslapp/core` direto.
+- **Motivo:** o núcleo é assíncrono (`httpx`) e o NiceGUI roda sobre o asyncio, então o reaproveita sem adaptação. A mesma interface também abre no navegador, o que serve depois ao servidor do projeto. Licença MIT, igual à do projeto.
+- **Alternativas:**
+  - PySide6 (Qt): a mais madura, mas o `QtAsyncio` está em prévia técnica e não faz chamadas de rede; executável grande, licença LGPL/GPL.
+  - Flet 1.x: empacotamento com o Flutter em cada sistema, e API nova desde a 1.0 (2026-09).
+- **Decidido por:** Erick, aceitando a recomendação · **Data:** 2026-11-14
+- **Fontes:** `docs/research.md`, pergunta "Com qual biblioteca fazer a interface do app desktop"
+- **A testar:** se a janela nativa abre num Ubuntu comum sem pacotes extras (senão, abre no navegador); tamanho do executável no Windows.
+- **Situação:** decidida. Ficam para a spec: o NiceGUI exige Python 3.11+, então o app é um extra (`rslapp[desktop]`) ou um pacote à parte; ler a documentação da 4.0 antes de escrever (T-009).

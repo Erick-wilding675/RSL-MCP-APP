@@ -9,7 +9,7 @@
 > Sci-Hub fica fora; o texto completo, quando entrar, vem de acesso aberto.
 > Quatro perguntas de Arquitetura foram acrescentadas em 2026-11-02: biblioteca do MCP, onde guardar os dados, como instalar e quanto custam referências e citações. Nenhuma está decidida ainda.
 > Em 2026-11-11, para a 2.0: o Scopus (visão COMPLETE) entra primeiro, só no modo stdio, com a chave de cada pessoa em variável de ambiente. O Web of Science Starter vem depois, como fonte magra. Nenhuma das duas entra no modo hospedado, por causa dos termos. As duas decisões estão em aberto, com o Erick.
-> Em 2026-11-14, para o app desktop da 2.0: recomendado o NiceGUI em janela nativa, porque roda o núcleo assíncrono sem adaptação e a mesma interface serve no navegador. Decisão em aberto, com o Erick.
+> Em 2026-11-14, para o app desktop da 2.0: o Erick escolheu o NiceGUI em janela nativa (D-024), porque roda o núcleo assíncrono sem adaptação e a mesma interface serve no navegador.
 
 ## Existe um MCP do VOSviewer, oficial ou da comunidade, para conectar ao nosso?
 
@@ -229,7 +229,7 @@
 
 ## Com qual biblioteca fazer a interface do app desktop (Windows e Linux)?
 
-- **Decisão:** em aberto, com o Erick. Recomendo o **NiceGUI** em modo nativo (janela própria pelo pywebview), empacotado com `nicegui-pack` (PyInstaller).
+- **Decisão:** **NiceGUI**, escolhido pelo Erick em 2026-11-14 (D-024). Era a recomendação: o **NiceGUI** em modo nativo (janela própria pelo pywebview), empacotado com `nicegui-pack` (PyInstaller).
 - **Motivo:** o núcleo do RSL.app é assíncrono (`async def` com `httpx`), e o NiceGUI roda sobre o asyncio, então chama o núcleo direto, sem adaptação (critério: reaproveitar o núcleo em Python, um desenvolvedor com agentes). A mesma interface também roda no navegador, o que serve depois ao servidor do projeto. Licença MIT, igual à do projeto.
 - **Alternativas:**
   - **PySide6 (Qt):** a mais madura, com ferramenta oficial de empacotamento (`pyside6-deploy`) e janelas sem dependência do sistema no Linux. Mas o `QtAsyncio` está em prévia técnica e não cobre conexões de rede, então o núcleo rodaria numa thread à parte ou com o `qasync`, de terceiros. Licença LGPL/GPL e executável grande.
