@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-14T15:00:00Z
+updated: 2026-11-14T17:00:00Z
 updated_by: Claude Code
 ---
 
@@ -184,6 +184,8 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - 10-06 conferida pelo Erick no VOSviewer em 2026-11-14.
   - **10-05 pronta em 2026-11-14:** `rslapp` 1.3.0 no PyPI (conferida com `uvx`), tag e release `v1.3.0`, imagem `1.3.0`/`latest` no ghcr.io, `rsl.sinteselabs.com` com `/health` 1.3.0; no conector hospedado, `list_sources` mostra só as 5 fontes abertas. 675 testes em 3.10, 3.12 e 3.14. Falta só testar o Web of Science quando a chave sair (`WOS_STARTER_API_KEY`, pelo Lore).
   - **Próximo: a 2.0, fase 11 · App desktop** (D-024 a D-026, specs 11-01 a 11-05). O código vai pelo `agy`, uma tarefa por vez. O servidor do projeto vem depois (LGPD e custo).
+  - **11-01 integrada em 2026-11-14** (para testar): base do app, `rslapp-desktop` abre a janela nativa no Windows, só em `127.0.0.1`.
+  - **11-02 e 11-03 paradas em 2026-11-14:** rodavam em paralelo pelo `agy` nas worktrees `../RSL.app-wt/11-02` (branch `feat/11-02-buscar-lista`) e `../RSL.app-wt/11-03` (`feat/11-03-historico-config`) e foram encerradas pelo Claude Code por falta de memória no computador (1,8 GB livres de 15,7 GB), ainda na leitura da documentação: nenhum código feito. Para retomar: os prompts estão nos arquivos da sessão; rodar uma de cada vez para gastar menos memória. A 11-04 espera as duas.
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
