@@ -108,7 +108,7 @@ Primeira leva da 2.0, decidida com o Erick em 2026-11-11 (D-022, D-023). O Scopu
 2. Fonte Scopus (Scopus Search API, visão COMPLETE). Spec: `specs/10-02-fonte-scopus.md`
 3. Fonte Web of Science (Starter API). Spec: `specs/10-03-fonte-web-of-science.md`
 4. Scopus e Web of Science no servidor: nomes, `list_sources`, recusa no modo hospedado, deduplicação, CSV e crédito no log. Spec: `specs/10-04-bases-pagas-no-servidor.md`
-5. Publicação da 1.3.0 e teste real. Spec: `specs/10-05-publicacao-1-3-e-teste-real.md`
+5. Publicação da 1.3.0 e teste real (pronta em 2026-11-14; falta só o teste do Web of Science, quando a chave sair). Spec: `specs/10-05-publicacao-1-3-e-teste-real.md`
 6. String das bases pagas no log, achado do teste real da 10-05 (2026-11-13). Spec: `specs/10-06-string-das-bases-pagas-no-log.md`. Entra antes da publicação da 1.3.0.
 
 A 10-01, a 10-02 e a 10-03 não dependem uma da outra e rodam em paralelo. A 10-02 e a 10-03 mexem em `config.py` só para acrescentar uma linha cada. A 10-04 espera as três.

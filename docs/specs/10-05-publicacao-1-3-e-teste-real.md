@@ -1,6 +1,6 @@
 # Publicação da 1.3.0 e teste real
 
-**Fase:** 10 · Bases pagas e filtros (1.3) · **Situação:** a fazer
+**Fase:** 10 · Bases pagas e filtros (1.3) · **Situação:** pronta (2026-11-14), falta só o Web of Science
 
 ## O que faz
 
@@ -28,12 +28,12 @@ Publica a fase 10 como `rslapp` 1.3.0 (só acrescenta) e faz o teste real com as
 
 ## Pronto quando
 
-- [ ] `rslapp` 1.3.0 no PyPI, conferida com `uvx`
-- [ ] Imagem `1.3.0` e `latest` no ghcr.io, e o servidor de teste atualizado
-- [ ] Tag e release `v1.3.0` no GitHub
-- [ ] README, contrato e guia de hospedagem atualizados
-- [ ] Os passos do Erick passam (os passos 1 e 2 dependem de ele ter acesso ao Scopus e uma chave do Web of Science)
-- [ ] O que o teste achar vira item desta spec ou uma tarefa nova
+- [x] `rslapp` 1.3.0 no PyPI, conferida com `uvx`
+- [x] Imagem `1.3.0` e `latest` no ghcr.io, e o servidor de teste atualizado
+- [x] Tag e release `v1.3.0` no GitHub
+- [x] README, contrato e guia de hospedagem atualizados
+- [~] Os passos do Erick passam: 1, 3 e 4 no teste de 2026-11-13; 5 conferido pelo conector RSL-APP em 2026-11-14 (só as 5 fontes abertas). O 2, Web of Science, espera a chave.
+- [x] O que o teste achar vira item desta spec ou uma tarefa nova
 
 ## Vem de
 
@@ -45,8 +45,15 @@ D-022, D-023, D-008, D-019.
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+`rslapp` 1.3.0 publicada em 2026-11-14 (commit `d279909`).
+
+- PyPI conferida com `uvx --from rslapp==1.3.0`; tag e release `v1.3.0`; imagem `1.3.0` e `latest` no ghcr.io pelo Actions; servidor `rsl.sinteselabs.com` atualizado (`/health` 1.3.0).
+- Gates: ruff limpo e 675 testes em Python 3.10, 3.12 e 3.14. O sdist (101 arquivos) não leva chave, token nem arquivo de memória.
+- O teste real do Scopus passou em 2026-11-13 e a 10-06 foi conferida no VOSviewer pelo Erick. O Web of Science fica para quando a chave sair (`WOS_STARTER_API_KEY`).
 
 ## Como testar
 
-(preenche quem entrega)
+1. `curl https://rsl.sinteselabs.com/health` deve responder `"version":"1.3.0"`.
+2. `uvx --from rslapp==1.3.0 rslapp --help` deve rodar.
+3. Mais arriscado primeiro: no conector hospedado, `list_sources` não pode mostrar `scopus` nem `web_of_science`, e uma busca que as peça deve dar `invalid_input` (D-023).
+4. Depois, no stdio com a chave: uma busca com `scopus` grava a busca inteira no `log.md`.

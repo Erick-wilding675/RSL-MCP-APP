@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-10T21:00:00Z
+updated: 2026-11-14T15:00:00Z
 updated_by: Claude Code
 ---
 
@@ -177,13 +177,16 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - README, contrato e guia de hospedagem atualizados.
   - **Teste real do Scopus feito em 2026-11-13, aprovado pelo Erick** (rede da faculdade, chave `SCOPUS_API_KEY` no Lore, visão COMPLETE liberada, RIS conferido no VOSviewer). Achado: a string do Scopus/WoS no `log.md` mostrava só a última página, e isso virou a 10-06.
   - **10-06 integrada em 2026-11-13** (commits `9d46159` e `0461e06`, para testar): o log grava a busca inteira do Scopus e do WoS (visão, tamanho da página, páginas 1-N).
-  - **Falta a 10-05:** publicar a 1.3.0 (pedir o ok do Erick). O Web of Science fica para quando a chave sair (`WOS_STARTER_API_KEY`, pelo Lore); não precisa segurar a publicação.
-  - Depois desta fase vêm o app desktop e o servidor do projeto, cada um com a sua decisão.
+  - 10-06 conferida pelo Erick no VOSviewer em 2026-11-14.
+  - **10-05 pronta em 2026-11-14:** `rslapp` 1.3.0 no PyPI (conferida com `uvx`), tag e release `v1.3.0`, imagem `1.3.0`/`latest` no ghcr.io, `rsl.sinteselabs.com` com `/health` 1.3.0; no conector hospedado, `list_sources` mostra só as 5 fontes abertas. 675 testes em 3.10, 3.12 e 3.14. Falta só testar o Web of Science quando a chave sair (`WOS_STARTER_API_KEY`, pelo Lore).
+  - **Próximo: a 2.0.** Primeiro a decisão da pilha do app desktop (recomendação do Claude: antes do servidor do projeto, que depende de LGPD e custo).
+- **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
+- **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
 - **v2, fase 8 · Uso por link: pronta em 2026-11-11.** Decidida com o Erick (D-012 a D-018): login OAuth com código pessoal por pessoa (`rslapp token add|list|revoke`, `user purge`), sessão sem prazo, dados separados por pessoa com cache compartilhado, chaves de quem hospeda, exportação por link assinado de 1 hora, Docker com Caddy e imagem no ghcr.io, LGPD conferida antes de anunciar. 08-01 e 08-02 com o `agy` direto; 08-03 a 08-06 pela run `b20261110-163816` do Playmaker (08-03 em duas rodadas). 531 testes em 3.10 e 3.14. Teste à mão do servidor local: `/health`, 401 com metadados OAuth em `/mcp`, download falso 404.
 - **08-07 pronta (2026-11-11):** `rslapp` 1.1.0 no PyPI, tag e release `v1.1.0`, imagem `1.1.0`/`latest` no ghcr.io (pública, amd64 e arm64). Teste real em `rsl.sinteselabs.com`, máquina `rsl-app` da Azure for Students em North Central US (D-019; a assinatura de estudante só permite cinco regiões). Os passos 6 a 8 passaram. **O servidor de teste continua no ar** (cerca de US$ 13/mês pela tabela: máquina US$ 6,86, IP fixo US$ 3,65, disco US$ 2,40; a conta de estudante tem US$ 538 de crédito até 11/11/2027) até o Erick decidir parar ou apagar (grupo `rsl-app`; registro A `rsl` na Hostinger). Entrada por `ssh -i ~/.ssh/rsl-teste azureuser@<IP>`.
 - **Acompanhamentos da v2** (no fim das specs 08-0x): a proteção de host (421) vale só para `/mcp`; `/health`, `/login`, `/authorize`, os metadados OAuth e `/downloads` respondem a qualquer `Host` (sem cookie nem sessão, risco baixo). O servidor HTTP registra as ferramentas numa lista em `_build_http_mcp_server`.
-- **O que espera o Erick:** a LGPD (T-007) antes de divulgar o modo hospedado; decidir se o servidor de teste fica no ar.
+- **O que espera o Erick:** a LGPD (T-007) antes de divulgar o modo hospedado.
 - **07-01 · Entradas numéricas sem verdadeiro/falso (2026-11-09): pronta.** Feita pelo Gemini 4 Argon via `agy --dangerously-skip-permissions`, revisada e integrada na `main` e enviada ao GitHub. 471 testes em 3.10 e 3.14. Publicada como `rslapp` 1.0.1 no PyPI em 2026-11-09 (tag e release `v1.0.1`); testada pelo Erick no Claude Desktop em 2026-11-10.
 - **Para publicar uma versão nova:** subir `version` no `pyproject.toml` e `__version__` em `src/rslapp/__init__.py`, `uv build --no-sources`, conferir o sdist (`tar -tzf`), `lore secrets run --env prod -- uv publish dist/*`, tag e `gh release create`.
 - **Acompanhamentos das revisões** estão no fim de cada spec; nenhum bloqueia.
