@@ -105,8 +105,42 @@ FR-16, FR-17, FR-18, NFR-03, D-024, D-025, D-026. São os ids que o código leva
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+- **Refatoração das fontes (`src/rslapp/sources/__init__.py` e `src/rslapp/server.py`):** centralizados `build_sources(include_paid: bool)` e `list_sources_info(include_paid: bool, cfg: Config | None)` em `rslapp.sources`. Em `server.py`, `_build_sources()` e `list_sources()` delegam para as funções compartilhadas mantendo a assinatura, o docstring e o suporte a `monkeypatch`.
+- **Configuração persistente do app (`src/rslapp/desktop/settings.py`):** implementados `settings_path()`, `KEY_VARS`, `OTHER_VARS`, `DesktopSettings` (com `__repr__` mascarando `KEY_VARS` como `"***"`), `load_settings()`, `save_settings()` (gravação atômica via `atomic_write_replace` e permissão `0o600` fora do Windows) e `apply_to_environ()` (sem sobrescrever variáveis já definidas e não vazias no ambiente e sem imprimir valores).
+- **Serviço sobre o núcleo (`src/rslapp/desktop/service.py`):** implementado `DesktopService` sem estado global e sem importar o `nicegui`, expondo `list_sources`, `search` (`request_summary="app desktop"`), `get_list`, `export`, `list_searches`, `repeat` e `log_path`, propagando `RSLError` diretamente.
+- **Janela, roteamento e páginas (`src/rslapp/desktop/app.py`, `__main__.py` e `pages/*.py`):** implementados `register_pages()` (rotas `/`, `/lista/{list_id}`, `/historico` e `/configuracoes`, cabeçalho comum com `RSL.app` e os três links) e `main()` com `freeze_support()`, `host="127.0.0.1"`, `reload=False`, `title="RSL.app"`, `native=True`, `window_size=(1200, 800)` e recuo automático para `native=False` e `show=True` (sem `window_size`, pois no NiceGUI 4 `window_size` força `native=True` em `ui.run`).
+- **Pacote e testes (`pyproject.toml`, `tests/desktop/` e `tests_desktop/`):** adicionados os extras `desktop` e `desktop-dev`, o script `rslapp-desktop`, a pasta `tests_desktop` no `sdist`, 11 testes em `tests/desktop/` (sem `nicegui`, rodando em 3.10, 3.12 e 3.14) e 2 testes em `tests_desktop/` com o fixture `user` do NiceGUI 4.
+- **Observação sobre a spec (`pyproject.toml`):** na declaração do extra `desktop`, foi usado `"nicegui[native]>=4,<5; python_version >= '3.11'"` porque o `uv lock` resolve todos os extras contra `requires-python = ">=3.10"` e falha na resolução universal para Python 3.10 sem o marcador `python_version >= '3.11'`.
+
+### Onde olhar primeiro (por ordem de risco)
+
+1. **Gravação e proteção de chaves de API (`src/rslapp/desktop/settings.py`):** `DesktopSettings.__repr__` mascara todos os nomes de `KEY_VARS` com `"***"`; `save_settings` ignora chaves desconhecidas, descarta valores vazios, grava com `atomic_write_replace` fora da pasta de dados e aplica `0o600` fora do Windows; `apply_to_environ` nunca sobrescreve variáveis já definidas no ambiente nem escreve valores em log ou stdout.
+2. **Escuta restrita ao loopback e recuo de janela nativa (`src/rslapp/desktop/app.py`):** `main()` passa `host="127.0.0.1"` explicitamente tanto no modo nativo quanto no fallback para navegador (`native=False, show=True`), omitting `window_size` no fallback para evitar que o NiceGUI 4 reative `native=True`.
+3. **Isolamento de importação do NiceGUI (`src/rslapp/desktop/settings.py` e `service.py`):** nenhum módulo fora de `app.py` e `pages/*.py` importa `nicegui`, garantindo que o pacote base e a suíte principal rodem em Python 3.10 sem a dependência instalada.
 
 ## Como testar
 
-(preenche quem entrega)
+1. **Suíte principal sem NiceGUI (Python 3.10 e 3.14):**
+   ```powershell
+   uv run --python 3.10 --extra dev python -m pytest -q
+   uv run --python 3.14 --extra dev python -m pytest -q
+   ```
+   Deve passar com `685 passed, 1 skipped` (os 675 testes anteriores mais os 11 de `tests/desktop/`, sendo o teste de `0o600` pulado no Windows).
+
+2. **Suíte do app desktop com o fixture `user` do NiceGUI 4 (Python 3.12):**
+   ```powershell
+   uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest -c tests_desktop/pytest.ini tests_desktop -q
+   ```
+   Deve passar com `2 passed`.
+
+3. **Lint (Ruff):**
+   ```powershell
+   uv run --extra dev python -m ruff check .
+   ```
+   Deve exibir `All checks passed!`.
+
+4. **Abertura manual da janela do app:**
+   ```powershell
+   uv run --python 3.12 --extra desktop rslapp-desktop
+   ```
+   Deve abrir a janela `RSL.app` (1200×800) escutando apenas em `127.0.0.1`, com o cabeçalho contendo `RSL.app` e os links **Buscar**, **Histórico** e **Configurações** navegando entre as telas.
