@@ -1,6 +1,6 @@
 # Pesquisa
 
-**Projeto:** RSL.app · **Versão:** 0.3 · **Data:** 2026-11-11
+**Projeto:** RSL.app · **Versão:** 0.4 · **Data:** 2026-11-14
 
 > **Em resumo:** Cinco perguntas pesquisadas em 2026-11-02.
 > Não existe MCP do VOSviewer (a busca não foi exaustiva), e o VOSviewer já lê RIS, CSV, URL do OpenAlex e lista de DOIs, então a ponte é o exportador.
@@ -9,6 +9,7 @@
 > Sci-Hub fica fora; o texto completo, quando entrar, vem de acesso aberto.
 > Quatro perguntas de Arquitetura foram acrescentadas em 2026-11-02: biblioteca do MCP, onde guardar os dados, como instalar e quanto custam referências e citações. Nenhuma está decidida ainda.
 > Em 2026-11-11, para a 2.0: o Scopus (visão COMPLETE) entra primeiro, só no modo stdio, com a chave de cada pessoa em variável de ambiente. O Web of Science Starter vem depois, como fonte magra. Nenhuma das duas entra no modo hospedado, por causa dos termos. As duas decisões estão em aberto, com o Erick.
+> Em 2026-11-14, para o app desktop da 2.0: recomendado o NiceGUI em janela nativa, porque roda o núcleo assíncrono sem adaptação e a mesma interface serve no navegador. Decisão em aberto, com o Erick.
 
 ## Existe um MCP do VOSviewer, oficial ou da comunidade, para conectar ao nosso?
 
@@ -96,6 +97,7 @@
 - Se as instituições que recebem o Scopus pelo Periódicos CAPES liberam a API pelo IP delas, e se a VPN da universidade conta como IP da instituição para a Elsevier.
 - Se a visão COMPLETE do Scopus Search exige a assinatura (a página das visões não diz) e se as referências de cada artigo vêm pela Abstract Retrieval API com a mesma chave.
 
+- (2026-11-14, app desktop) Se a janela nativa do NiceGUI abre num Linux comum (Ubuntu) sem instalar pacotes; tamanho do executável do `nicegui-pack` no Windows; se o `httpx` funciona com o `QtAsyncio` (só importa se a escolha for o PySide6).
 ## Qual biblioteca usar para o servidor MCP em Python?
 
 - **Decisão:** SDK oficial `mcp`, linha 2.x (`mcp>=2,<3`), recomendado e escolhido pelo Erick em 2026-11-02 (D-006).
@@ -224,3 +226,26 @@
   - Guardar a chave no cofre do sistema (keyring): mais seguro, mas é dependência e passo de instalação novos, e diferente das outras chaves.
   - Cada pessoa cadastra a chave no servidor hospedado: contraria os termos.
 - **Fontes:** as da pergunta anterior.
+
+## Com qual biblioteca fazer a interface do app desktop (Windows e Linux)?
+
+- **Decisão:** em aberto, com o Erick. Recomendo o **NiceGUI** em modo nativo (janela própria pelo pywebview), empacotado com `nicegui-pack` (PyInstaller).
+- **Motivo:** o núcleo do RSL.app é assíncrono (`async def` com `httpx`), e o NiceGUI roda sobre o asyncio, então chama o núcleo direto, sem adaptação (critério: reaproveitar o núcleo em Python, um desenvolvedor com agentes). A mesma interface também roda no navegador, o que serve depois ao servidor do projeto. Licença MIT, igual à do projeto.
+- **Alternativas:**
+  - **PySide6 (Qt):** a mais madura, com ferramenta oficial de empacotamento (`pyside6-deploy`) e janelas sem dependência do sistema no Linux. Mas o `QtAsyncio` está em prévia técnica e não cobre conexões de rede, então o núcleo rodaria numa thread à parte ou com o `qasync`, de terceiros. Licença LGPL/GPL e executável grande.
+  - **Flet 1.x:** interface em Flutter, assíncrona, Apache-2.0. O `flet build` baixa o SDK do Flutter e precisa ser rodado em cada sistema; a 1.0 saiu em 2026-09-14 e mudou a API, então os exemplos que os modelos conhecem são da 0.x.
+  - **Toga (BeeWare):** BSD, ainda na versão 0.5.7; menos componentes de tabela e lista prontos. Não aprofundado.
+- **Fatos principais (PyPI, 2026-11-14):** NiceGUI 4.0.0 (2026-11-04, MIT, Python 3.11+); PySide6 6.12.0 (LGPL-3.0/GPL, Python 3.10 a 3.15); Flet 1.1.2 (2026-11-06, Apache-2.0, Python 3.10+); Toga 0.5.7 (BSD-3, Python 3.11+); pywebview 6.2.1 (BSD-3).
+- **Cuidados com o NiceGUI:**
+  - Exige Python 3.11+; o servidor MCP continua aceitando 3.10, então o app desktop seria um extra ou um pacote à parte (decidir na spec).
+  - A 4.0 é recente: como no `mcp` 2.x, ler a documentação da 4.0 antes de escrever (T-009).
+  - No Linux, a janela nativa precisa do WebKitGTK ou de Qt no sistema; sem eles, o app abre no navegador.
+- **Fontes (lidas em 2026-11-14):**
+  - https://pypi.org/project/nicegui/ (oficial)
+  - https://nicegui.io/documentation/section_configuration_deployment (oficial)
+  - https://pypi.org/project/PySide6/ (oficial)
+  - https://doc.qt.io/qtforpython-6/deployment/index.html (oficial)
+  - https://doc.qt.io/qtforpython-6/PySide6/QtAsyncio/index.html (oficial)
+  - https://pypi.org/project/flet/ (oficial)
+  - https://flet.dev/docs/publish/ (oficial)
+  - API JSON do PyPI para toga, flet, nicegui, pyside6 e pywebview (oficial)
