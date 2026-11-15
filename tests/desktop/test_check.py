@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -294,3 +295,25 @@ async def test_d026_d028_fr19_ponta_a_ponta_desktop_mcp_stdio_initialize_e_tools
             "status": "ok",
         }
         assert "fake-oa-desktop-key" not in call_result.model_dump_json()
+
+
+# D-028, FR-19: Script packaging/smoke_mcp.py valida initialize via Popen/pipes e falha quando não há JSON-RPC
+def test_d028_fr19_smoke_mcp_script_valida_initialize_e_erros() -> None:
+    smoke_path = Path(__file__).resolve().parents[2] / "packaging" / "smoke_mcp.py"
+    if not smoke_path.exists():
+        pytest.skip("packaging/smoke_mcp.py ausente fora do repositório")
+
+    spec = importlib.util.spec_from_file_location("smoke_mcp", smoke_path)
+    assert spec is not None and spec.loader is not None
+    smoke_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(smoke_mod)
+
+    assert smoke_mod.main([]) == 2
+    assert smoke_mod.main([sys.executable, "-m", "rslapp.desktop", "--mcp"]) == 0
+    assert (
+        smoke_mod.run_smoke_test(
+            [sys.executable, "-c", "import sys; sys.stdout.write('nao-json\\n')"],
+            timeout=5.0,
+        )
+        == 1
+    )
