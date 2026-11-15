@@ -73,6 +73,7 @@ FR-16, FR-08, FR-06, FR-12, D-022, D-025.
 - **Tela Lista (`src/rslapp/desktop/pages/list_view.py`):** implementada a visualização em `/lista/{list_id}` com cabeçalho exibindo string de busca, data, total de artigos e contagem por fonte (resolvendo metadados da lista e da busca correspondente via `service.list_searches()` quando gravada pelo `Store`); cartão de aviso visível quando a lista está incompleta (`status == "incomplete"` ou fonte com status diferente de `"ok"`), listando cada fonte que falhou e o motivo (FR-08); botões de exportação para `RIS`, `CSV`, `BibTeX`, `JSON` e `DOIs` chamando `service.export(list_id, formato)` e exibindo o caminho do arquivo gravado via `ui.notify`; botão `"Abrir pasta"` abrindo o diretório de exportações com `os.startfile` no Windows e `subprocess.run(["xdg-open", ...], check=False)` no Linux (nunca `shell=True`); `ui.table` com paginação de 25 itens por página (`PAGE_SIZE`), busca por texto vinculada a `table.filter`, ordenação por título e ano, autores formatados com os três primeiros e `"et al."`, e coluna DOI renderizada como link externo para `https://doi.org/...`; e tratamento de `list_id` inexistente exibindo `"lista não encontrada"` e link para `/`.
 - **Testes (`tests_desktop/test_search_and_list.py`):** adicionados 8 testes cobrindo busca preenchida e navegação com conferência das linhas da tabela, bloqueio de string vazia sem chamar o serviço, exibição de `RSLError` e reabilitação do formulário, fontes pagas desabilitadas sem chave, aviso de lista incompleta com fonte e motivo, exportação nos formatos com notificação do caminho, abertura da pasta no Windows e no Linux sem `shell=True`, e `list_id` inexistente.
 - **Correção da revisão (`src/rslapp/desktop/service.py`, `src/rslapp/desktop/pages/list_view.py`):** adicionado `DesktopService.get_search(search_id)` (traduzindo `FileNotFoundError`/`ValueError` em `RSLError("search_not_found", ...)`) e reescrito `_resolve_search_metadata` para ler os metadados no formato real do `Store` (`params.query` e `sources` da busca via `service.get_search(list_data["search_id"])` e `created_at` da lista, exibindo `"—"` em junções ou na falta de `search_id` e nunca usando `request_summary`).
+- **Revisão do Claude (2026-11-15):** a primeira versão lia a string da lista também de `request_summary`, que guarda a origem ("app desktop"), e adivinhava campos que a lista gravada não tem; voltou ao Gemini e foi corrigida (88ce743). Gates: `tests_desktop` 11 passaram; 685 passaram e 1 pulado em 3.10 e 3.14; ruff limpo. Teste real pelo `DesktopService` numa pasta temporária, com a chave do Lore: 20 artigos do OpenAlex, lista `complete` e `l-0001.ris` de 38 KB gravado. Falta o teste à mão na janela, que fica para o Erick.
 
 ### Onde olhar primeiro (por ordem de risco)
 
@@ -86,7 +87,7 @@ FR-16, FR-08, FR-06, FR-12, D-022, D-025.
    ```powershell
    uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest -c tests_desktop/pytest.ini tests_desktop -q
    ```
-   Deve passar com `10 passed`.
+   Deve passar com `11 passed`.
 
 2. **Suíte principal (Python 3.10, 3.12 e 3.14):**
    ```powershell
