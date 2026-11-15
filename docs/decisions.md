@@ -270,4 +270,27 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Alternativas:** servidor do projeto com a chave do projeto ou com a de cada pessoa (opções A e B da D-011): custo, cota compartilhada e os dados ficariam no servidor, não na pasta do usuário.
 - **Decidido por:** Erick · **Data:** 2026-11-15
 - **Fontes:** conversa de 2026-11-15 (Claude Code)
-- **Situação:** decidida. Falta pesquisar as formas de ligar a IA ao RSL.app local (extensão do Claude Desktop, configuração de cada cliente) antes da spec da 2.1.
+- **Situação:** decidida. A forma de ligar a IA ao RSL.app local foi pesquisada e decidida na D-028.
+
+## D-028 · 2.1: botão "Conectar IA" no app, com o próprio executável servindo como servidor MCP
+
+- **Decisão:** o executável do app desktop ganha um modo de servidor MCP por stdio, com a mesma pasta de dados e as mesmas chaves do app. Uma tela do app liga esse servidor a cada IA:
+  - **Claude Desktop:** o app grava no `claude_desktop_config.json`, mostra antes o que muda e guarda uma cópia do arquivo;
+  - **Cursor e VS Code:** o app abre o link de instalação de cada um, e o cliente pede confirmação;
+  - **Claude Code:** o app mostra o comando pronto para copiar.
+- **Motivo:** é a única opção que serve a mais de uma IA sem exigir Python ou `uv` de quem usa, porque o executável já leva o Python e o núcleo. Cumpre o fundamento: acesso para todo pesquisador, mesmo sem conhecimento técnico.
+- **Alternativas:** extensão `.mcpb` só para o Claude Desktop (pode vir depois, como atalho a mais); só o guia com `uvx` (exige instalar o `uv` e editar JSON); ChatGPT ligado ao computador por túnel (expõe a máquina; rejeitada).
+- **Decidido por:** Erick, aceitando a recomendação · **Data:** 2026-11-15
+- **Fontes:** `docs/research.md`, pergunta "Como ligar a IA do pesquisador ao RSL.app local com o mínimo de passos?"
+- **A testar:** se o executável `--windowed` do Windows conversa por stdio quando o Claude Desktop o inicia; se não, um segundo executável de console na mesma pasta.
+- **Situação:** decidida; fase 12 do plano.
+
+## D-029 · Instituições de ensino são o público principal: cada recurso diz como uma instituição o oferece
+
+- **Decisão:** as universidades e institutos que hospedam o RSL.app nos próprios servidores, para os seus pesquisadores, são o público que o projeto mais quer alcançar. A partir da 2.1, toda spec de recurso tem uma seção "Para instituições", que diz como uma instituição oferece aquele recurso a todos os seus pesquisadores, e a entrega atualiza o guia `docs/hospedagem.md`. O projeto continua sem servidor próprio (D-027): quem hospeda é a instituição (D-011).
+- **Motivo:** nas palavras do Erick, é o público que mais se interessaria por esse projeto de inovação na academia brasileira; com a instituição hospedando, a melhoria da metodologia chega a todos os seus pesquisadores, inclusive pelo ChatGPT, que só aceita servidor na internet.
+- **Exemplo da 2.1:** o ChatGPT não se liga ao RSL.app local, mas se liga ao servidor de uma instituição pelo modo hospedado, que já tem login OAuth com registro automático de cliente e `S256` (conferido no servidor de teste em 2026-11-15). Falta o guia e o teste real no ChatGPT.
+- **Decidido por:** Erick · **Data:** 2026-11-15
+- **Fontes:** conversa de 2026-11-15 (Claude Code); https://developers.openai.com/apps-sdk/build/auth (lida em 2026-11-15)
+- **Cuidados:** os dados de autores passam a ficar no servidor da instituição, que responde por eles; a conferência da LGPD (T-007) pesa mais para esse público.
+- **Situação:** decidida

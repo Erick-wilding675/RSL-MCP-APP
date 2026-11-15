@@ -1,0 +1,79 @@
+# Modo servidor MCP no executável do app
+
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** a fazer
+
+## O que faz
+
+Faz o mesmo programa do app desktop servir também como servidor MCP por stdio (D-028, FR-19). Quem baixou o `.zip` ou o AppImage passa a ter o RSL.app inteiro para a IA, sem instalar Python nem `uv`.
+
+### A opção `--mcp`
+
+- `rslapp-desktop --mcp`, `RSL.app.exe --mcp` e `RSL.app-<versão>.AppImage --mcp` iniciam o servidor MCP por stdio, o mesmo de `rslapp` sem argumentos (`rslapp.server.main()`), e não abrem janela nem servidor web.
+- Antes de iniciar, o modo faz o mesmo que o app ao abrir: `capture_system_env_vars()`, `load_settings()` e `apply_to_environ()`. Assim a IA usa a mesma pasta de dados, a mesma pasta de exportação, o mesmo e-mail e as mesmas chaves que a pessoa salvou em Configurações (D-026). Uma variável que já veio do sistema continua valendo.
+- **Nada pode ir para o stdout além do protocolo MCP.** Nenhum `print`, aviso ou log no stdout nesse modo; o que precisar sair vai para o stderr.
+- `--mcp` e `--check` juntos são erro de uso, com código 2 (o padrão do `argparse` com grupo mutuamente exclusivo).
+- `_ensure_stdio_streams()` não pode trocar o stdin e o stdout por `os.devnull` no modo `--mcp`.
+  - Se o stdin ou o stdout forem `None`, o modo escreve uma mensagem curta no stderr (se houver) e sai com código 1.
+  - Hoje essa função roda antes de interpretar os argumentos; reorganize para que o modo seja conhecido antes.
+
+### O executável do Windows (o ponto mais arriscado)
+
+O `.exe` é gerado com `--windowed`, o subsistema gráfico do Windows. É preciso confirmar que ele recebe o stdin e o stdout quando outro programa o inicia com pipes, como o Claude Desktop faz.
+
+1. **Confirme primeiro.** No workflow `desktop.yml`, no job do Windows, depois do teste `--check`, acrescente um teste de fumaça do modo MCP:
+   - um script Python inicia `dist\RSL.app\RSL.app.exe --mcp` com `subprocess.Popen` e pipes no stdin e no stdout;
+   - envia a mensagem `initialize` do MCP e lê a resposta;
+   - falha o job se não chegar uma resposta JSON-RPC com `result.serverInfo` em até 30 segundos.
+   - Use o cliente stdio do SDK `mcp` 2.x, se for simples; senão, JSON-RPC à mão, uma mensagem por linha. Confira na documentação da versão 2 antes de escrever (T-009).
+2. **Se o teste falhar no `--windowed`**, monte um segundo executável de console, `rslapp-mcp.exe`, na mesma pasta `dist\RSL.app`:
+   - feito com o PyInstaller a partir de um ponto de entrada pequeno que chama o mesmo modo;
+   - o `.zip` leva os dois;
+   - nesse caso, a 12-02 aponta a IA para o `rslapp-mcp.exe`.
+
+   Registre na spec qual caminho foi usado e por quê.
+3. O mesmo teste de fumaça roda no Linux, com o AppImage e `--appimage-extract-and-run --mcp`.
+
+### Teste sem o NiceGUI
+
+- Em `tests/desktop`, sem importar o NiceGUI:
+  - a interpretação de `--mcp`;
+  - o erro de `--mcp` com `--check`;
+  - que o modo carrega as configurações e chama a função do servidor, com o servidor trocado por um dublê;
+  - que nada é escrito no stdout.
+- Um teste de ponta a ponta em `tests/`: sobe `python -m rslapp.desktop --mcp` (ou o ponto de entrada equivalente) num subprocesso com `RSL_DATA_DIR` e `RSL_DESKTOP_CONFIG` temporários, faz `initialize` e `tools/list`, e confere que `search_works` está na lista.
+  - Se esse ponto de entrada exigir o NiceGUI, o teste vai para `tests_desktop`.
+
+## O que não faz
+
+- Não cria a tela que liga as IAs (12-02).
+- Não muda o servidor MCP, as ferramentas ou o modo HTTP.
+
+## Para instituições
+
+Nada muda para quem hospeda: o modo hospedado continua sendo `rslapp serve` na imagem Docker (D-011). O `--mcp` é só para o computador de cada pesquisador.
+
+## Pronto quando
+
+- [ ] `RSL.app.exe --mcp` (ou `rslapp-mcp.exe`) responde ao `initialize` no teste de fumaça do workflow, no Windows e no Linux
+- [ ] O modo `--mcp` usa as chaves e a pasta salvas em Configurações
+- [ ] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
+- [ ] Nada além do protocolo vai para o stdout no modo `--mcp`
+
+## Vem de
+
+FR-19, D-026, D-027, D-028.
+
+## Antes de começar
+
+- Leia `src/rslapp/desktop/app.py`, `src/rslapp/desktop/__main__.py`, `src/rslapp/cli.py` e o fim de `src/rslapp/server.py`.
+- Leia o `desktop.yml` (11-04).
+- Leia a documentação do transporte stdio do SDK `mcp` 2.x e do cliente stdio, se for usá-lo no teste (T-009).
+- Tamanho esperado: cerca de 200 linhas, com o workflow. Um commit por parte que dê para revisar.
+
+## Resultado da entrega
+
+(preenche quem entrega)
+
+## Como testar
+
+(preenche quem entrega)

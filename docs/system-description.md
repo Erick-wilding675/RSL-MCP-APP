@@ -15,6 +15,8 @@ Nas palavras do Erick (2026-11-15), o que guia todas as versões:
 - **Tirar o tabu do uso de IA na pesquisa brasileira**, que ainda evita usá-la, dando esse acesso a todo pesquisador apto a usar IA.
 - **Ligar a tradição da academia brasileira aos métodos modernos de IA.** As versões 3, 4 e seguintes vão integrar ferramentas baseadas em IA, sempre com esse cuidado.
 
+- **As instituições de ensino são o público principal** (D-029): universidades e institutos que hospedam o RSL.app nos próprios servidores para oferecê-lo a todos os seus pesquisadores. Cada recurso explica como uma instituição o oferece.
+
 Toda decisão e toda spec deve ser conferida contra este fundamento.
 
 ## O que é

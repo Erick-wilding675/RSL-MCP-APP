@@ -190,7 +190,12 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - **11-04 integrada em 2026-11-15** (para testar): workflow `desktop.yml` gera o `.zip` do Windows e o AppImage; execução manual 43723048965 passou nos dois; o `.exe` baixado abre a janela no Windows 11 e fecha limpo.
   - **11-05 publicada em 2026-11-15** com o ok do Erick: `rslapp` 2.0.0 no PyPI (conferida com `uvx`), release `v2.0.0` com o `.zip` do Windows e o AppImage, imagem no ghcr.io, `rsl.sinteselabs.com` com `/health` 2.0.0.
   - **Próximo: o teste real do Erick** (passos 1 a 7 da spec 11-05), com o `.exe` baixado da release. O que o teste achar vira item da 11-05 ou tarefa nova. Depois: LGPD (T-007), Web of Science quando a chave sair, e as duas dívidas da 11-03.
-  - **2026-11-15:** o Erick registrou o fundamento do projeto (`system-description.md`, seção "Fundamento") e decidiu que o projeto não mantém servidor público (D-027). **Em andamento:** pesquisa de como ligar a IA do usuário ao RSL.app local com um clique, para a spec da 2.1.
+  - **2026-11-15:** o Erick registrou o fundamento do projeto (`system-description.md`, seção "Fundamento") e decidiu que o projeto não mantém servidor público (D-027).
+  - **Fase 12 (2.1) planejada em 2026-11-15:**
+    - D-028: botão "Conectar IA", com o executável servindo como servidor MCP;
+    - D-029: instituições como público principal, e cada spec com a seção "Para instituições";
+    - FR-19 e FR-20; specs 12-01 a 12-04.
+    - **Próximo:** 12-01 pelo `agy`; a 12-03 anda em paralelo (guia e teste do ChatGPT no servidor de teste, que precisa do Erick).
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.

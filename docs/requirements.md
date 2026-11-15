@@ -35,6 +35,8 @@ O que o pesquisador, por meio da IA dele, precisa conseguir fazer.
 | FR-16 | Um app desktop para Windows e Linux deixa a pessoa buscar, ver a lista e exportar sem uma IA no meio, usando o mesmo núcleo, a mesma pasta de dados e o mesmo log do servidor | 2.0 | Erick, 2026-11-11: "app desktop com busca e lista sem IA no meio"; D-024, D-025 |
 | FR-17 | No app, a pessoa vê as buscas já feitas, repete uma delas e abre o log | 2.0 | Deduzido de FR-11 e FR-13 para o app; aceito com as recomendações em 2026-11-14 |
 | FR-18 | No app, a pessoa configura as chaves de API, o e-mail de contato e as pastas, sem editar arquivos nem variáveis de ambiente | 2.0 | FR-07 levado ao app; D-026 |
+| FR-19 | No app, a pessoa liga a própria IA (Claude Desktop, Claude Code, Cursor, VS Code) ao RSL.app do computador dela, sem instalar Python e sem editar arquivos; a IA usa a mesma pasta de dados e as mesmas chaves do app | 2.1 | Erick, 2026-11-15; D-027, D-028 |
+| FR-20 | Uma instituição que hospeda o RSL.app oferece aos seus pesquisadores cada recurso, incluindo o uso pelo ChatGPT, seguindo o guia de hospedagem | 2.1 | Erick, 2026-11-15; D-029 |
 
 ## Requisitos não funcionais
 

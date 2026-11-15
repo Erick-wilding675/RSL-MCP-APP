@@ -125,6 +125,17 @@ Decidido em 2026-11-14 (D-024 a D-026): NiceGUI em janela própria, quatro telas
 
 A 11-02 e a 11-03 dependem da 11-01 e mexem em arquivos diferentes (uma página cada). A 11-04 espera as três. A 11-05 espera o ok do Erick para publicar.
 
+### 12 · Conectar a IA ao app, e o guia das instituições (2.1)
+
+Decidido em 2026-11-15 (D-027 a D-029): sem servidor do projeto; o executável do app serve como servidor MCP local, e uma tela liga cada IA a ele; as instituições são o público principal, e cada recurso explica como uma instituição o oferece. Requisitos FR-19 e FR-20.
+
+1. Modo servidor MCP no executável do app. Spec: `specs/12-01-modo-mcp-no-executavel.md`
+2. Tela "Conectar IA". Spec: `specs/12-02-tela-conectar-ia.md`
+3. Guia das instituições, com o ChatGPT pelo servidor da instituição. Spec: `specs/12-03-guia-das-instituicoes.md`
+4. Publicação da 2.1.0 e teste real. Spec: `specs/12-04-publicacao-2-1-e-teste-real.md`
+
+A 12-02 depende da 12-01. A 12-03 é só documento e teste no servidor de teste, então anda em paralelo com as duas. A 12-04 espera as três e o ok do Erick para publicar.
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):
