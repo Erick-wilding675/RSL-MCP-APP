@@ -6,6 +6,17 @@
 > É gratuito e sem fins comerciais, para o Erick, um doutorando e quem mais quiser fazer uma revisão sistemática rigorosa com IA.
 > A primeira versão é só o servidor MCP. O app desktop e as bases que dependem de licença ficam para depois.
 
+## Fundamento
+
+Nas palavras do Erick (2026-11-15), o que guia todas as versões:
+
+- **Elevar o nível da revisão sistemática** feita por pesquisadores que queiram ligar a própria IA (Claude, ChatGPT, Cursor ou qualquer outra) ao processo. O que eles já fazem hoje deve ficar mais fácil e melhor, não ser trocado: buscar, fichar, montar listas de leitura e ligar autores, coautores e palavras-chave, levando ao VOSviewer e às ferramentas parecidas.
+- **Rastreabilidade, interpretabilidade, observabilidade e reprodutibilidade** do projeto de pesquisa de quem usa: cada busca, lista e passo pode ser conferido, explicado e refeito.
+- **Tirar o tabu do uso de IA na pesquisa brasileira**, que ainda evita usá-la, dando esse acesso a todo pesquisador apto a usar IA.
+- **Ligar a tradição da academia brasileira aos métodos modernos de IA.** As versões 3, 4 e seguintes vão integrar ferramentas baseadas em IA, sempre com esse cuidado.
+
+Toda decisão e toda spec deve ser conferida contra este fundamento.
+
 ## O que é
 
 RSL.app (RSL de Revisão Sistemática da Literatura) não tem banco de artigos próprio. Ele consulta as APIs de bases acadêmicas e consolida o resultado.

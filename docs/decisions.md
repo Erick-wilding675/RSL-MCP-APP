@@ -262,3 +262,12 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Alternativas:** cofre do sistema (keyring): mais seguro, mas é dependência nova e no Linux depende de um serviço que nem todo sistema tem; gravar na pasta de dados: arrisca ir junto quando a pessoa compartilha a pasta.
 - **Decidido por:** Erick, aceitando as recomendações de antemão · **Data:** 2026-11-14
 - **Situação:** decidida
+
+## D-027 · Sem servidor público do projeto; a IA do usuário se liga ao RSL.app local
+
+- **Decisão:** o projeto não mantém servidor público, nem uma URL de MCP própria. As opções A e B da D-011 saem do plano. O modo HTTP e a imagem Docker continuam, para quem quiser hospedar o próprio servidor (D-011, D-012). O caminho principal é a IA do pesquisador (Claude, ChatGPT, Cursor ou outra) se ligar ao RSL.app que roda no computador dele: as buscas e as listas ficam na pasta de dados dele, a mesma que o app desktop mostra. A próxima versão deixa essa ligação fácil, sem editar arquivo de configuração.
+- **Motivo:** o Erick não quer servidor mantido pelo projeto. O que ele pensava como "MCP público" era a IA do usuário fazer as buscas e salvar no app ou numa pasta escolhida. Um servidor na internet não grava no computador de quem usa, então isso só se cumpre com o RSL.app local. Sem custo para o projeto e sem dados de autores em servidor de terceiros (D-004, T-007).
+- **Alternativas:** servidor do projeto com a chave do projeto ou com a de cada pessoa (opções A e B da D-011): custo, cota compartilhada e os dados ficariam no servidor, não na pasta do usuário.
+- **Decidido por:** Erick · **Data:** 2026-11-15
+- **Fontes:** conversa de 2026-11-15 (Claude Code)
+- **Situação:** decidida. Falta pesquisar as formas de ligar a IA ao RSL.app local (extensão do Claude Desktop, configuração de cada cliente) antes da spec da 2.1.

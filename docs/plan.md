@@ -131,7 +131,7 @@ O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Ca
 
 - **App desktop** para Windows e Linux, com busca e lista sem IA no meio: virou a fase 11 (D-024 a D-026).
 - **Scopus e Web of Science** com a chave de cada pessoa. Falta ler os termos de uso de cada API e decidir como a chave é guardada.
-- **Servidor mantido pelo projeto** (opções A e B da D-011): um link público para qualquer pesquisador. Falta pesquisar hospedagem e custo mensal, e a LGPD (T-007) resolvida antes.
+- ~~**Servidor mantido pelo projeto** (opções A e B da D-011)~~: fora do plano desde a D-027 (2026-11-15). No lugar, a 2.1 deixa fácil ligar a IA do pesquisador ao RSL.app local.
 
 ## Próximos passos (depois da v1)
 
