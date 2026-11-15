@@ -97,6 +97,23 @@ O RSL.app é um servidor MCP por **stdio**. O comando é `uvx rslapp`, e as chav
 <!-- D-011, D-017, D-018 -->
 Um laboratório, grupo de pesquisa ou pessoa também pode hospedar o RSL.app num servidor próprio com Docker e HTTPS pelo Caddy, gerando um código de acesso individual para cada pesquisador conectar por link (`https://<domínio>/mcp`) sem instalar nada na própria máquina. As chaves das bases e os dados das buscas ficam no servidor de quem hospeda. Veja o passo a passo e o aviso sobre a LGPD em [`docs/hospedagem.md`](docs/hospedagem.md).
 
+## App desktop
+
+<!-- D-024, D-025, D-026, FR-16, FR-17, FR-18 -->
+Se você preferir usar o RSL.app direto numa tela (buscar, ver a lista, exportar em RIS, CSV, BibTeX, JSON ou DOIs, consultar o histórico, repetir buscas e configurar as chaves sem precisar de uma IA no meio), há executáveis prontos para Windows e Linux na página de [Releases](https://github.com/Erick-wilding675/RSL-MCP-APP/releases):
+
+- **Windows (x64):** baixe `RSL.app-<versão>-windows-x64.zip`, extraia a pasta `RSL.app` e abra `RSL.app.exe`. Como o executável não é assinado comercialmente, o Windows SmartScreen pode mostrar o aviso *"O Windows protegeu o computador"* na primeira execução: clique em **Mais informações** e depois em **Executar assim mesmo**.
+- **Linux (x86_64):** baixe `RSL.app-<versão>-linux-x86_64.AppImage`, dê permissão de execução (`chmod +x RSL.app-*-linux-x86_64.AppImage`) e execute-o. No Linux, o AppImage abre a interface no navegador padrão, escutando apenas na própria máquina (`127.0.0.1`).
+- **Instalação pelo `pip` (Python 3.11+):**
+  ```bash
+  pip install "rslapp[desktop]"
+  rslapp-desktop
+  ```
+
+**Mesmos dados do servidor e onde ficam as chaves:**
+- O app desktop usa **a mesma pasta de dados** (`~/RSL.app` ou `RSL_DATA_DIR`), **as mesmas listas** e **o mesmo `log.md`** do servidor MCP. As buscas feitas no app aparecem no servidor MCP e vice-versa.
+- As chaves e pastas salvas na tela **Configurações** ficam fora da pasta de dados (para não irem junto se você compactar `~/RSL.app` para anexar à metodologia): em `%APPDATA%\RSL.app\desktop.json` no Windows e em `$XDG_CONFIG_HOME/rslapp/desktop.json` (ou `~/.config/rslapp/desktop.json`) no Linux, com permissão restrita ao dono (`0600` no Linux). Variáveis de ambiente já definidas no sistema continuam tendo prioridade e não são sobrescritas.
+
 ## Como usar
 
 Fale com a IA normalmente. Alguns pedidos que funcionam bem:
