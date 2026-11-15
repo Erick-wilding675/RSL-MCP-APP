@@ -1,4 +1,4 @@
-"""Testes da opção --check e interpretação de argumentos do app desktop sem importar nicegui (D-025, FR-16)."""
+"""Testes das opções --check e --mcp e interpretação de argumentos do app desktop sem importar nicegui (D-025, D-026, D-028, FR-16, FR-19)."""
 
 from __future__ import annotations
 
@@ -7,10 +7,17 @@ import sys
 from pathlib import Path
 
 import pytest
+from mcp import Client, StdioServerParameters
 
+from rslapp import server
 from rslapp.desktop import app as desktop_app
 from rslapp.desktop.service import DesktopService
 from rslapp.desktop.settings import ALLOWED_VARS, DesktopSettings, save_settings
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
 
 
 # D-025, FR-16: parse_args interpreta argumentos vazios, --check e sys.argv sem importar nicegui
@@ -95,3 +102,195 @@ def test_d025_fr16_ensure_stdio_streams_substitui_none_por_devnull(
             sys.stdout.close()
         if sys.stderr is not None:
             sys.stderr.close()
+
+
+# D-028, FR-19: parse_args interpreta --mcp e recusa --mcp junto com --check (código 2) sem importar nicegui
+def test_d028_fr19_parse_args_mcp_e_exclusao_mutua_com_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    args_default = desktop_app.parse_args([])
+    assert args_default.mcp is False
+    assert args_default.check is False
+
+    args_mcp = desktop_app.parse_args(["--mcp"])
+    assert args_mcp.mcp is True
+    assert args_mcp.check is False
+
+    args_check = desktop_app.parse_args(["--check"])
+    assert args_check.mcp is False
+    assert args_check.check is True
+
+    monkeypatch.setattr(sys, "argv", ["rslapp-desktop", "--mcp"])
+    assert desktop_app.parse_args().mcp is True
+
+    for combo in (["--mcp", "--check"], ["--check", "--mcp"]):
+        with pytest.raises(SystemExit) as exc_info:
+            desktop_app.parse_args(combo)
+        assert exc_info.value.code == 2
+
+    assert "nicegui" not in sys.modules
+
+
+# D-026, D-028, FR-19: main(["--mcp"]) carrega desktop.json sem sobrescrever o sistema, chama server.main e não escreve no stdout
+def test_d026_d028_fr19_main_mcp_carrega_configuracoes_chama_servidor_sem_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    for var in ALLOWED_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+    monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "s2-do-sistema")
+    cfg_file = tmp_path / "desktop.json"
+    data_dir = tmp_path / "dados_mcp"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    save_settings(
+        DesktopSettings(
+            values={
+                "OPENALEX_API_KEY": "oa-do-desktop",
+                "SEMANTIC_SCHOLAR_API_KEY": "s2-do-desktop",
+                "RSL_CONTACT_EMAIL": "mcp@exemplo.org",
+                "RSL_DATA_DIR": str(data_dir),
+            }
+        )
+    )
+
+    server_calls: list[dict[str, str | None]] = []
+
+    def fake_server_main() -> None:
+        server_calls.append(
+            {
+                "OPENALEX_API_KEY": os.environ.get("OPENALEX_API_KEY"),
+                "SEMANTIC_SCHOLAR_API_KEY": os.environ.get("SEMANTIC_SCHOLAR_API_KEY"),
+                "RSL_CONTACT_EMAIL": os.environ.get("RSL_CONTACT_EMAIL"),
+                "RSL_DATA_DIR": os.environ.get("RSL_DATA_DIR"),
+            }
+        )
+
+    monkeypatch.setattr(desktop_app.server, "main", fake_server_main)
+    monkeypatch.setattr(
+        desktop_app,
+        "register_pages",
+        lambda *_a, **_kw: pytest.fail("register_pages não deve rodar em --mcp"),
+    )
+    monkeypatch.setattr(
+        desktop_app,
+        "_run_ui",
+        lambda: pytest.fail("_run_ui não deve rodar em --mcp"),
+    )
+    monkeypatch.setattr(
+        desktop_app,
+        "_run_check",
+        lambda: pytest.fail("_run_check não deve rodar em --mcp"),
+    )
+
+    exit_code = desktop_app.main(["--mcp"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out == ""
+    assert captured.err == ""
+    assert server_calls == [
+        {
+            "OPENALEX_API_KEY": "oa-do-desktop",
+            "SEMANTIC_SCHOLAR_API_KEY": "s2-do-sistema",
+            "RSL_CONTACT_EMAIL": "mcp@exemplo.org",
+            "RSL_DATA_DIR": str(data_dir),
+        }
+    ]
+    assert "nicegui" not in sys.modules
+
+
+# D-028, FR-19: No modo --mcp, stdin ou stdout None não são trocados por devnull e retornam código 1
+def test_d028_fr19_main_mcp_recusa_stdin_ou_stdout_none_sem_trocar_por_devnull(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    monkeypatch.setattr(
+        desktop_app.server,
+        "main",
+        lambda: pytest.fail("server.main não deve rodar sem stdin/stdout"),
+    )
+
+    # 1. stdin None com stderr presente: escreve mensagem curta no stderr e sai com 1
+    with monkeypatch.context() as mp:
+        mp.setattr(sys, "stdin", None)
+        code_no_stdin = desktop_app.main(["--mcp"])
+        assert code_no_stdin == 1
+        assert sys.stdin is None
+    captured_stdin = capsys.readouterr()
+    assert captured_stdin.out == ""
+    assert "--mcp" in captured_stdin.err
+
+    # 2. stdout None com stderr presente: escreve mensagem curta no stderr e sai com 1
+    with monkeypatch.context() as mp:
+        mp.setattr(sys, "stdout", None)
+        code_no_stdout = desktop_app.main(["--mcp"])
+        assert code_no_stdout == 1
+        assert sys.stdout is None
+    captured_stdout = capsys.readouterr()
+    assert captured_stdout.out == ""
+    assert "--mcp" in captured_stdout.err
+
+    # 3. stdout e stderr None: sai com 1 sem levantar exceção
+    with monkeypatch.context() as mp:
+        mp.setattr(sys, "stdout", None)
+        mp.setattr(sys, "stderr", None)
+        code_no_both = desktop_app.main(["--mcp"])
+        assert code_no_both == 1
+        assert sys.stdout is None
+        assert sys.stderr is None
+
+
+# D-026, D-028, FR-19: Teste de ponta a ponta em subprocesso com python -m rslapp.desktop --mcp
+@pytest.mark.anyio
+async def test_d026_d028_fr19_ponta_a_ponta_desktop_mcp_stdio_initialize_e_tools_list(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg_file = tmp_path / "desktop.json"
+    data_dir = tmp_path / "rsl_data"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    save_settings(
+        DesktopSettings(
+            values={
+                "OPENALEX_API_KEY": "fake-oa-desktop-key",
+                "RSL_CONTACT_EMAIL": "pesquisador@inst.br",
+            }
+        )
+    )
+
+    env: dict[str, str] = {}
+    for var in ("SYSTEMROOT", "PATH", "USERPROFILE", "PYTHONPATH"):
+        if var in os.environ:
+            env[var] = os.environ[var]
+    env.setdefault("USERPROFILE", str(tmp_path))
+    env["HOME"] = str(tmp_path)
+    env["RSL_DATA_DIR"] = str(data_dir)
+    env["RSL_DESKTOP_CONFIG"] = str(cfg_file)
+
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "rslapp.desktop", "--mcp"],
+        env=env,
+    )
+
+    async with Client(params) as client:
+        assert client.instructions == server.INSTRUCTIONS
+        tools_result = await client.list_tools()
+        tool_names = [tool.name for tool in tools_result.tools]
+        assert "search_works" in tool_names
+
+        call_result = await client.call_tool("list_sources", {})
+        assert call_result.is_error is False
+        sources = {item["name"]: item for item in call_result.structured_content["result"]}
+        assert sources["openalex"] == {
+            "name": "openalex",
+            "configured": True,
+            "needs_key": True,
+            "status": "ok",
+        }
+        assert "fake-oa-desktop-key" not in call_result.model_dump_json()
