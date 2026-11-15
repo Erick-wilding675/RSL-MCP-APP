@@ -25,9 +25,9 @@ jobs:
 
       - name: Determinar versão do pacote
         id: meta
-        shell: pwsh
+        shell: bash
         run: |
-          python -c "import os, pathlib, re; ref = os.environ.get('GITHUB_REF_NAME', ''); text = pathlib.Path('src/rslapp/__init__.py').read_text(encoding='utf-8'); m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', text); v = ref[1:] if ref.startswith('v') else (m.group(1) if m else '0.0.0'); print(f'version={v}')" >> $env:GITHUB_OUTPUT
+          python -c "import os, pathlib, re; ref = os.environ.get('GITHUB_REF_NAME', ''); text = pathlib.Path('src/rslapp/__init__.py').read_text(encoding='utf-8'); m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', text); v = ref[1:] if ref.startswith('v') else (m.group(1) if m else '0.0.0'); print(f'version={v}')" >> "$GITHUB_OUTPUT"
 
       - name: Instalar projeto com extra desktop e PyInstaller
         shell: pwsh
