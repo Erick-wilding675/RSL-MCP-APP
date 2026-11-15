@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -28,6 +28,79 @@ OTHER_VARS: tuple[str, ...] = (
 )
 
 ALLOWED_VARS: tuple[str, ...] = KEY_VARS + OTHER_VARS
+
+_SYSTEM_ENV_VARS: frozenset[str] = frozenset()
+_APPLIED_BY_APP_VALUES: dict[str, str] = {}
+
+
+# D-026, FR-18, NFR-03: Captura no início do processo quais variáveis já vieram do ambiente do sistema
+def capture_system_env_vars(
+    environ: Mapping[str, str] = os.environ,
+) -> frozenset[str]:
+    """Registra quais variáveis de ALLOWED_VARS já vieram definidas no ambiente do sistema antes de apply_to_environ."""
+    global _SYSTEM_ENV_VARS
+    captured = frozenset(
+        key
+        for key in ALLOWED_VARS
+        if isinstance(val := environ.get(key), str) and val.strip()
+    )
+    if environ is os.environ:
+        _APPLIED_BY_APP_VALUES.clear()
+        _SYSTEM_ENV_VARS = captured
+    return captured
+
+
+# D-026, FR-18, NFR-03: Consulta quais variáveis pertencem ao ambiente do sistema e não devem ser sobrescritas
+def get_system_env_vars(
+    environ: Mapping[str, str] = os.environ,
+) -> frozenset[str]:
+    """Devolve o frozenset de variáveis de ALLOWED_VARS definidas pelo ambiente do sistema."""
+    if environ is not os.environ:
+        return frozenset(
+            key
+            for key in ALLOWED_VARS
+            if isinstance(val := environ.get(key), str) and val.strip()
+        )
+    active_sys_vars: set[str] = set()
+    for key in ALLOWED_VARS:
+        raw = environ.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        cleaned = raw.strip()
+        if key in _SYSTEM_ENV_VARS or _APPLIED_BY_APP_VALUES.get(key) != cleaned:
+            active_sys_vars.add(key)
+    return frozenset(active_sys_vars)
+
+
+# D-026, FR-18, NFR-03: Atualiza ou remove variável no ambiente do processo respeitando as variáveis do sistema
+def set_app_env_var(
+    key: str,
+    value: str,
+    environ: MutableMapping[str, str] = os.environ,
+) -> bool:
+    """Define uma variável configurada na tela no environ do processo, exceto se veio do sistema."""
+    if key not in ALLOWED_VARS or key in get_system_env_vars(environ):
+        return False
+    cleaned = value.strip()
+    if not cleaned:
+        return False
+    environ[key] = cleaned
+    if environ is os.environ:
+        _APPLIED_BY_APP_VALUES[key] = cleaned
+    return True
+
+
+def remove_app_env_var(
+    key: str,
+    environ: MutableMapping[str, str] = os.environ,
+) -> bool:
+    """Remove do environ uma variável apagada na tela, exceto se veio do sistema."""
+    if key not in ALLOWED_VARS or key in get_system_env_vars(environ):
+        return False
+    environ.pop(key, None)
+    if environ is os.environ:
+        _APPLIED_BY_APP_VALUES.pop(key, None)
+    return True
 
 
 # D-026, FR-18: Resolve o caminho do arquivo de configuração do app conforme o sistema ou RSL_DESKTOP_CONFIG
@@ -136,6 +209,9 @@ def apply_to_environ(
         existing = environ.get(key)
         if existing is not None and existing.strip():
             continue
-        environ[key] = val.strip()
+        cleaned = val.strip()
+        environ[key] = cleaned
+        if environ is os.environ:
+            _APPLIED_BY_APP_VALUES[key] = cleaned
         applied.append(key)
     return applied

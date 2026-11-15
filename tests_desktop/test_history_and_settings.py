@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,14 @@ from nicegui.testing import User
 from rslapp.core.errors import RSLError
 from rslapp.desktop.app import register_pages
 from rslapp.desktop.pages import history
+from rslapp.desktop.settings import (
+    ALLOWED_VARS,
+    DesktopSettings,
+    apply_to_environ,
+    capture_system_env_vars,
+    load_settings,
+    save_settings,
+)
 
 
 class FakeHistoryService:
@@ -331,3 +340,155 @@ def test_fr17_fr13_open_log_in_default_app_windows_e_linux(
     assert subprocess_calls == [
         (["xdg-open", str(log_file)], {"check": False}),
     ]
+
+
+def _clear_desktop_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove do os.environ todas as variáveis gerenciadas pelo app desktop antes do teste."""
+    for var in ALLOWED_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+
+def _assert_secret_absent_from_page(user: User, secret: str) -> None:
+    """Garante que o texto da chave não está em nenhum elemento, propriedade ou notificação da página."""
+    assert user.client is not None
+    for elem in user.client.elements.values():
+        for item in elem._displayed_contents(only_visible=False):
+            assert secret not in str(item)
+        if hasattr(elem, "value") and elem.value is not None:
+            assert secret not in str(elem.value)
+        assert secret not in repr(elem._props)
+
+
+# FR-18, D-023, D-026, NFR-03: Salvar uma chave grava no arquivo, aplica no ambiente e nunca mostra a chave na página
+async def test_fr18_d026_nfr03_configuracoes_salvar_chave_grava_aplica_e_nao_expoe_na_pagina(
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _clear_desktop_env(monkeypatch)
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    capture_system_env_vars()
+
+    register_pages(service=FakeHistoryService())  # type: ignore[arg-type]
+
+    await user.open("/configuracoes")
+    await user.should_see("Configurações")
+    await user.should_see("https://openalex.org/settings/api")
+    await user.should_see("https://www.semanticscholar.org/product/api#api-key-form")
+    await user.should_see("página de configurações da conta do NCBI")
+    await user.should_see("https://dev.elsevier.com/apikey/manage")
+    await user.should_see("https://developer.clarivate.com/apis/wos-starter")
+    await user.should_see("só funcionam com a assinatura de quem usa ou da instituição")
+    await user.should_see(
+        "trocá-la faz o app e o Claude Desktop olharem pastas diferentes"
+    )
+
+    oa_status = user.find(marker="status-OPENALEX_API_KEY").elements.pop()
+    assert oa_status.text == "não configurada"
+
+    secret_key = "segredo-super-confidencial-oa-9999"
+    user.find(marker="input-OPENALEX_API_KEY").type(secret_key)
+    user.find(marker="input-RSL_CONTACT_EMAIL").type("pesquisador@universidade.br")
+    user.find(marker="save-settings").click()
+
+    # 1. Gravou no arquivo e aplicou no ambiente do processo
+    saved = load_settings()
+    assert saved.values["OPENALEX_API_KEY"] == secret_key
+    assert saved.values["RSL_CONTACT_EMAIL"] == "pesquisador@universidade.br"
+    assert os.environ.get("OPENALEX_API_KEY") == secret_key
+    assert os.environ.get("RSL_CONTACT_EMAIL") == "pesquisador@universidade.br"
+
+    # 2. Mostra "salvo", o caminho do arquivo e atualiza situação para "configurada"
+    await user.should_see("salvo")
+    await user.should_see(str(cfg_file))
+    oa_status = user.find(marker="status-OPENALEX_API_KEY").elements.pop()
+    assert oa_status.text == "configurada"
+
+    # 3. Depois de salvar, o valor da chave não aparece em nenhum elemento da página
+    await user.should_not_see(secret_key)
+    _assert_secret_absent_from_page(user, secret_key)
+
+    # 4. Mesmo reabrindo a tela de configurações, o campo continua vazio e a chave não aparece
+    await user.open("/configuracoes")
+    await user.should_not_see(secret_key)
+    _assert_secret_absent_from_page(user, secret_key)
+    oa_status_reopened = user.find(marker="status-OPENALEX_API_KEY").elements.pop()
+    assert oa_status_reopened.text == "configurada"
+
+
+# FR-18, D-026, NFR-03: Botão "Remover" apaga a chave do arquivo e de os.environ
+async def test_fr18_d026_nfr03_configuracoes_remover_apaga_chave(
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _clear_desktop_env(monkeypatch)
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    capture_system_env_vars()
+
+    secret_s2 = "chave-s2-para-remover-7777"
+    initial = DesktopSettings(values={"SEMANTIC_SCHOLAR_API_KEY": secret_s2})
+    save_settings(initial)
+    apply_to_environ(initial)
+    assert os.environ.get("SEMANTIC_SCHOLAR_API_KEY") == secret_s2
+
+    register_pages(service=FakeHistoryService())  # type: ignore[arg-type]
+
+    await user.open("/configuracoes")
+    await user.should_not_see(secret_s2)
+    _assert_secret_absent_from_page(user, secret_s2)
+
+    s2_status = user.find(marker="status-SEMANTIC_SCHOLAR_API_KEY").elements.pop()
+    assert s2_status.text == "configurada"
+
+    user.find(marker="remove-SEMANTIC_SCHOLAR_API_KEY").click()
+
+    assert "SEMANTIC_SCHOLAR_API_KEY" not in load_settings().values
+    assert secret_s2 not in cfg_file.read_text(encoding="utf-8")
+    assert "SEMANTIC_SCHOLAR_API_KEY" not in os.environ
+    assert s2_status.text == "não configurada"
+
+
+# FR-18, D-026, NFR-03: Variável vinda do ambiente do sistema não é sobrescrita e aparece como "definida no sistema"
+async def test_fr18_d026_nfr03_configuracoes_variavel_do_sistema_nao_sobrescrita(
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _clear_desktop_env(monkeypatch)
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+
+    sys_secret = "chave-sistema-intocavel-5555"
+    monkeypatch.setenv("OPENALEX_API_KEY", sys_secret)
+    monkeypatch.setenv("RSL_CONTACT_EMAIL", "sistema@instituicao.br")
+    capture_system_env_vars()
+
+    register_pages(service=FakeHistoryService())  # type: ignore[arg-type]
+
+    await user.open("/configuracoes")
+    await user.should_see("definida no sistema; o valor do sistema vale")
+    await user.should_not_see(sys_secret)
+    _assert_secret_absent_from_page(user, sys_secret)
+
+    oa_status = user.find(marker="status-OPENALEX_API_KEY").elements.pop()
+    assert oa_status.text == "definida no sistema; o valor do sistema vale"
+
+    # Tenta sobrescrever pelo campo e salvar, além de acionar Remover
+    attempted_key = "chave-nova-tentativa-sobrescrever-1111"
+    user.find(marker="input-OPENALEX_API_KEY").type(attempted_key)
+    user.find(marker="save-settings").click()
+
+    assert os.environ.get("OPENALEX_API_KEY") == sys_secret
+    assert os.environ.get("RSL_CONTACT_EMAIL") == "sistema@instituicao.br"
+    assert "OPENALEX_API_KEY" not in load_settings().values
+    await user.should_not_see(attempted_key)
+    await user.should_not_see(sys_secret)
+    _assert_secret_absent_from_page(user, attempted_key)
+    _assert_secret_absent_from_page(user, sys_secret)
+
+    user.find(marker="remove-OPENALEX_API_KEY").click()
+    assert os.environ.get("OPENALEX_API_KEY") == sys_secret
+    assert oa_status.text == "definida no sistema; o valor do sistema vale"

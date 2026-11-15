@@ -10,12 +10,17 @@ import pytest
 
 from rslapp.desktop import service, settings
 from rslapp.desktop.settings import (
+    ALLOWED_VARS,
     KEY_VARS,
     OTHER_VARS,
     DesktopSettings,
     apply_to_environ,
+    capture_system_env_vars,
+    get_system_env_vars,
     load_settings,
+    remove_app_env_var,
     save_settings,
+    set_app_env_var,
     settings_path,
 )
 
@@ -181,3 +186,30 @@ def test_d026_nfr03_desktop_settings_repr_mascarado() -> None:
     for var in OTHER_VARS:
         assert f"publico-{var.lower()}" in texto_repr
     assert "***" in texto_repr
+
+
+# D-026, FR-18, NFR-03: Captura e consulta de variáveis vindas do sistema e proteção em set/remove
+def test_d026_fr18_nfr03_capture_e_get_system_env_vars(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for var in ALLOWED_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+    monkeypatch.setenv("OPENALEX_API_KEY", "sys-oa")
+    monkeypatch.setenv("RSL_CONTACT_EMAIL", "sys@org.br")
+    captured = capture_system_env_vars()
+    assert captured == frozenset({"OPENALEX_API_KEY", "RSL_CONTACT_EMAIL"})
+    assert get_system_env_vars() == frozenset({"OPENALEX_API_KEY", "RSL_CONTACT_EMAIL"})
+
+    # Variável do sistema não é sobrescrita nem removida por set_app_env_var / remove_app_env_var
+    assert set_app_env_var("OPENALEX_API_KEY", "app-oa") is False
+    assert os.environ["OPENALEX_API_KEY"] == "sys-oa"
+    assert remove_app_env_var("OPENALEX_API_KEY") is False
+    assert os.environ["OPENALEX_API_KEY"] == "sys-oa"
+
+    # Variável do app é aplicada, substituída e removida sem entrar em get_system_env_vars
+    assert set_app_env_var("SEMANTIC_SCHOLAR_API_KEY", "app-s2") is True
+    assert os.environ["SEMANTIC_SCHOLAR_API_KEY"] == "app-s2"
+    assert "SEMANTIC_SCHOLAR_API_KEY" not in get_system_env_vars()
+    assert remove_app_env_var("SEMANTIC_SCHOLAR_API_KEY") is True
+    assert "SEMANTIC_SCHOLAR_API_KEY" not in os.environ

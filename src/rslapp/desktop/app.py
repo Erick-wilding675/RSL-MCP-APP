@@ -10,7 +10,11 @@ from nicegui import app, ui
 
 from rslapp.desktop.pages import history, list_view, search, settings_page
 from rslapp.desktop.service import DesktopService
-from rslapp.desktop.settings import apply_to_environ, load_settings
+from rslapp.desktop.settings import (
+    apply_to_environ,
+    capture_system_env_vars,
+    load_settings,
+)
 
 DESKTOP_HOST = "127.0.0.1"
 DESKTOP_TITLE = "RSL.app"
@@ -62,6 +66,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
 def main() -> None:
     """Carrega configurações, registra as páginas e abre a janela nativa (ou navegador local)."""
     freeze_support()
+    capture_system_env_vars()
     settings = load_settings()
     apply_to_environ(settings)
     register_pages()
