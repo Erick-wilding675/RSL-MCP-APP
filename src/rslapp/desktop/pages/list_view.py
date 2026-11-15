@@ -81,73 +81,34 @@ def _format_work_sources(work: dict[str, Any]) -> str:
 
 def _resolve_search_metadata(
     service: DesktopService,
-    list_id: str,
     list_data: dict[str, Any],
 ) -> tuple[str, str, list[dict[str, Any]]]:
-    """Obtém string de busca, data e resultados por fonte a partir da lista e do registro da busca."""
-    search_record: dict[str, Any] = {}
+    """Obtém string de busca, data e resultados por fonte a partir da lista e da busca gravadas pelo Store."""
+    created_at = str(list_data.get("created_at") or "—")
     search_id = list_data.get("search_id")
-    list_searches_fn = getattr(service, "list_searches", None)
-    if callable(list_searches_fn):
-        try:
-            for item in list_searches_fn():
-                if not isinstance(item, dict):
-                    continue
-                if (search_id and item.get("id") == search_id) or item.get(
-                    "list_id"
-                ) == list_id:
-                    search_record = item
-                    break
-        except Exception:  # noqa: BLE001
-            search_record = {}
+    if not isinstance(search_id, str) or not search_id.strip():
+        return "—", created_at, []
 
-    query_str = ""
-    if isinstance(list_data.get("query"), str) and list_data["query"].strip():
-        query_str = list_data["query"].strip()
-    elif isinstance(list_data.get("params"), dict) and isinstance(
-        list_data["params"].get("query"), str
-    ):
-        query_str = list_data["params"]["query"].strip()
-    elif isinstance(search_record.get("query"), str) and search_record["query"].strip():
-        query_str = search_record["query"].strip()
-    elif isinstance(search_record.get("params"), dict) and isinstance(
-        search_record["params"].get("query"), str
-    ):
-        query_str = search_record["params"]["query"].strip()
-    elif (
-        isinstance(search_record.get("request_summary"), str)
-        and search_record["request_summary"].strip()
-    ):
-        query_str = search_record["request_summary"].strip()
+    try:
+        search_record = service.get_search(search_id)
+    except RSLError:
+        return "—", created_at, []
 
-    created_at = str(
-        list_data.get("created_at") or search_record.get("created_at") or "—"
+    query_str = "—"
+    if search_record.get("kind") != "merge":
+        params = search_record.get("params")
+        if isinstance(params, dict):
+            raw_query = params.get("query")
+            if isinstance(raw_query, str) and raw_query.strip():
+                query_str = raw_query.strip()
+
+    raw_sources = search_record.get("sources")
+    sources_list: list[dict[str, Any]] = (
+        [src for src in raw_sources if isinstance(src, dict) and src.get("name")]
+        if isinstance(raw_sources, list)
+        else []
     )
-
-    raw_sources = list_data.get("sources")
-    if not isinstance(raw_sources, list):
-        raw_sources = search_record.get("sources")
-
-    sources_list: list[dict[str, Any]] = []
-    if isinstance(raw_sources, list):
-        for src in raw_sources:
-            if isinstance(src, dict) and src.get("name"):
-                sources_list.append(src)
-    else:
-        counts: dict[str, int] = {}
-        for work in list_data.get("works") or []:
-            if not isinstance(work, dict):
-                continue
-            sids = work.get("source_ids")
-            if isinstance(sids, dict):
-                for sname in sids:
-                    counts[str(sname)] = counts.get(str(sname), 0) + 1
-        for sname, cnt in counts.items():
-            sources_list.append(
-                {"name": sname, "status": "ok", "fetched": cnt, "found": cnt}
-            )
-
-    return query_str or "—", created_at, sources_list
+    return query_str, created_at, sources_list
 
 
 # FR-16, FR-06: Abre pasta no gerenciador de arquivos do sistema sem usar shell=True
@@ -183,7 +144,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
         )
         total = list_data.get("total", len(works))
         query_str, created_at, sources_list = _resolve_search_metadata(
-            service, list_id, list_data
+            service, list_data
         )
 
         # FR-16, FR-05: Cabeçalho da lista com string, data, total e resultados por fonte
@@ -200,9 +161,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     for src in sources_list:
                         src_name = str(src.get("name", ""))
                         src_label = SOURCE_LABELS.get(src_name, src_name)
-                        fetched = src.get("fetched")
-                        if fetched is None:
-                            fetched = src.get("count", src.get("found", 0))
+                        fetched = src.get("fetched") or 0
                         ui.label(f"{src_label} ({src_name}): {fetched} resultados")
 
         # FR-08, FR-16: Aviso visível quando a lista for incompleta, indicando fonte e motivo

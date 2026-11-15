@@ -168,6 +168,12 @@ class FakeDesktopService:
             raise RSLError("list_not_found", f"Lista não encontrada: {list_id}")
         return self.lists[list_id]
 
+    def get_search(self, search_id: str) -> dict[str, Any]:
+        for item in self.searches:
+            if item.get("id") == search_id:
+                return item
+        raise RSLError("search_not_found", f"Busca não encontrada: {search_id}")
+
     def list_searches(self) -> list[dict[str, Any]]:
         return list(self.searches)
 
@@ -317,7 +323,13 @@ async def test_fr08_fr16_lista_incompleta_mostra_aviso_com_fonte_e_motivo(
                 "list_id": "l-0002",
                 "created_at": "2026-11-15T11:00:00Z",
                 "kind": "terms",
-                "params": {"query": "radium isotopes"},
+                "request_summary": "app desktop",
+                "params": {
+                    "query": "radium isotopes",
+                    "max_results": 100,
+                    "sources": ["openalex", "semantic_scholar"],
+                    "include_peer_review": False,
+                },
                 "sources": [
                     {
                         "name": "openalex",
@@ -361,7 +373,6 @@ async def test_fr06_fr12_fr16_exportar_mostra_caminho_e_abrir_pasta(
                 "created_at": "2026-11-15T12:00:00Z",
                 "status": "complete",
                 "total": 1,
-                "query": "bibliometrics",
                 "works": [
                     {
                         "title": "Exportable Paper",
@@ -374,6 +385,30 @@ async def test_fr06_fr12_fr16_exportar_mostra_caminho_e_abrir_pasta(
                 ],
             }
         },
+        searches=[
+            {
+                "id": "s-0003",
+                "list_id": "l-0003",
+                "created_at": "2026-11-15T12:00:00Z",
+                "kind": "terms",
+                "request_summary": "app desktop",
+                "params": {
+                    "query": "bibliometrics",
+                    "max_results": 100,
+                    "sources": ["openalex"],
+                    "include_peer_review": False,
+                },
+                "sources": [
+                    {
+                        "name": "openalex",
+                        "status": "ok",
+                        "reason": None,
+                        "found": 1,
+                        "fetched": 1,
+                    }
+                ],
+            }
+        ],
     )
     register_pages(service=fake_service)  # type: ignore[arg-type]
 
@@ -397,6 +432,94 @@ async def test_fr06_fr12_fr16_exportar_mostra_caminho_e_abrir_pasta(
     )
     user.find(marker="open-export-folder").click()
     assert opened_folders == [tmp_path]
+
+
+# FR-16, FR-05: Lista cuja busca tem request_summary="app desktop" mostra params.query e nunca o texto "app desktop"
+async def test_fr16_fr05_lista_mostra_params_query_e_nunca_request_summary(
+    user: User,
+) -> None:
+    fake_service = FakeDesktopService(
+        lists={
+            "l-0004": {
+                "id": "l-0004",
+                "search_id": "s-0004",
+                "created_at": "2026-11-15T13:00:00Z",
+                "status": "complete",
+                "total": 1,
+                "works": [
+                    {
+                        "title": "Reproducible Science Study",
+                        "doi": "10.1000/repro-1",
+                        "year": 2025,
+                        "venue": "Nature",
+                        "authors": [{"name": "Rosalind Franklin"}],
+                        "source_ids": {"openalex": "W4"},
+                    }
+                ],
+            },
+            "l-0005": {
+                "id": "l-0005",
+                "search_id": "s-0005",
+                "created_at": "2026-11-15T14:00:00Z",
+                "status": "complete",
+                "total": 1,
+                "works": [
+                    {
+                        "title": "Merged Work",
+                        "doi": "10.1000/merge-1",
+                        "year": 2024,
+                        "venue": "Science",
+                        "authors": [{"name": "Barbara McClintock"}],
+                        "source_ids": {"openalex": "W5"},
+                    }
+                ],
+            },
+        },
+        searches=[
+            {
+                "id": "s-0004",
+                "list_id": "l-0004",
+                "created_at": "2026-11-15T13:00:00Z",
+                "kind": "terms",
+                "request_summary": "app desktop",
+                "params": {
+                    "query": "open science AND reproducibility",
+                    "max_results": 50,
+                    "sources": ["openalex"],
+                    "include_peer_review": False,
+                },
+                "sources": [
+                    {
+                        "name": "openalex",
+                        "status": "ok",
+                        "reason": None,
+                        "found": 1,
+                        "fetched": 1,
+                    }
+                ],
+            },
+            {
+                "id": "s-0005",
+                "list_id": "l-0005",
+                "created_at": "2026-11-15T14:00:00Z",
+                "kind": "merge",
+                "request_summary": "app desktop",
+                "params": {"list_ids": ["l-0001", "l-0002"]},
+                "sources": [],
+            },
+        ],
+    )
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/lista/l-0004")
+    await user.should_see("String de busca: open science AND reproducibility")
+    await user.should_see("Data: 2026-11-15T13:00:00Z")
+    await user.should_see("OpenAlex (openalex): 1 resultados")
+    await user.should_not_see("app desktop")
+
+    await user.open("/lista/l-0005")
+    await user.should_see("String de busca: —")
+    await user.should_not_see("app desktop")
 
 
 # FR-16: list_id inexistente mostra "lista não encontrada" e link para Buscar

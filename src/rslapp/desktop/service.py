@@ -59,6 +59,17 @@ class DesktopService:
         except (FileNotFoundError, ValueError) as err:
             raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
 
+    # FR-16, FR-05: Carrega uma busca salva na pasta de dados
+    def get_search(self, search_id: str) -> dict[str, Any]:
+        """Lê e devolve os dados completos de uma busca salva, ou levanta RSLError('search_not_found')."""
+        if not isinstance(search_id, str) or not search_id.strip():
+            raise RSLError("search_not_found", f"Busca não encontrada: {search_id!r}")
+        store, _ = self._build_store()
+        try:
+            return store.get_search(search_id.strip())
+        except (FileNotFoundError, ValueError) as err:
+            raise RSLError("search_not_found", f"Busca não encontrada: {search_id}") from err
+
     # FR-16, FR-06, FR-12: Exporta uma lista salva para cfg.export_dir e devolve o caminho gravado
     def export(self, list_id: str, export_format: str) -> dict[str, Any]:
         """Exporta a lista no formato pedido para a pasta de exportações configurada."""

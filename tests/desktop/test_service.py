@@ -147,6 +147,14 @@ async def test_fr16_fr17_service_search_get_list_export_repeat_e_log(
     assert saved_list["total"] == 1
     assert saved_list["works"][0]["title"] == "Systematic Review Automation"
 
+    # get_search devolve a busca gravada
+    saved_search = svc.get_search(search_id)
+    assert saved_search["id"] == search_id
+    assert saved_search["list_id"] == list_id
+    assert saved_search["request_summary"] == "app desktop"
+    assert saved_search["params"]["query"] == "systematic review"
+    assert "nicegui" not in sys.modules
+
     # list_searches devolve a busca com request_summary="app desktop"
     searches = svc.list_searches()
     assert len(searches) == 1
@@ -184,6 +192,19 @@ async def test_fr16_service_propaga_rsl_error() -> None:
     with pytest.raises(RSLError) as exc_list:
         svc.get_list("l-9999")
     assert exc_list.value.code == "list_not_found"
+
+    with pytest.raises(RSLError) as exc_search_missing:
+        svc.get_search("s-9999")
+    assert exc_search_missing.value.code == "search_not_found"
+
+    with pytest.raises(RSLError) as exc_search_invalid:
+        svc.get_search("invalido")
+    assert exc_search_invalid.value.code == "search_not_found"
+
+    with pytest.raises(RSLError) as exc_search_empty:
+        svc.get_search("   ")
+    assert exc_search_empty.value.code == "search_not_found"
+    assert "nicegui" not in sys.modules
 
     with pytest.raises(RSLError) as exc_export:
         svc.export("l-9999", "ris")
