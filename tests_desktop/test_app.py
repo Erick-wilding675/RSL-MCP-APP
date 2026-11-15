@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,7 @@ def test_d024_d025_d026_main_escuta_em_loopback_e_fallback_navegador(
     cfg_file = tmp_path / "desktop.json"
     monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
     monkeypatch.delenv("RSL_CONTACT_EMAIL", raising=False)
+    monkeypatch.setattr(sys, "argv", ["rslapp-desktop"])
     save_settings(DesktopSettings(values={"RSL_CONTACT_EMAIL": "app@exemplo.org"}))
 
     run_calls: list[dict[str, Any]] = []
@@ -89,3 +91,19 @@ def test_d024_d025_d026_main_escuta_em_loopback_e_fallback_navegador(
         "native": False,
         "show": True,
     }
+
+
+# D-025, FR-16: main(["--check"]) importa o NiceGUI e as páginas de verdade, registra as rotas e sai com 0 sem chamar ui.run
+def test_d025_fr16_main_check_com_nicegui_nao_chama_ui_run(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+
+    run_calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(ui, "run", lambda **kwargs: run_calls.append(kwargs))
+
+    code = desktop_app.main(["--check"])
+    assert code == 0
+    assert run_calls == []
