@@ -10,7 +10,7 @@ Publica a fase 11 como `rslapp` 2.0.0 e faz o teste real do app.
   1. versão `2.0.0` no `pyproject.toml` e no `__init__.py`;
   2. os gates e o sdist conferido;
   3. `uv publish` pelo Lore;
-  4. tag `v2.0.0` e `gh release create` com a nota "app desktop para Windows e Linux; o servidor não muda";
+  4. `gh release create v2.0.0` com a nota "app desktop para Windows e Linux; o servidor não muda" **antes** de enviar a tag (ou com `--target main`, que cria a tag junto). Se o workflow do app terminar antes e não achar a release, ele a cria como rascunho e o `gh release create` falharia;
   5. o workflow do app anexa o `.zip` e o AppImage à release, e o do Docker publica a imagem;
   6. conferência com `uvx` e o servidor de teste atualizado.
 - **Teste real do Erick:**
