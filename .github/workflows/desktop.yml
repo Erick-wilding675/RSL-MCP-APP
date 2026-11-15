@@ -1,0 +1,165 @@
+# D-024, D-025, FR-16: Monta os executáveis do app desktop (Windows x64 e Linux x86_64 AppImage) a cada tag v* e por workflow_dispatch.
+name: Construir executáveis do app desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Construir executável para Windows (x64)
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v5
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Determinar versão do pacote
+        id: meta
+        shell: pwsh
+        run: |
+          python -c "import os, pathlib, re; ref = os.environ.get('GITHUB_REF_NAME', ''); text = pathlib.Path('src/rslapp/__init__.py').read_text(encoding='utf-8'); m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', text); v = ref[1:] if ref.startswith('v') else (m.group(1) if m else '0.0.0'); print(f'version={v}')" >> $env:GITHUB_OUTPUT
+
+      - name: Instalar projeto com extra desktop e PyInstaller
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[desktop]" pyinstaller
+
+      - name: Empacotar com nicegui-pack (--windowed --onedir)
+        shell: pwsh
+        run: |
+          nicegui-pack --windowed --onedir --noconfirm --name RSL.app src/rslapp/desktop/__main__.py
+          if (-not (Test-Path "dist/RSL.app/RSL.app.exe")) {
+            throw "Executável dist/RSL.app/RSL.app.exe não foi gerado."
+          }
+
+      # D-025, FR-16: Teste de fumaça do executável gerado com --check
+      - name: Executar teste de fumaça (--check)
+        shell: pwsh
+        run: |
+          python -c "import subprocess, sys; res = subprocess.run([r'dist\RSL.app\RSL.app.exe', '--check'], check=False); sys.exit(res.returncode)"
+
+      - name: Compactar pasta em arquivo .zip
+        shell: pwsh
+        run: |
+          $zipName = "RSL.app-${{ steps.meta.outputs.version }}-windows-x64.zip"
+          Compress-Archive -Path "dist/RSL.app" -DestinationPath $zipName -Force
+
+      - name: Publicar artifact do Windows
+        uses: actions/upload-artifact@v6
+        with:
+          name: RSL.app-${{ steps.meta.outputs.version }}-windows-x64.zip
+          path: RSL.app-${{ steps.meta.outputs.version }}-windows-x64.zip
+          if-no-files-found: error
+
+  build-linux:
+    name: Construir AppImage para Linux (x86_64)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v5
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Determinar versão do pacote
+        id: meta
+        run: |
+          python -c "import os, pathlib, re; ref = os.environ.get('GITHUB_REF_NAME', ''); text = pathlib.Path('src/rslapp/__init__.py').read_text(encoding='utf-8'); m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', text); v = ref[1:] if ref.startswith('v') else (m.group(1) if m else '0.0.0'); print(f'version={v}')" >> "$GITHUB_OUTPUT"
+
+      # D-025: No Linux, instala nicegui sem [native] para abrir no navegador sem exigir WebKitGTK/PyGObject no AppImage
+      - name: Instalar dependências do rslapp, NiceGUI (sem janela nativa) e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . "nicegui>=4,<5" pyinstaller
+
+      - name: Empacotar com nicegui-pack (--onedir)
+        run: |
+          nicegui-pack --onedir --noconfirm --name RSL.app src/rslapp/desktop/__main__.py
+          test -x dist/RSL.app/RSL.app
+
+      - name: Montar AppDir e gerar AppImage com appimagetool
+        run: |
+          APPDIR="RSL.app.AppDir"
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR/usr/bin"
+          cp -a dist/RSL.app/. "$APPDIR/usr/bin/"
+          cp packaging/rslapp.desktop "$APPDIR/rslapp.desktop"
+          sed -i 's/\r$//' "$APPDIR/rslapp.desktop"
+          cp packaging/rslapp.png "$APPDIR/rslapp.png"
+          cp packaging/rslapp.png "$APPDIR/.DirIcon"
+          cat > "$APPDIR/AppRun" << 'EOF'
+          #!/usr/bin/env sh
+          SELF_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+          exec "$SELF_DIR/usr/bin/RSL.app" "$@"
+          EOF
+          chmod -R a+rX "$APPDIR"
+          chmod a+rx "$APPDIR/AppRun" "$APPDIR/usr/bin/RSL.app"
+
+          curl -fsSL -o appimagetool-x86_64.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+          OUTPUT_APPIMAGE="RSL.app-${{ steps.meta.outputs.version }}-linux-x86_64.AppImage"
+          ARCH=x86_64 VERSION="${{ steps.meta.outputs.version }}" \
+            ./appimagetool-x86_64.AppImage --appimage-extract-and-run --no-appstream "$APPDIR" "$OUTPUT_APPIMAGE"
+          chmod +x "$OUTPUT_APPIMAGE"
+
+      # D-025, FR-16: Teste de fumaça do AppImage com --appimage-extract-and-run --check (independe de FUSE no runner)
+      - name: Executar teste de fumaça (--check)
+        run: |
+          ./RSL.app-${{ steps.meta.outputs.version }}-linux-x86_64.AppImage --appimage-extract-and-run --check
+
+      - name: Publicar artifact do Linux
+        uses: actions/upload-artifact@v6
+        with:
+          name: RSL.app-${{ steps.meta.outputs.version }}-linux-x86_64.AppImage
+          path: RSL.app-${{ steps.meta.outputs.version }}-linux-x86_64.AppImage
+          if-no-files-found: error
+
+  publish-release:
+    name: Anexar executáveis na release da tag
+    needs:
+      - build-windows
+      - build-linux
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v5
+
+      - name: Baixar artifacts gerados
+        uses: actions/download-artifact@v7
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      # D-025: Cria a release como rascunho se ainda não existir e envia o .zip e o AppImage
+      - name: Criar release (se ausente) e enviar executáveis
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG"
+          gh release upload "$TAG" \
+            release-assets/RSL.app-*-windows-x64.zip \
+            release-assets/RSL.app-*-linux-x86_64.AppImage \
+            --clobber

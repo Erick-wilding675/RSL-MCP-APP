@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RSL.app
+Comment=Busca acadêmica e exportação para revisão sistemática
+Exec=RSL.app
+Icon=rslapp
+Categories=Education;Science;
+Terminal=false
