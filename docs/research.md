@@ -10,6 +10,7 @@
 > Quatro perguntas de Arquitetura foram acrescentadas em 2026-11-02: biblioteca do MCP, onde guardar os dados, como instalar e quanto custam referências e citações. Nenhuma está decidida ainda.
 > Em 2026-11-11, para a 2.0: o Scopus (visão COMPLETE) entra primeiro, só no modo stdio, com a chave de cada pessoa em variável de ambiente. O Web of Science Starter vem depois, como fonte magra. Nenhuma das duas entra no modo hospedado, por causa dos termos. As duas decisões estão em aberto, com o Erick.
 > Em 2026-11-14, para o app desktop da 2.0: o Erick escolheu o NiceGUI em janela nativa (D-024), porque roda o núcleo assíncrono sem adaptação e a mesma interface serve no navegador.
+> Em 2026-11-15, para a 2.1: como ligar a IA do pesquisador ao RSL.app local. Recomendo um botão "Conectar IA" no app, com o próprio executável servindo como MCP. Em aberto, com o Erick. O ChatGPT só aceita servidor remoto, então hoje não se liga ao RSL.app local.
 
 ## Existe um MCP do VOSviewer, oficial ou da comunidade, para conectar ao nosso?
 
@@ -249,3 +250,37 @@
   - https://pypi.org/project/flet/ (oficial)
   - https://flet.dev/docs/publish/ (oficial)
   - API JSON do PyPI para toga, flet, nicegui, pyside6 e pywebview (oficial)
+
+## Como ligar a IA do pesquisador ao RSL.app local com o mínimo de passos?
+
+Pergunta da 2.1, depois da D-027 (sem servidor público). Critérios: o fundamento do projeto (acesso para todo pesquisador apto a usar IA, mesmo sem conhecimento técnico), gratuito, dados na pasta do usuário, rastreabilidade, e funcionar sem Python instalado (o executável da 2.0).
+
+- **Decisão:** em aberto, com o Erick. Recomendo a **opção A**: um botão "Conectar IA" no app desktop, e o próprio executável do app também servindo como servidor MCP.
+- **Motivo:** é a única opção que serve a mais de uma IA e não exige Python nem `uv` de quem usa, porque o executável já leva o Python e o núcleo. Cumpre o critério de acesso para quem não é técnico.
+- **Como funcionaria a opção A:**
+  - O executável ganha um modo de servidor MCP por stdio, por exemplo `RSL.app.exe --mcp`, ou um segundo executável de console na mesma pasta. Ele usa a mesma pasta de dados do app.
+  - Na tela Configurações, cada IA tem um botão.
+    - **Claude Desktop:** o app grava a entrada `mcpServers` no `claude_desktop_config.json`, mostrando antes o que vai mudar e guardando uma cópia do arquivo. Depois é preciso reiniciar o Claude Desktop. O arquivo fica em `%APPDATA%\Claude\` no Windows e em `~/.config/Claude/` no Linux.
+    - **Cursor:** o app abre o link `cursor://anysphere.cursor-deeplink/mcp/install?name=...&config=<JSON em base64>`, e o Cursor pede confirmação.
+    - **VS Code (Copilot):** o app abre o link `vscode:mcp/install?<JSON>`.
+    - **Claude Code:** o app mostra o comando pronto para copiar (`claude mcp add ...`).
+  - Para quem usa o `pip` ou o `uvx`, o comando continua sendo `uvx rslapp`.
+- **Alternativas:**
+  - **B · Extensão `.mcpb` para o Claude Desktop:** um clique, com tela de configuração gerada pelo próprio Claude, incluindo seletor de pasta e chave mascarada. Mas serve só o Claude Desktop. O diretório de extensões não aceita mais pacotes `.mcpb`, então a distribuição seria pelo nosso site ou pela release. Um pacote Python comum "não consegue levar dependências compiladas" como o `pydantic`, que o SDK do MCP exige. O tipo `uv` resolve isso, mas a documentação não diz se o Claude Desktop traz o `uv` (só o Node vem junto). Pode entrar depois, por cima da A, como um atalho a mais.
+  - **C · Só um guia com `uvx`:** já existe e não custa nada. Mas exige instalar o `uv` e editar um arquivo JSON, que é a barreira que o fundamento quer tirar.
+  - **D · ChatGPT pelo servidor local com túnel:** o ChatGPT só aceita servidor MCP remoto por HTTPS (SSE ou streaming HTTP), configurado no ChatGPT da web. Ligar o RSL.app local ao ChatGPT exigiria um túnel que expõe o computador do usuário à internet. Não recomendo. Fica registrado como limite: hoje o ChatGPT não se liga ao RSL.app local.
+- **Fontes (lidas em 2026-11-15):**
+  - https://claude.com/docs/connectors/building/mcpb.md (oficial, Anthropic)
+  - https://github.com/modelcontextprotocol/mcpb/blob/main/MANIFEST.md (oficial, especificação do MCPB)
+  - https://github.com/modelcontextprotocol/mcpb/blob/main/README.md (oficial)
+  - https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop (oficial, Anthropic)
+  - https://modelcontextprotocol.io/docs/develop/connect-local-servers (oficial: `claude_desktop_config.json` no Windows, macOS e Linux)
+  - https://cursor.com/docs/mcp/install-links (oficial, Cursor)
+  - https://developers.openai.com/api/docs/guides/custom-mcp-server.md (oficial, OpenAI: só SSE e streaming HTTP, pela web)
+  - https://code.visualstudio.com/docs/copilot/chat/mcp-servers (oficial; não descreve o link `vscode:mcp/install`)
+  - Formato do link `vscode:mcp/install`: só em páginas de terceiros (guias de fornecedores de MCP no resultado da busca)
+- **Não verificado:**
+  - Se um executável `--windowed` do Windows recebe stdin e stdout quando o Claude Desktop o inicia como servidor MCP. Se não receber, a saída é um segundo executável de console na mesma pasta.
+  - O formato oficial do link `vscode:mcp/install`: a página oficial lida não o descreve.
+  - Em quais planos do Claude e do ChatGPT os servidores locais ou personalizados funcionam. As páginas oficiais lidas não dizem.
+  - Se o Claude Desktop para Linux lê o mesmo arquivo de configuração. A página do MCP diz que sim, mas a da Anthropic não fala de Linux em detalhe.
