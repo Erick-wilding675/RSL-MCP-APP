@@ -28,9 +28,9 @@ Publica a fase 11 como `rslapp` 2.0.0 e faz o teste real do app.
 
 ## Pronto quando
 
-- [ ] `rslapp` 2.0.0 no PyPI, conferida com `uvx`
-- [ ] Release `v2.0.0` com o `.zip` do Windows e o AppImage
-- [ ] Imagem `2.0.0` no ghcr.io e o servidor de teste atualizado
+- [x] `rslapp` 2.0.0 no PyPI, conferida com `uvx`
+- [x] Release `v2.0.0` com o `.zip` do Windows e o AppImage
+- [x] Imagem `2.0.0` no ghcr.io e o servidor de teste atualizado
 - [ ] Os passos do Erick passam; o que o teste achar vira item desta spec ou uma tarefa nova
 
 ## Vem de
@@ -43,8 +43,22 @@ FR-16, FR-17, FR-18, D-008, D-024, D-025, D-026.
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+`rslapp` 2.0.0 publicada em 2026-11-15, com o ok do Erick (commit `196c0b9`).
+
+- Gates antes de publicar: 689 passaram e 1 pulado em 3.10 e 3.14; `tests_desktop` 19 passaram; ruff limpo. O sdist leva só `src`, `tests`, `tests_desktop`, README, licença e `pyproject.toml`, sem arquivo de chave.
+- PyPI pelo Lore; conferida com `uvx --from rslapp==2.0.0` (mostra 2.0.0).
+- Release [`v2.0.0`](https://github.com/Erick-wilding675/RSL-MCP-APP/releases/tag/v2.0.0) criada com `gh release create --target main` (a tag nasceu junto). O workflow do app ([43743792231](https://github.com/Erick-wilding675/RSL-MCP-APP/actions/runs/43743792231)) passou nos dois sistemas e anexou `RSL.app-2.0.0-windows-x64.zip` (38 MB) e `RSL.app-2.0.0-linux-x86_64.AppImage` (51 MB); a release não ficou como rascunho.
+- Imagem Docker pelo Actions; servidor de teste atualizado com `docker compose pull && up -d`, e `/health` responde 2.0.0.
+
+### Onde olhar primeiro
+
+1. **O `.exe` baixado da release** (passo 1 do teste): é o primeiro executável que chega a quem não é desenvolvedor, e o Windows avisa que não é assinado.
+2. **As chaves em Configurações** (passo 2): ficam em `desktop.json`, fora da pasta de dados, e a tela nunca mostra o valor salvo.
 
 ## Como testar
 
-(preenche quem entrega)
+Os passos do Erick, na seção "O que faz". Para conferir a publicação:
+
+1. `curl https://rsl.sinteselabs.com/health` deve responder `"version":"2.0.0"`.
+2. `uvx --from rslapp==2.0.0 python -c "import rslapp; print(rslapp.__version__)"` deve mostrar `2.0.0`.
+3. A página da release `v2.0.0` deve ter o `.zip` e o AppImage.
