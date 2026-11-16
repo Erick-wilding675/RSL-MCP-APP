@@ -40,8 +40,8 @@ def test_fr19_d028_import_connect_nao_importa_nicegui() -> None:
     assert "nicegui" not in sys.modules
 
 
-# FR-19, D-028: mcp_launch_command nos casos executável empacotado, AppImage e pip (com e sem binário rslapp)
-def test_fr19_d028_mcp_launch_command_executavel_appimage_e_pip(
+# FR-19, D-026, D-028: mcp_launch_command nos casos executável empacotado, AppImage e pip (rslapp-desktop --mcp e fallback)
+def test_fr19_d026_d028_mcp_launch_command_executavel_appimage_e_pip(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -68,25 +68,27 @@ def test_fr19_d028_mcp_launch_command_executavel_appimage_e_pip(
     assert cmd_appimage == str(fake_appimage.resolve())
     assert args_appimage == ["--mcp"]
 
-    # 3. Instalado pelo pip, com comando rslapp ao lado de sys.executable
+    # 3. Instalado pelo pip, com comando rslapp-desktop ao lado de sys.executable
     monkeypatch.delattr(sys, "frozen", raising=False)
     venv_dir = tmp_path / "venv_bin"
     venv_dir.mkdir(parents=True, exist_ok=True)
     fake_python = venv_dir / ("python.exe" if sys.platform == "win32" else "python")
     fake_python.write_text("", encoding="utf-8")
-    fake_rslapp = venv_dir / ("rslapp.exe" if sys.platform == "win32" else "rslapp")
-    fake_rslapp.write_text("", encoding="utf-8")
+    fake_rslapp_desktop = venv_dir / (
+        "rslapp-desktop.exe" if sys.platform == "win32" else "rslapp-desktop"
+    )
+    fake_rslapp_desktop.write_text("", encoding="utf-8")
     monkeypatch.setattr(sys, "executable", str(fake_python))
 
     cmd_pip, args_pip = mcp_launch_command(environ={})
-    assert cmd_pip == str(fake_rslapp)
-    assert args_pip == []
+    assert cmd_pip == str(fake_rslapp_desktop)
+    assert args_pip == ["--mcp"]
 
-    # 4. Instalado pelo pip, sem binário rslapp ao lado de sys.executable: recua para python -m rslapp
-    fake_rslapp.unlink()
+    # 4. Instalado pelo pip, sem binário rslapp-desktop ao lado de sys.executable: recua para python -m rslapp.desktop --mcp
+    fake_rslapp_desktop.unlink()
     cmd_fallback, args_fallback = mcp_launch_command(environ={})
     assert cmd_fallback == str(fake_python)
-    assert args_fallback == ["-m", "rslapp"]
+    assert args_fallback == ["-m", "rslapp.desktop", "--mcp"]
 
 
 # FR-19, D-028: Confere que `python -m rslapp --help` funciona no ambiente atual

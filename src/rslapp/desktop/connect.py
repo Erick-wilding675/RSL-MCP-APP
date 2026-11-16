@@ -53,17 +53,20 @@ def mcp_launch_command(
     if getattr(sys, "frozen", False):
         return os.path.abspath(sys.executable), ["--mcp"]
 
+    # FR-19, D-026, D-028: No pip, usa rslapp-desktop --mcp (ou python -m rslapp.desktop --mcp) para ler desktop.json
     exe_path = Path(os.path.abspath(sys.executable))
     exe_dir = exe_path.parent
     candidate_names = (
-        ("rslapp.exe", "rslapp") if sys.platform == "win32" else ("rslapp", "rslapp.exe")
+        ("rslapp-desktop.exe", "rslapp-desktop")
+        if sys.platform == "win32"
+        else ("rslapp-desktop", "rslapp-desktop.exe")
     )
     for name in candidate_names:
         candidate = exe_dir / name
         if candidate.is_file():
-            return str(candidate), []
+            return str(candidate), ["--mcp"]
 
-    return str(exe_path), ["-m", "rslapp"]
+    return str(exe_path), ["-m", "rslapp.desktop", "--mcp"]
 
 
 # FR-19, D-026, NFR-03: Nenhuma chave entra na configuração das IAs; só RSL_DESKTOP_CONFIG quando definido
