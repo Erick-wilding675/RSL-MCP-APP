@@ -26,4 +26,4 @@
 
 - **(D-028, 2.1)** O `.exe` `--windowed` do Windows conversa por stdio: **verificado em 2026-11-15** pelo teste de fumaça do workflow (run 43794342508), no Windows e no AppImage. **Teste real feito pelo Erick em 2026-11-16** com o executável da main: os testes das specs 12-02 e 12-05 passaram.
 
-- **(D-029, 2.1)** O ChatGPT faz login e uma busca no servidor de teste (`rsl.sinteselabs.com`) pelo cadastro de servidor MCP personalizado. Em aberto: os metadados não anunciam `none` em `token_endpoint_auth_methods_supported` (spec 12-03).
+- **(D-029, 2.1)** O ChatGPT faz login e uma busca no servidor de teste (`rsl.sinteselabs.com`) pelo cadastro de servidor MCP personalizado. **Verificado em 2026-11-16** pelo Erick, na 2.1.0: login, busca, lista e exportação funcionaram, mesmo sem `none` anunciado.

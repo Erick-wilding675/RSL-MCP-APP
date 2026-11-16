@@ -1,6 +1,6 @@
 # Guia das instituições, com o ChatGPT pelo servidor da instituição
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** a fazer
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** pronta (ChatGPT testado pelo Erick em 2026-11-16: login, busca, lista e exportação)
 
 ## O que faz
 

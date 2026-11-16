@@ -1,6 +1,6 @@
 # Publicação da 2.1.0 e teste real
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** a fazer (espera o ok do Erick para publicar)
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** publicada em 2026-11-16 (PyPI, release v2.1.0 com os executáveis, imagem Docker e servidor de teste na 2.1.0). A janela do Windows com zip baixado sai corrigida na 2.1.1 (12-06)
 
 ## O que faz
 
