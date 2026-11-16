@@ -1,6 +1,6 @@
 # Verificador de referências contra alucinação (2.2)
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** a fazer
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** integrada
 
 ## O que faz
 
@@ -60,11 +60,11 @@ As bibliotecas universitárias e comitês de ética em pesquisa podem recomendar
 
 ## Pronto quando
 
-- [ ] Módulo `src/rslapp/core/verify.py` com extração, normalização, consulta assíncrona e cálculo de similaridade/divergência.
-- [ ] Testes de unidade em `tests/core/test_verify.py` cobrindo referências reais, com pequenas divergências e completamente inventadas.
-- [ ] Ferramenta MCP `verify_references` registrada em `src/rslapp/server.py` com anotação `readOnlyHint=True` e testes em `tests/test_server_verify.py`.
-- [ ] Tela `/verificar` no app desktop em `src/rslapp/desktop/pages/verify_view.py` com testes em `tests_desktop/test_verify_page.py`.
-- [ ] Os gates passam: testes do desktop, testes do núcleo em 3.10 e 3.14, e linter Ruff limpo.
+- [x] Módulo `src/rslapp/core/verify.py` com extração, normalização, consulta assíncrona e cálculo de similaridade/divergência.
+- [x] Testes de unidade em `tests/core/test_verify.py` cobrindo referências reais, com pequenas divergências e completamente inventadas.
+- [x] Ferramenta MCP `verify_references` registrada em `src/rslapp/server.py` com anotação `readOnlyHint=True` e testes em `tests/test_server_verify.py`.
+- [x] Tela `/verificar` no app desktop em `src/rslapp/desktop/pages/verify_view.py` com testes em `tests_desktop/test_verify_page.py`.
+- [x] Os gates passam: testes do desktop, testes do núcleo em 3.10 e 3.14, e linter Ruff limpo.
 
 ## Vem de
 
@@ -78,11 +78,37 @@ D-002, D-006, D-029, D-030 (Ideia 5.1), D-031, FR-21.
 
 ## Resultado da entrega
 
-(a preencher)
+Entregue em três fatias limpas com testes cobrindo todas as camadas:
+
+1. **Núcleo (`rslapp.core.verify`, commit `895ff1d`):**
+   - Implementado parser flexível `parse_references` capaz de extrair metadados estruturados de blocos BibTeX (`@article{...}` etc.), texto livre no padrão ABNT/APA/Vancouver ou listas de dicionários.
+   - Algoritmo de verificação assíncrona `run_verify_references` e `_evaluate_match` com extração e normalização de DOI, busca difusa por título e tolerância de 1 ano para preprints.
+   - Classificação precisa em `verified`, `divergent` e `not_found`, reportando detalhamento de divergências de ano ou autor.
+   - Testes de unidade em `tests/core/test_verify.py` (3 testes cobrindo todos os cenários de correspondência e alucinação).
+
+2. **Servidor MCP (`rslapp.server`, commit `211e00a`):**
+   - Ferramenta MCP `@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)` adicionada como `verify_references(references: list[Any] | str, request_summary: str = "") -> dict[str, Any]`.
+   - Registrada no modo stdio e no modo Streamable HTTP (`_build_http_mcp_server`).
+   - Testes de integração em `tests/test_server_verify.py` e atualização de testes existentes de listagem de ferramentas (`test_server.py`, `test_server_http.py`, `test_server_new_sources.py`).
+
+3. **Interface Desktop (`rslapp.desktop`, commit `071a3bb`):**
+   - Adicionado item "Verificar" (`fact_check`, `/verificar`) à lista de navegação lateral `NAV_ITEMS`.
+   - Adicionada fachada `verify_references` em `DesktopService`.
+   - Criado componente reaproveitável `metric_card` em `rslapp.desktop.components`.
+   - Criada a tela `verify_view.py` com área de entrada para referências/BibTeX, feedback de carregamento com `ui.linear_progress`, resumo métrico e tabela Quasar com filtros e badges semânticos de status (`ok` verde, `warning` amarelo, `error` vermelho).
+   - Suíte de testes desktop em `tests_desktop/test_verify_page.py` e atualização em `tests_desktop/test_shell.py` (50 testes desktop passando).
 
 ## Como testar
 
 **Onde olhar primeiro:**
 
-1. No MCP: chamar `verify_references` com uma lista contendo uma referência real (ex: "Vaswani et al., Attention is all you need, 2017") e uma referência deliberadamente inventada. A primeira deve sair como `verified` e a segunda como `not_found`.
-2. No app desktop: abrir `/verificar`, colar um bloco de texto com referências e conferir os selos e contadores na tabela de resultados.
+1. **No servidor MCP:**
+   - Executar: `uv run --python 3.10 --extra dev python -m pytest tests/test_server_verify.py -v`
+   - Deve executar e passar com referências BibTeX e texto livre divididas em confirmadas e não encontradas.
+2. **Na interface desktop:**
+   - Executar: `uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest -c tests_desktop/pytest.ini tests_desktop/test_verify_page.py -v`
+   - Todos os 4 cenários de teste da tela passam (abertura, aviso de campo vazio, exibição de métricas e tabela de resultados, e tratamento de falhas).
+3. **No aplicativo interativo:**
+   - Rodar `uv run rslapp-desktop`
+   - Clicar em **Verificar** no menu lateral esquerdo.
+   - Colar referências conhecidas e clicar em **Verificar referências**. Conferir os cards de métricas e a tabela de resultados com os badges coloridos.

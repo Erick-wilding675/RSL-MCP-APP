@@ -403,8 +403,9 @@ async def test_d021_http_maria_nao_consegue_juntar_lista_do_joao(
         assert tools_r.status_code == 200
         tools_body = _extract_http_jsonrpc_body(tools_r)
         tool_names = {t["name"] for t in tools_body["result"]["tools"]}
-        assert len(tool_names) == 9
+        assert len(tool_names) == 10
         assert "merge_lists" in tool_names
+        assert "verify_references" in tool_names
 
         # 2. Maria tenta juntar sua lista l-0001 com l-0002 (inexistente nela): list_not_found
         call_err = await _call_http_tool(
