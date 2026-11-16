@@ -289,7 +289,17 @@ def test_fr07_rsl_cache_days_valido(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.cache_days == 14
 
 
-@pytest.mark.parametrize("invalid_days", ["0", "-1", "-30", "abc", "3.5", ""])
+# D-011, D-017, D-029, FR-07, FR-20: RSL_CACHE_DAYS vazio ou só espaços usa o padrão (7)
+@pytest.mark.parametrize("empty_days", ["", "  ", "\t\n"])
+def test_d011_d017_d029_fr07_fr20_rsl_cache_days_vazio_usa_padrao(
+    monkeypatch: pytest.MonkeyPatch, empty_days: str
+) -> None:
+    monkeypatch.setenv("RSL_CACHE_DAYS", empty_days)
+    cfg = config.load()
+    assert cfg.cache_days == 7
+
+
+@pytest.mark.parametrize("invalid_days", ["0", "-1", "-30", "abc", "3.5"])
 def test_fr07_rsl_cache_days_invalido_gera_value_error(
     monkeypatch: pytest.MonkeyPatch, invalid_days: str
 ) -> None:
