@@ -83,6 +83,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
         list_view,
         search,
         settings_page,
+        verify_view,
     )
 
     app.native.window_args.setdefault("resizable", True)
@@ -91,6 +92,10 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     @ui.page("/")
     def index_page() -> None:
         search.build(resolved_service)
+
+    @ui.page("/verificar")
+    def verify_route_page() -> None:
+        verify_view.build(resolved_service)
 
     @ui.page("/lista/{list_id}")
     def list_detail_page(list_id: str) -> None:

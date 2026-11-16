@@ -58,6 +58,30 @@ class empty_state(ui.column):
                 )
 
 
+# D-031, FR-16: Cartão de métrica com valor em destaque e rótulo explicativo
+class metric_card(ui.card):
+    """Cartão compacto para exibição de métricas numéricas com valor e rótulo."""
+
+    def __init__(
+        self,
+        value: str | int,
+        label: str,
+        *,
+        color_class: str = "rsl-title",
+        mark: str | None = None,
+    ) -> None:
+        super().__init__()
+        self.classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1")
+        if mark:
+            self.mark(mark)
+        with self:
+            lbl_val = ui.label(str(value)).classes(f"text-2xl font-bold {color_class}")
+            lbl_sub = ui.label(label).classes("text-xs rsl-muted")
+            if mark:
+                lbl_val.mark(f"{mark}-value")
+                lbl_sub.mark(f"{mark}-label")
+
+
 # D-031, FR-16: Selo pequeno com cores semânticas (ok, warning, error, info, neutral)
 class status_badge(ui.badge):
     """Selo de status compacto com cor baseada no tipo informado."""

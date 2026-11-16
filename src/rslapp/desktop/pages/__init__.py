@@ -8,9 +8,10 @@ from rslapp import __version__
 from rslapp.desktop.settings import get_theme, set_theme
 from rslapp.desktop.theme import apply_theme
 
-# D-031, FR-16: Itens de navegação lateral na ordem exata da spec: Buscar, Histórico, Conectar IA, Configurações
+# D-031, FR-16, FR-21: Itens de navegação lateral: Buscar, Verificar, Histórico, Conectar IA, Configurações
 NAV_ITEMS: tuple[tuple[str, str, str], ...] = (
     ("Buscar", "search", "/"),
+    ("Verificar", "fact_check", "/verificar"),
     ("Histórico", "history", "/historico"),
     ("Conectar IA", "hub", "/conectar"),
     ("Configurações", "settings", "/configuracoes"),

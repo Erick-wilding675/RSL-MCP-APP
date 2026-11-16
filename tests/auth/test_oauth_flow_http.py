@@ -26,6 +26,7 @@ EXPECTED_TOOLS = {
     "get_search_log",
     "export_list",
     "list_sources",
+    "verify_references",
 }
 
 
