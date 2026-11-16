@@ -284,6 +284,8 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Fontes:** `docs/research.md`, pergunta "Como ligar a IA do pesquisador ao RSL.app local com o mínimo de passos?"
 - **A testar:** se o executável `--windowed` do Windows conversa por stdio quando o Claude Desktop o inicia; se não, um segundo executável de console na mesma pasta.
 - **Situação:** decidida; fase 12 do plano.
+- **Verificado (2026-11-15):** o `.exe` `--windowed` conversa por stdio (teste de fumaça do workflow, run 43794342508); o segundo executável não é preciso.
+- **Ajuste (2026-11-15):** o VS Code não documenta link de instalação; o cartão dele mostra o comando oficial `code --add-mcp` e o trecho do `.vscode/mcp.json` para copiar (spec 12-02).
 
 ## D-029 · Instituições de ensino são o público principal: cada recurso diz como uma instituição o oferece
 

@@ -23,3 +23,7 @@
 - **(D-024, app desktop)** A janela nativa do NiceGUI abre num Ubuntu comum sem pacotes extras (senão, abre no navegador); medir o tamanho do executável do `nicegui-pack` no Windows.
 
 - **(D-025, D-026, app desktop)** O `.exe` abre a janela no Windows 11; o AppImage abre o navegador num Ubuntu comum; depois de salva, nenhuma chave aparece na página, no log ou num aviso do app.
+
+- **(D-028, 2.1)** O `.exe` `--windowed` do Windows conversa por stdio: **verificado em 2026-11-15** pelo teste de fumaça do workflow (run 43794342508), no Windows e no AppImage. Falta o teste real: conectar o Claude Desktop pela tela "Conectar IA" (spec 12-04).
+
+- **(D-029, 2.1)** O ChatGPT faz login e uma busca no servidor de teste (`rsl.sinteselabs.com`) pelo cadastro de servidor MCP personalizado. Em aberto: os metadados não anunciam `none` em `token_endpoint_auth_methods_supported` (spec 12-03).

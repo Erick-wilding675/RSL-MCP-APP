@@ -85,8 +85,10 @@ O contrato da sua instituição vale mais do que este resumo.
 ### No Claude Code
 
 ```bash
-claude mcp add rslapp -e OPENALEX_API_KEY=sua-chave -e SEMANTIC_SCHOLAR_API_KEY=sua-chave -- uvx rslapp
+claude mcp add --env OPENALEX_API_KEY=sua-chave --env SEMANTIC_SCHOLAR_API_KEY=sua-chave --transport stdio rslapp -- uvx rslapp
 ```
+
+As opções vêm antes do nome `rslapp`, e o `--transport stdio` fica entre o último `--env` e o nome, como pede a [documentação do Claude Code](https://code.claude.com/docs/en/mcp).
 
 ### Em outros clientes MCP
 
@@ -166,6 +168,9 @@ Tudo por variáveis de ambiente, no bloco `env` da configuração do cliente. Ne
 | `RSL_DATA_DIR` | Onde guardar listas, log e cache | `~/RSL.app` |
 | `RSL_EXPORT_DIR` | Onde gravar as exportações | `<RSL_DATA_DIR>/exports` |
 | `RSL_CACHE_DAYS` | Por quantos dias o cache vale | `7` |
+| `RSL_DESKTOP_CONFIG` | Só no app desktop: onde fica o `desktop.json` com as chaves e pastas salvas na tela Configurações | `%APPDATA%\RSL.app\desktop.json` (Windows), `~/.config/rslapp/desktop.json` (Linux) |
+
+As variáveis do modo hospedado (`RSL_PUBLIC_URL`, prazos dos links e dos tokens) estão no [guia de hospedagem](docs/hospedagem.md).
 
 ## As ferramentas que a IA recebe
 

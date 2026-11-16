@@ -10,7 +10,7 @@
 
 | Quem | Como chama | O que espera |
 |---|---|---|
-| A IA do pesquisador (cliente MCP) | Chamadas de ferramenta e um prompt, por stdio | Listas já deduplicadas, com o estado de cada fonte, e arquivos prontos para exportar |
+| A IA do pesquisador (cliente MCP) | Chamadas de ferramenta e um prompt, por stdio (`uvx rslapp`, ou o app desktop com `--mcp` desde a 2.1, D-028) ou por HTTP no modo hospedado (D-011) | Listas já deduplicadas, com o estado de cada fonte, e arquivos prontos para exportar |
 | O pesquisador | Só por meio da IA | Nada além do que a IA mostra |
 
 ## O que é oferecido
@@ -157,6 +157,6 @@ Mudar qualquer um desses quebra o que as IAs e os usuários já configuraram. É
 ## O que fica de fora
 
 - Etapa de aprovação das strings antes de rodar. O Erick escolheu rodar direto, sempre (D-003). A garantia de rigor está no log.
-- Juntar listas de buscas diferentes.
+- ~~Juntar listas de buscas diferentes.~~ Entrou na 1.2, com `merge_lists` (D-021).
 - Abrir o VOSviewer. O servidor só grava o arquivo e devolve o caminho.
 - Texto completo dos artigos.

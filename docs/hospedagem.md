@@ -89,6 +89,17 @@ SEMANTIC_SCHOLAR_API_KEY=
 RSL_CONTACT_EMAIL=contato@seu-laboratorio.org
 ```
 
+**Opcionais, para ajustar depois** (deixe de fora do `.env` para ficar com o padrão):
+
+| Variável | O que faz | Padrão |
+|---|---|---|
+| `RSL_DOWNLOAD_TTL_MINUTES` | Por quantos minutos vale o link de download de uma exportação ou do log | `60` |
+| `RSL_EXPORT_RETENTION_HOURS` | Por quantas horas os arquivos exportados ficam no servidor (mantenha maior que a validade dos links) | `24` |
+| `RSL_ACCESS_TOKEN_MINUTES` | Por quantos minutos vale o token de acesso OAuth antes de ser renovado sozinho | `60` |
+| `RSL_CACHE_DAYS` | Por quantos dias as respostas das bases ficam em cache | `7` |
+
+A chave que assina os links de download é criada sozinha em `/data/auth/secret.key` na primeira vez. Só defina `RSL_SECRET_KEY` (32 bytes ou mais) se quiser controlá-la por fora; nunca a coloque num arquivo versionado.
+
 > [!NOTE]
 > `RSL_PUBLIC_URL` deve começar com `https://` e ter exatamente o mesmo domínio de `RSL_DOMAIN`, sem barra no final. O servidor recusa chamadas cujo cabeçalho `Host` não corresponda a `RSL_PUBLIC_URL`.
 
