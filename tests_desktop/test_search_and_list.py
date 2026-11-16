@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -564,4 +565,46 @@ def test_fr06_fr16_open_folder_in_file_manager_windows_e_linux(
     assert subprocess_calls == [
         (["xdg-open", str(target)], {"check": False}),
     ]
+
+
+# D-031, FR-16: Ctrl+Enter na caixa de texto dispara a busca e mostra as novas descrições de fontes
+async def test_d031_fr16_ctrl_enter_dispara_busca(user: User) -> None:
+    fake_service = FakeDesktopService()
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/")
+    await user.should_see("Ctrl+Enter para buscar")
+    await user.should_see("ampla, todas as áreas")
+    await user.should_see("metadados dos DOIs")
+    await user.should_see("citações e áreas de computação e saúde")
+
+    user.find(marker="query-input").type("systematic review")
+    user.find(marker="query-input").trigger("keydown.ctrl.enter")
+
+    await user.should_see("Lista")
+    assert len(fake_service.search_calls) == 1
+    assert fake_service.search_calls[0]["query"] == "systematic review"
+
+
+# D-031, FR-16: Ctrl+Enter não dispara duas buscas simultâneas enquanto uma busca está em andamento
+async def test_d031_fr16_ctrl_enter_nao_dispara_duas_buscas(user: User) -> None:
+    fake_service = FakeDesktopService()
+    orig_search = fake_service.search
+
+    async def slow_search(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        await asyncio.sleep(0.05)
+        return await orig_search(*args, **kwargs)
+
+    fake_service.search = slow_search  # type: ignore[method-assign]
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/")
+    user.find(marker="query-input").type("deep learning")
+    # Dispara dois eventos Ctrl+Enter seguidos enquanto a busca ainda roda
+    user.find(marker="query-input").trigger("keydown.ctrl.enter")
+    user.find(marker="query-input").trigger("keydown.ctrl.enter")
+
+    await user.should_see("Lista")
+    assert len(fake_service.search_calls) == 1
+
 
