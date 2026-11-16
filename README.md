@@ -106,7 +106,7 @@ Um laboratório, grupo de pesquisa ou pessoa também pode hospedar o RSL.app num
 <!-- D-024, D-025, D-026, FR-16, FR-17, FR-18 -->
 Se você preferir usar o RSL.app direto numa tela (buscar, ver a lista, exportar em RIS, CSV, BibTeX, JSON ou DOIs, consultar o histórico, repetir buscas e configurar as chaves sem precisar de uma IA no meio), há executáveis prontos para Windows e Linux na página de [Releases](https://github.com/Erick-wilding675/RSL-MCP-APP/releases):
 
-- **Windows (x64):** baixe `RSL.app-<versão>-windows-x64.zip`, extraia a pasta `RSL.app` e abra `RSL.app.exe`. Como o executável não é assinado comercialmente, o Windows SmartScreen pode mostrar o aviso *"O Windows protegeu o computador"* na primeira execução: clique em **Mais informações** e depois em **Executar assim mesmo**.
+- **Windows (x64):** baixe `RSL.app-<versão>-windows-x64.zip`, extraia a pasta `RSL.app` e abra `RSL.app.exe`. Como o executável não é assinado comercialmente, o Windows SmartScreen pode mostrar o aviso *"O Windows protegeu o computador"* na primeira execução: clique em **Mais informações** e depois em **Executar assim mesmo**. Para quem ainda tem a versão 2.0.0 e a janela não abre: clique com o botão direito no zip, abra **Propriedades**, marque **Desbloquear** e extraia de novo (na versão 2.1 isso deixa de ser preciso).
 - **Linux (x86_64):** baixe `RSL.app-<versão>-linux-x86_64.AppImage`, dê permissão de execução (`chmod +x RSL.app-*-linux-x86_64.AppImage`) e execute-o. No Linux, o AppImage abre a interface no navegador padrão, escutando apenas na própria máquina (`127.0.0.1`).
 - **Instalação pelo `pip` (Python 3.11+):**
   ```bash

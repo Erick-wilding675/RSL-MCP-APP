@@ -29,9 +29,9 @@ As universidades e institutos são o público principal do RSL.app (**D-029**). 
 
 ### Distribuir o app aos pesquisadores
 
-<!-- FR-19, FR-20, D-028, D-029 -->
+<!-- FR-16, FR-19, FR-20, D-025, D-028, D-029 -->
 
-1. **O executável do app desktop** (em laboratórios, máquinas da biblioteca ou para download interno): cada pesquisador abre a tela **Conectar IA** (`/conectar`) e liga a própria IA local (Claude Desktop, Cursor, VS Code ou Claude Code) ao RSL.app do computador, sem instalar Python nem editar arquivos (**FR-19**, **D-028**). Os dados ficam na máquina de quem usa, e é por ela que funcionam o Scopus e o Web of Science na rede da instituição (**D-023**).
+1. **O executável do app desktop** (em laboratórios, máquinas da biblioteca ou para download interno): cada pesquisador abre a tela **Conectar IA** (`/conectar`) e liga a própria IA local (Claude Desktop, Cursor, VS Code ou Claude Code) ao RSL.app do computador, sem instalar Python nem editar arquivos (**FR-19**, **D-028**). Os dados ficam na máquina de quem usa, e é por ela que funcionam o Scopus e o Web of Science na rede da instituição (**D-023**). Para quem distribui o zip nas máquinas da instituição: a partir da 2.1 o zip funciona diretamente extraído pelo Explorer; na 2.0.0, desbloqueie o arquivo nas Propriedades antes de extrair (**FR-16**, **D-025**).
 2. **O servidor hospedado** (descrito nas seções a seguir): para quem prefere não instalar nada, a instituição oferece o servidor e cada pessoa conecta pelo link (`https://<domínio>/mcp`) e pelo código pessoal (`rsl_...`). É a única forma de usar o **ChatGPT**, que só se liga a servidores na internet (**FR-20**, **D-029**).
 
 > [!IMPORTANT]
