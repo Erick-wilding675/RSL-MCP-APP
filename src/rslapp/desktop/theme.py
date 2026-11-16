@@ -1,0 +1,145 @@
+"""Tema visual do app desktop: cores, tipografia, modo escuro e CSS comum (D-031)."""
+
+from __future__ import annotations
+
+from nicegui import ui
+
+from rslapp.desktop.settings import get_theme
+
+# D-031: CSS comum aplicado por ui.add_css num só lugar
+COMMON_CSS: str = """
+/* D-031: Letra com pilha do sistema e tamanho base de 15px */
+body, .nicegui-content {
+  font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Ubuntu", "Cantarell", "Noto Sans", sans-serif !important;
+  font-size: 15px !important;
+}
+
+/* D-031: Títulos de página com 24px e peso 600 */
+.page-title {
+  font-size: 24px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+
+/* D-031: Área de conteúdo centralizada com largura máxima de 1100px e margem de 24px */
+.nicegui-content {
+  max-width: 1100px !important;
+  margin: 0 auto !important;
+  padding: 24px !important;
+}
+
+/* D-031: Fundo da página e variáveis de cores no tema claro */
+body:not(.body--dark) {
+  background-color: #F6F7FB !important;
+}
+
+/* D-031: Fundo da página e variáveis de cores Quasar no tema escuro */
+body.body--dark {
+  background-color: #0B1020 !important;
+  --q-primary: #818CF8 !important;
+  --q-secondary: #2DD4BF !important;
+  --q-accent: #5EEAD4 !important;
+  --q-positive: #4ADE80 !important;
+  --q-negative: #F87171 !important;
+  --q-warning: #FBBF24 !important;
+  --q-info: #60A5FA !important;
+}
+
+/* D-031: Cartões com cantos de 12px, borda fina (1px) e sombra leve */
+.q-card {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
+}
+body:not(.body--dark) .q-card {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.body--dark .q-card {
+  background-color: #121933 !important;
+  border: 1px solid #1F2A4D !important;
+}
+
+/* D-031: Foco visível (contorno de 2px na cor primary) em todo elemento que recebe teclado */
+:focus-visible {
+  outline: 2px solid var(--q-primary) !important;
+  outline-offset: 2px !important;
+}
+
+/* D-031: Transições curtas (150 ms) em elementos interativos */
+button, a, input, textarea, select, .q-btn, .q-field {
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, outline 150ms ease, box-shadow 150ms ease !important;
+}
+
+/* D-031: Estilos da barra lateral drawer */
+body:not(.body--dark) .q-drawer {
+  background-color: #FFFFFF !important;
+  border-right: 1px solid #E5E7EB !important;
+}
+body.body--dark .q-drawer {
+  background-color: #0D1429 !important;
+  border-right: 1px solid #1F2A4D !important;
+}
+
+/* Estilos de itens de navegação ativo e inativo */
+.nav-item-active {
+  background-color: rgba(79, 70, 229, 0.12) !important;
+  color: var(--q-primary) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+}
+body.body--dark .nav-item-active {
+  background-color: rgba(129, 140, 248, 0.18) !important;
+  color: var(--q-primary) !important;
+}
+.nav-item-inactive {
+  border-radius: 8px !important;
+  color: inherit !important;
+  transition: background-color 150ms ease !important;
+}
+.nav-item-inactive:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+body.body--dark .nav-item-inactive:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Oculta subtítulo e versão quando o drawer recolhe em modo mini */
+.q-drawer--mini .drawer-full-only {
+  display: none !important;
+}
+"""
+
+
+# D-031, FR-16: Aplica cores, modo escuro, tipografia e CSS comum a uma página do app desktop
+def apply_theme() -> ui.dark_mode:
+    """Configura o tema da página: cores Quasar, DarkMode conforme desktop.json, fontes e CSS global."""
+    # 1. Cores da tabela da spec
+    ui.colors(
+        primary="#4F46E5",
+        secondary="#0F766E",
+        accent="#0D9488",
+        positive="#15803D",
+        negative="#B91C1C",
+        warning="#B45309",
+        info="#1D4ED8",
+        dark_page="#0B1020",
+        dark="#121933",
+    )
+
+    # 2. Modo escuro conforme desktop.json (auto=None, light=False, dark=True)
+    pref = get_theme()
+    dm_value: bool | None
+    if pref == "light":
+        dm_value = False
+    elif pref == "dark":
+        dm_value = True
+    else:
+        dm_value = None
+
+    dm = ui.dark_mode(dm_value)
+
+    # 3. CSS comum (fontes, cartões, foco visível, transições de 150ms)
+    ui.add_css(COMMON_CSS)
+
+    return dm

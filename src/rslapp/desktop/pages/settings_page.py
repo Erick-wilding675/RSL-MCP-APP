@@ -326,8 +326,9 @@ def build(service: DesktopService) -> None:
                         updated_values[var_name] = typed
 
             try:
+                # D-031: Preserva o tema escolhido ao gravar chaves e pastas
                 saved_path = save_settings(
-                    DesktopSettings(values=updated_values)
+                    DesktopSettings(values=updated_values, theme=loaded.theme)
                 )
             except OSError:
                 ui.notify(
