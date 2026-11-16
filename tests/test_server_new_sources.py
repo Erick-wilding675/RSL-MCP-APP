@@ -297,6 +297,7 @@ def test_d020_modo_http_mantem_mesmas_ferramentas(tmp_path: Path) -> None:
         "export_list",
         "get_list",
         "get_search_log",
+        "verify_references",
     }
     registered_tools = set(http_server._tool_manager._tools.keys())
     assert registered_tools == expected_tools
