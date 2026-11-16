@@ -316,3 +316,39 @@ def test_d006_nfr02_list_sources_nao_escreve_em_stdout(
     capturado = capsys.readouterr()
     assert capturado.out == ""
     assert len(resultado) == 7
+
+
+# D-002, D-006, D-029, FR-20: tools/list devolve readOnlyHint e destructiveHint certos nas nove ferramentas
+@pytest.mark.anyio
+async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_nas_nove_ferramentas() -> None:
+    read_only_tools = {"list_sources", "get_list", "get_search_log"}
+    additive_write_tools = {
+        "search_works",
+        "find_work",
+        "get_related_works",
+        "repeat_search",
+        "merge_lists",
+        "export_list",
+    }
+
+    async with Client(server.mcp) as client:
+        tools_result = await client.list_tools()
+        by_name = {tool.name: tool for tool in tools_result.tools}
+        assert set(by_name.keys()) == read_only_tools | additive_write_tools
+
+        for name in read_only_tools:
+            ann = by_name[name].annotations
+            assert ann is not None, f"Faltam anotações em {name}"
+            assert ann.read_only_hint is True
+            assert ann.destructive_hint is None
+            dumped = ann.model_dump(by_alias=True, exclude_none=True)
+            assert dumped == {"readOnlyHint": True}
+
+        for name in additive_write_tools:
+            ann = by_name[name].annotations
+            assert ann is not None, f"Faltam anotações em {name}"
+            assert ann.read_only_hint is False
+            assert ann.destructive_hint is False
+            dumped = ann.model_dump(by_alias=True, exclude_none=True)
+            assert dumped == {"readOnlyHint": False, "destructiveHint": False}
+

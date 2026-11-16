@@ -206,7 +206,7 @@ O ChatGPT só se liga a servidores MCP na internet, por isso o uso dele passa pe
 
 **Planos.** A página oficial lida não diz em quais planos o cadastro funciona, e a página de ajuda da OpenAI não pôde ser lida. Guias de terceiros dizem que funciona nos planos Business, Enterprise e Edu e, com limites, no Plus e no Pro, e não no gratuito. Nos planos de organização (Business, Enterprise, Edu), só quem administra o espaço de trabalho cria e publica o plugin. **Para a instituição que tem ChatGPT Edu**, o caminho é a equipe que administra o ChatGPT cadastrar o RSL.app uma vez e publicá-lo para os pesquisadores; cada pessoa entra com o próprio código.
 
-**Confirmações.** O ChatGPT pede confirmação antes de cada ferramenta que não se declara só de leitura. Por enquanto, as ferramentas do RSL.app não fazem essa declaração, então espere uma confirmação por busca; dá para lembrar a aprovação durante a conversa.
+**Confirmações.** O ChatGPT pede confirmação antes de cada ferramenta que não se declara só de leitura. As ferramentas de consulta (`list_sources`, `get_list` e `get_search_log`) se declaram só de leitura (`readOnlyHint`); as que fazem busca ou gravam lista e exportação (`search_works`, `find_work`, `get_related_works`, `repeat_search`, `merge_lists` e `export_list`) pedem confirmação, e dá para lembrar a aprovação durante a conversa.
 
 **Se o ChatGPT recusar o login:**
 

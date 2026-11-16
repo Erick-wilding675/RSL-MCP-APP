@@ -13,6 +13,7 @@ from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
+from mcp.types import ToolAnnotations
 from pydantic import AnyHttpUrl, BeforeValidator, ValidationInfo
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -74,6 +75,13 @@ NonIntBool = Annotated[bool, BeforeValidator(_reject_int)]
 
 # D-006, NFR-02: Servidor MCP padrão para transporte stdio
 mcp = MCPServer("rslapp", instructions=INSTRUCTIONS)
+
+# D-006, D-029, FR-20: Anotações declaradas em tools/list para ferramentas só de leitura e aditivas
+_READ_ONLY_ANNOTATIONS = ToolAnnotations(readOnlyHint=True)
+_ADDITIVE_WRITE_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=False,
+    destructiveHint=False,
+)
 
 # D-012, D-014, D-015: Contexto de execução do modo HTTP para pessoa e URL pública
 _http_mode_var: contextvars.ContextVar[bool] = contextvars.ContextVar(
@@ -137,8 +145,8 @@ def _build_tool_store(cfg: config.Config | None = None) -> tuple[Store, Path]:
     )
 
 
-# D-002, D-012, FR-07, NFR-03, D-020, D-023: Lista as fontes acadêmicas indicando se estão configuradas e prontas
-@mcp.tool()
+# D-002, D-006, D-012, D-020, D-023, D-029, FR-07, FR-20, NFR-03: Lista as fontes acadêmicas indicando se estão configuradas e prontas
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
 def list_sources() -> list[SourceInfo]:
     """Informa para cada fonte acadêmica se está configurada, se exige chave e seu estado. A chave da Semantic Scholar é opcional e evita recusas por limite; a do PubMed também é opcional. PubMed e Europe PMC são bases de saúde e ciências da vida e entram quando pedidas. Scopus e Web of Science são bases pagas e só funcionam com a chave e a assinatura do próprio usuário ou da instituição dele."""
     _resolve_person_id()
@@ -153,8 +161,8 @@ def _build_sources() -> list[Source]:
     return build_sources(include_paid=not _is_http_mode())
 
 
-# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, NFR-06, D-002, D-003, D-012, D-013, D-020, D-022, D-023: Busca artigos nas fontes acadêmicas
-@mcp.tool()
+# FR-01, FR-04, FR-05, FR-08, FR-09, FR-12, FR-14, FR-20, NFR-06, D-002, D-003, D-006, D-012, D-013, D-020, D-022, D-023, D-029: Busca artigos nas fontes acadêmicas
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
 async def search_works(
     query: str,
     request_summary: str = "",
@@ -185,8 +193,8 @@ async def search_works(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-15, FR-08, FR-14, UC-04, D-002, D-005, D-010, D-012, D-013, D-020: Consulta referências ou citações de um artigo
-@mcp.tool()
+# FR-15, FR-08, FR-14, FR-20, UC-04, D-002, D-005, D-006, D-010, D-012, D-013, D-020, D-029: Consulta referências ou citações de um artigo
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
 async def get_related_works(
     doi: str | None = None,
     work_id: str | None = None,
@@ -221,8 +229,8 @@ async def get_related_works(
     except RSLError as e:
         raise ToolError(f"{e.code}: {e.message}") from e
 
-# FR-02, UC-02, D-002, D-012, D-013, D-020: Encontra um artigo específico por título ou DOI
-@mcp.tool()
+# FR-02, FR-20, UC-02, D-002, D-006, D-012, D-013, D-020, D-029: Encontra um artigo específico por título ou DOI
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
 async def find_work(
     title: str | None = None,
     doi: str | None = None,
@@ -256,8 +264,8 @@ async def find_work(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-11, UC-03, D-002, D-012, D-013, D-023: Repete uma busca salva do log com os mesmos parâmetros
-@mcp.tool()
+# FR-11, FR-20, UC-03, D-002, D-006, D-012, D-013, D-023, D-029: Repete uma busca salva do log com os mesmos parâmetros
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
 async def repeat_search(
     search_id: str,
 ) -> dict[str, Any]:
@@ -292,8 +300,8 @@ async def repeat_search(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# D-021, FR-04, FR-05, FR-12, FR-13, D-012: Junta listas salvas numa lista nova sem duplicatas
-@mcp.tool()
+# D-006, D-012, D-021, D-029, FR-04, FR-05, FR-12, FR-13, FR-20: Junta listas salvas numa lista nova sem duplicatas
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
 async def merge_lists(
     list_ids: list[str],
     request_summary: str = "",
@@ -310,8 +318,8 @@ async def merge_lists(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-06, FR-12, UC-01, D-002, D-012, D-013, D-014: Exporta uma lista salva (caminho no stdio; link assinado no HTTP)
-@mcp.tool()
+# FR-06, FR-12, FR-20, UC-01, D-002, D-006, D-012, D-013, D-014, D-029: Exporta uma lista salva (caminho no stdio; link assinado no HTTP)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
 def export_list(list_id: str, format: str) -> dict[str, Any]:
     """Exporta uma lista salva para arquivo no formato solicitado ('ris', 'csv', 'json', 'dois', 'openalex_url', 'bibtex')."""
     cfg = config.load()
@@ -346,8 +354,8 @@ def export_list(list_id: str, format: str) -> dict[str, Any]:
     return result
 
 
-# FR-12, D-002, D-012: Mostra uma lista salva por páginas com resumo ou detalhes completos
-@mcp.tool()
+# FR-12, FR-20, D-002, D-006, D-012, D-029: Mostra uma lista salva por páginas com resumo ou detalhes completos
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
 def get_list(
     list_id: str,
     page: NonBoolInt = 1,
@@ -368,8 +376,8 @@ def get_list(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
-# FR-05, FR-13, D-002, D-012, D-014: Mostra entradas do log de buscas (caminho no stdio; link assinado no HTTP)
-@mcp.tool()
+# FR-05, FR-13, FR-20, D-002, D-006, D-012, D-014, D-029: Mostra entradas do log de buscas (caminho no stdio; link assinado no HTTP)
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
 def get_search_log(
     search_id: str | None = None,
     limit: NonBoolInt = 20,
@@ -508,7 +516,7 @@ class _HttpMCPServer(MCPServer):
             _http_mode_var.reset(mode_token)
 
 
-# D-006, D-012, D-015, D-016: Monta um MCPServer pelo construtor com token_verifier e AuthSettings sem duplicar ferramentas
+# D-006, D-012, D-015, D-016, D-029, FR-20: Monta um MCPServer pelo construtor com token_verifier e AuthSettings sem duplicar ferramentas
 def _build_http_mcp_server(
     *,
     token_verifier: RSLTokenVerifier,
@@ -521,18 +529,18 @@ def _build_http_mcp_server(
         token_verifier=token_verifier,
         auth=auth,
     )
-    for tool_fn in (
-        list_sources,
-        search_works,
-        get_related_works,
-        find_work,
-        repeat_search,
-        merge_lists,
-        export_list,
-        get_list,
-        get_search_log,
+    for tool_fn, tool_annotations in (
+        (list_sources, _READ_ONLY_ANNOTATIONS),
+        (search_works, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_related_works, _ADDITIVE_WRITE_ANNOTATIONS),
+        (find_work, _ADDITIVE_WRITE_ANNOTATIONS),
+        (repeat_search, _ADDITIVE_WRITE_ANNOTATIONS),
+        (merge_lists, _ADDITIVE_WRITE_ANNOTATIONS),
+        (export_list, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_list, _READ_ONLY_ANNOTATIONS),
+        (get_search_log, _READ_ONLY_ANNOTATIONS),
     ):
-        http_mcp.add_tool(tool_fn)
+        http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)
     http_mcp.custom_route("/health", methods=["GET"])(health_check)
     http_mcp.custom_route("/downloads/{token}", methods=["GET"])(download_export)
