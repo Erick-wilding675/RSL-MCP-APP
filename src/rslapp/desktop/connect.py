@@ -340,14 +340,21 @@ def vscode_add_mcp_json(
     return json.dumps(payload, ensure_ascii=False)
 
 
+# FR-19, D-028: No Windows usa aspas duplas e \" para o Prompt de Comando (cmd); fora dele, aspas simples
 def vscode_add_mcp_command(
     *,
     command: str | None = None,
     args: Sequence[str] | None = None,
     environ: Mapping[str, str] = os.environ,
+    platform: str | None = None,
 ) -> str:
-    """Monta o comando `code --add-mcp '<JSON>'` para registrar o RSL.app no perfil do VS Code."""
-    return f"code --add-mcp '{vscode_add_mcp_json(command=command, args=args, environ=environ)}'"
+    """Monta o comando `code --add-mcp` para registrar o RSL.app no perfil do VS Code."""
+    plat = sys.platform if platform is None else platform
+    raw_json = vscode_add_mcp_json(command=command, args=args, environ=environ)
+    if plat == "win32":
+        escaped_json = raw_json.replace('"', r'\"')
+        return f'code --add-mcp "{escaped_json}"'
+    return f"code --add-mcp '{raw_json}'"
 
 
 def vscode_mcp_config_json(
