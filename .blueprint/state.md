@@ -195,7 +195,9 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
     - D-028: botão "Conectar IA", com o executável servindo como servidor MCP;
     - D-029: instituições como público principal, e cada spec com a seção "Para instituições";
     - FR-19 e FR-20; specs 12-01 a 12-04.
-    - **Próximo:** 12-01 pelo `agy`; a 12-03 anda em paralelo (guia e teste do ChatGPT no servidor de teste, que precisa do Erick).
+    - **12-01 integrada em 2026-11-15:** `RSL.app.exe --mcp` e o AppImage respondem ao `initialize` no teste de fumaça do workflow (run 43794342508); o `.exe` `--windowed` recebe stdio, sem `rslapp-mcp.exe`.
+    - **12-03 escrita em 2026-11-15:** guia com "Para instituições de ensino" e o ChatGPT; OAuth do servidor de teste conferido contra a OpenAI. **Falta o teste do Erick no ChatGPT** (código `chatgpt-teste`, a revogar depois). Risco: `none` não anunciado em `token_endpoint_auth_methods_supported`.
+    - **Em andamento:** 12-02 (tela "Conectar IA") pelo `agy`. Depois: 12-04, que pede o ok do Erick para publicar a 2.1.0.
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
