@@ -114,6 +114,8 @@ Se você preferir usar o RSL.app direto numa tela (buscar, ver a lista, exportar
   rslapp-desktop
   ```
 
+**Ligar a sua IA ao app (desde a 2.1):** na tela **Conectar IA**, um botão liga o Claude Desktop ao RSL.app do seu computador (o app mostra o que vai mudar e guarda uma cópia do arquivo de configuração do Claude). Para o Cursor há um botão de instalação, e para o VS Code e o Claude Code o comando pronto para copiar. Não precisa instalar Python, nem `uv`, nem editar arquivo: a IA usa o próprio programa do app (`RSL.app.exe --mcp`), com as chaves salvas em Configurações, e as buscas que ela fizer aparecem no Histórico. O ChatGPT só se liga a servidores na internet: use-o pelo servidor da sua instituição (veja o [guia de hospedagem](docs/hospedagem.md#no-chatgpt)).
+
 **Mesmos dados do servidor e onde ficam as chaves:**
 - O app desktop usa **a mesma pasta de dados** (`~/RSL.app` ou `RSL_DATA_DIR`), **as mesmas listas** e **o mesmo `log.md`** do servidor MCP. As buscas feitas no app aparecem no servidor MCP e vice-versa.
 - As chaves e pastas salvas na tela **Configurações** ficam fora da pasta de dados (para não irem junto se você compactar `~/RSL.app` para anexar à metodologia): em `%APPDATA%\RSL.app\desktop.json` no Windows e em `$XDG_CONFIG_HOME/rslapp/desktop.json` (ou `~/.config/rslapp/desktop.json`) no Linux, com permissão restrita ao dono (`0600` no Linux). Variáveis de ambiente já definidas no sistema continuam tendo prioridade e não são sobrescritas.
