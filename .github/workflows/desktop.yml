@@ -63,11 +63,11 @@ jobs:
       - name: Executar controle negativo do teste de fumaça (sem .config)
         shell: pwsh
         run: |
-          Rename-Item "dist/RSL.app/RSL.app.exe.config" "dist/RSL.app/RSL.app.exe.config.bak"
+          Rename-Item -Path "dist/RSL.app/RSL.app.exe.config" -NewName "RSL.app.exe.config.bak"
           try {
             python -c "import subprocess, sys; res = subprocess.run([r'dist\RSL.app\RSL.app.exe', '--check'], check=False); sys.exit(0 if res.returncode != 0 else (print('Erro: controle negativo falhou, o --check deveria ter falhado sem o .config', file=sys.stderr) or 1))"
           } finally {
-            Rename-Item "dist/RSL.app/RSL.app.exe.config.bak" "dist/RSL.app/RSL.app.exe.config"
+            Rename-Item -Path "dist/RSL.app/RSL.app.exe.config.bak" -NewName "RSL.app.exe.config"
           }
 
       # D-028, FR-19: Teste de fumaça do modo servidor MCP por stdio (--mcp)
