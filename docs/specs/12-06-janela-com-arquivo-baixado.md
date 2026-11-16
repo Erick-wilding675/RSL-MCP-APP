@@ -1,6 +1,6 @@
 # Janela do app no Windows quando o zip vem do navegador (2.1)
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** entregue (2026-11-16)
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** integrada (2026-11-16); sai na 2.1.1
 
 ## O que faz
 
@@ -83,7 +83,7 @@ No job do Windows, antes do passo `--check`:
 - Não muda o NiceGUI nem o jeito de abrir a janela. O processo filho que trava em silêncio é do NiceGUI: fica registrado como limite conhecido, não se conserta aqui.
 - Não assina o executável. Assinar custa dinheiro e é decisão do Erick; também não resolveria esta marca.
 - Não mexe no Linux nem no `--mcp`, que não carrega o .NET.
-- Não republica a 2.0.0. A correção sai na 2.1.0 (12-04).
+- Não republica a 2.0.0. A 2.1.0 saiu antes desta correção, a pedido do Erick, com o aviso de desbloquear o zip; a correção sai na 2.1.1.
 
 ## Para instituições
 
@@ -119,6 +119,12 @@ Código pelo Gemini (`agy`), um commit por item, mensagens em português (FR-16,
   - `tests_desktop` (Python 3.12): 25 passaram em 6.28s;
   - Suíte principal (Python 3.10): 707 passaram e 1 pulado em 71.62s;
   - `ruff`: all checks passed.
+- **Revisão do Claude (2026-11-16):**
+  - `_ensure_windows_dotnet()` carrega o .NET na mesma ordem e com o mesmo recuo para `coreclr` de `webview/platforms/winforms.py`.
+  - Na primeira rodada do workflow, o controle negativo quebrou no próprio passo: o `Rename-Item` recebia um caminho no `-NewName`. O Gemini corrigiu em `990dfc5`.
+  - A segunda rodada (run 43933801338) ficou verde: `--check` com os arquivos marcados, o controle negativo falhando sem o `.config` como devia, e o `--mcp`.
+  - **Prova de ponta a ponta:** o Claude baixou o zip dessa rodada, marcou todos os arquivos com `ZoneId=3` e abriu o `RSL.app.exe`, e a janela abriu.
+  - **Limite conhecido:** o `.exe` sem console não mostra a mensagem do erro no log do CI. A prova é que a única diferença entre a rodada que passa e a que falha é o `.config`.
 
 ## Como testar
 
@@ -129,4 +135,4 @@ Código pelo Gemini (`agy`), um commit por item, mensagens em português (FR-16,
 
 **Para conferir (Erick):**
 
-- Baixe o zip da 2.1.0 pelo navegador, extraia pelo Explorer **sem** desbloquear e abra o `RSL.app.exe`: a janela abre.
+- Baixe o zip da 2.1.1 pelo navegador, extraia pelo Explorer **sem** desbloquear e abra o `RSL.app.exe`: a janela abre.
