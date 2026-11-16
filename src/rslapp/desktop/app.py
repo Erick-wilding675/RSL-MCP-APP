@@ -1,4 +1,4 @@
-"""Ponto de entrada e roteamento do app desktop em NiceGUI (D-024, D-025, D-026, FR-16)."""
+"""Ponto de entrada e roteamento do app desktop em NiceGUI (D-024, D-025, D-026, D-028, FR-16, FR-19)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import sys
 from collections.abc import Sequence
 from multiprocessing import freeze_support
 
+from rslapp import server
 from rslapp.desktop.service import DesktopService
 from rslapp.desktop.settings import (
     apply_to_environ,
@@ -21,23 +22,29 @@ DESKTOP_TITLE = "RSL.app"
 DESKTOP_WINDOW_SIZE: tuple[int, int] = (1200, 800)
 
 
-# D-025, FR-16: Parser de linha de comando do app desktop com suporte ao modo --check
+# D-025, D-028, FR-16, FR-19: Parser de linha de comando do app desktop (--check e --mcp mutuamente exclusivos)
 def build_parser() -> argparse.ArgumentParser:
     """Cria o parser de argumentos de linha de comando do app desktop."""
     parser = argparse.ArgumentParser(
         prog="rslapp-desktop",
-        description="Inicia o aplicativo desktop do RSL.app.",
+        description="Inicia o aplicativo desktop do RSL.app ou o servidor MCP por stdio.",
     )
-    parser.add_argument(
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
         "--check",
         action="store_true",
         help="Importa os módulos do app, registra as páginas e sai com código 0 sem abrir janela.",
+    )
+    mode_group.add_argument(
+        "--mcp",
+        action="store_true",
+        help="Inicia o servidor MCP por stdio usando as configurações salvas do app, sem abrir janela.",
     )
     return parser
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    """Interpreta os argumentos do app desktop e decide se roda em modo de verificação (--check)."""
+    """Interpreta os argumentos do app desktop e decide se roda em modo --check, --mcp ou janela."""
     parser = build_parser()
     args_list = list(sys.argv[1:] if argv is None else argv)
     return parser.parse_args(args_list)
@@ -131,12 +138,28 @@ def _run_ui() -> None:
         )
 
 
-# D-024, D-025, D-026, FR-16, NFR-02: Inicia o app desktop escutando exclusivamente em 127.0.0.1
+# D-024, D-025, D-026, D-028, FR-16, FR-19, NFR-02: Inicia o app desktop em 127.0.0.1, verifica (--check) ou serve MCP (--mcp)
 def main(argv: Sequence[str] | None = None) -> int:
-    """Carrega configurações, registra as páginas e abre a janela nativa (ou verifica com --check)."""
+    """Carrega configurações, registra as páginas e abre a janela nativa (ou roda --check / --mcp)."""
     freeze_support()
-    _ensure_stdio_streams()
     args = parse_args(argv)
+
+    # D-026, D-028, FR-19: No modo --mcp preserva stdin/stdout reais e inicia o servidor MCP por stdio
+    if args.mcp:
+        if sys.stdin is None or sys.stdout is None:
+            if sys.stderr is not None:
+                print(
+                    "Erro: o modo --mcp exige stdin e stdout disponíveis.",
+                    file=sys.stderr,
+                )
+            return 1
+        capture_system_env_vars()
+        settings = load_settings()
+        apply_to_environ(settings)
+        server.main()
+        return 0
+
+    _ensure_stdio_streams()
     capture_system_env_vars()
     settings = load_settings()
     apply_to_environ(settings)

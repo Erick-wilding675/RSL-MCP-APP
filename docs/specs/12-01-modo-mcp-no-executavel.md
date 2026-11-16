@@ -1,6 +1,6 @@
 # Modo servidor MCP no executável do app
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** a fazer
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** entregue (2026-11-15)
 
 ## O que faz
 
@@ -54,10 +54,10 @@ Nada muda para quem hospeda: o modo hospedado continua sendo `rslapp serve` na i
 
 ## Pronto quando
 
-- [ ] `RSL.app.exe --mcp` (ou `rslapp-mcp.exe`) responde ao `initialize` no teste de fumaça do workflow, no Windows e no Linux
-- [ ] O modo `--mcp` usa as chaves e a pasta salvas em Configurações
-- [ ] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
-- [ ] Nada além do protocolo vai para o stdout no modo `--mcp`
+- [x] `RSL.app.exe --mcp` (ou `rslapp-mcp.exe`) responde ao `initialize` no teste de fumaça do workflow, no Windows e no Linux
+- [x] O modo `--mcp` usa as chaves e a pasta salvas em Configurações
+- [x] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
+- [x] Nada além do protocolo vai para o stdout no modo `--mcp`
 
 ## Vem de
 
@@ -72,8 +72,27 @@ FR-19, D-026, D-027, D-028.
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Código pelo Gemini (`agy`), revisão e workflow pelo Claude, em 2026-11-15.
+
+- **Commits:**
+  - `62e2719` modo `--mcp` com os testes: grupo mutuamente exclusivo com `--check`; o modo é decidido antes de `_ensure_stdio_streams()`; carrega o `desktop.json` como o app e chama `rslapp.server.main()`; o `__main__.py` não importa o NiceGUI no `--mcp`.
+  - `29db82b` teste de fumaça no workflow (`packaging/smoke_mcp.py`, JSON-RPC à mão por Popen e pipes), no Windows e no Linux.
+  - `4c39559` correção: o script usa o caminho absoluto do executável (no Linux, `./X.AppImage` virava `X.AppImage` e o sistema procurava no PATH).
+- **O caminho usado no Windows:** o próprio `RSL.app.exe --mcp`. O teste de fumaça do workflow (run 43794342508) mostrou que o `.exe` feito com `--windowed` recebe o stdin e o stdout por pipes e responde ao `initialize`. O `rslapp-mcp.exe` de console não foi preciso.
+- **Gates na worktree:** `tests_desktop` 19 passaram; suíte principal 694 passaram e 1 pulado no 3.10 e no 3.14; ruff sem achados.
+- **Teste de ponta a ponta** em `tests/desktop/test_check.py`: sobe `python -m rslapp.desktop --mcp` com o cliente stdio do SDK 2.x, lista as ferramentas e chama `list_sources`, conferindo que a chave do `desktop.json` vale e não aparece na resposta.
+- **Pequeno, sem efeito:** o `__main__.py` envolve os imports do NiceGUI em `contextlib.suppress(ImportError)`; sem o NiceGUI, a janela falha logo depois do mesmo jeito.
 
 ## Como testar
 
-(preenche quem entrega)
+**Onde olhar primeiro:**
+
+1. `src/rslapp/desktop/app.py`, `main()`: no `--mcp`, nada pode escrever no stdout antes de `server.main()`, e as chaves vêm do `desktop.json` sem sobrescrever as do sistema.
+2. `src/rslapp/desktop/__main__.py`: os imports do NiceGUI só acontecem fora do `--mcp`.
+3. `.github/workflows/desktop.yml` e `packaging/smoke_mcp.py`: o teste que garante o stdio no `.exe`.
+
+**Para conferir:**
+
+- `uv run --extra dev python -m pytest tests/desktop/test_check.py -q` passa.
+- No Windows, com o `.zip` da próxima release: `RSL.app.exe --mcp` num terminal fica esperando (é o protocolo), sem abrir janela; Ctrl+C sai.
+- O uso real vem com a tela "Conectar IA" (12-02).

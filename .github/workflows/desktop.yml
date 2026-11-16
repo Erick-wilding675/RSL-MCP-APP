@@ -1,4 +1,4 @@
-# D-024, D-025, FR-16: Monta os executáveis do app desktop (Windows x64 e Linux x86_64 AppImage) a cada tag v* e por workflow_dispatch.
+# D-024, D-025, D-028, FR-16, FR-19: Monta os executáveis do app desktop (Windows x64 e Linux x86_64 AppImage) a cada tag v* e por workflow_dispatch.
 name: Construir executáveis do app desktop
 
 on:
@@ -48,6 +48,12 @@ jobs:
         shell: pwsh
         run: |
           python -c "import subprocess, sys; res = subprocess.run([r'dist\RSL.app\RSL.app.exe', '--check'], check=False); sys.exit(res.returncode)"
+
+      # D-028, FR-19: Teste de fumaça do modo servidor MCP por stdio (--mcp)
+      - name: Executar teste de fumaça (--mcp)
+        shell: pwsh
+        run: |
+          python packaging/smoke_mcp.py dist\RSL.app\RSL.app.exe --mcp
 
       - name: Compactar pasta em arquivo .zip
         shell: pwsh
@@ -124,6 +130,11 @@ jobs:
       - name: Executar teste de fumaça (--check)
         run: |
           ./RSL.app-${{ steps.meta.outputs.version }}-linux-x86_64.AppImage --appimage-extract-and-run --check
+
+      # D-028, FR-19: Teste de fumaça do modo servidor MCP no AppImage (--appimage-extract-and-run --mcp)
+      - name: Executar teste de fumaça (--mcp)
+        run: |
+          python packaging/smoke_mcp.py ./RSL.app-${{ steps.meta.outputs.version }}-linux-x86_64.AppImage --appimage-extract-and-run --mcp
 
       - name: Publicar artifact do Linux
         uses: actions/upload-artifact@v6
