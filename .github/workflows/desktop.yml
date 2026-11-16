@@ -42,6 +42,8 @@ jobs:
           if (-not (Test-Path "dist/RSL.app/RSL.app.exe")) {
             throw "Executável dist/RSL.app/RSL.app.exe não foi gerado."
           }
+          # FR-16, D-025: Copia RSL.app.exe.config para permitir carregar DLLs do WebView2 quando extraído pelo Explorer
+          Copy-Item packaging/RSL.app.exe.config dist/RSL.app/RSL.app.exe.config
 
       # D-025, FR-16: Teste de fumaça do executável gerado com --check
       - name: Executar teste de fumaça (--check)
