@@ -20,6 +20,12 @@ services:
       # D-020: chave opcional do NCBI (PubMed), de 3 para 10 pedidos por segundo
       NCBI_API_KEY: ${NCBI_API_KEY:-}
       RSL_CONTACT_EMAIL: ${RSL_CONTACT_EMAIL:-}
+      # D-011, D-014, D-016, D-017, D-029, FR-20: Variáveis opcionais do guia de hospedagem (vazio vale o padrão)
+      RSL_DOWNLOAD_TTL_MINUTES: ${RSL_DOWNLOAD_TTL_MINUTES:-}
+      RSL_EXPORT_RETENTION_HOURS: ${RSL_EXPORT_RETENTION_HOURS:-}
+      RSL_ACCESS_TOKEN_MINUTES: ${RSL_ACCESS_TOKEN_MINUTES:-}
+      RSL_CACHE_DAYS: ${RSL_CACHE_DAYS:-}
+      RSL_SECRET_KEY: ${RSL_SECRET_KEY:-}
     volumes:
       - rsl_data:/data
 
