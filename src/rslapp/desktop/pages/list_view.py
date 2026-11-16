@@ -13,9 +13,10 @@ from nicegui import ui
 from rslapp import config
 from rslapp.core.errors import RSLError
 from rslapp.core.search import PAGE_SIZE
-from rslapp.desktop.pages import render_header
+from rslapp.desktop.pages import render_shell
 from rslapp.desktop.pages.search import SOURCE_LABELS
 from rslapp.desktop.service import DesktopService
+from rslapp.desktop.theme import apply_theme
 
 EXPORT_FORMATS: tuple[tuple[str, str], ...] = (
     ("RIS", "ris"),
@@ -121,14 +122,13 @@ def open_folder_in_file_manager(folder: Path) -> None:
         subprocess.run(["xdg-open", str(folder)], check=False)
 
 
-# FR-16, FR-06, FR-08, FR-12, D-024, D-025: Tela Lista (/lista/{list_id})
+# FR-16, FR-06, FR-08, FR-12, D-024, D-025, D-031: Tela Lista (/lista/{list_id})
 def build(service: DesktopService, list_id: str = "") -> None:
     """Monta a tela de visualização e exportação de uma lista salva."""
-    render_header()
+    apply_theme()
+    render_shell("Lista", "")
 
-    with ui.column().classes("w-full max-w-6xl mx-auto p-4 gap-4"):
-        ui.label("Lista").classes("text-h5 font-bold")
-
+    with ui.column().classes("w-full gap-4"):
         try:
             list_data = service.get_list(list_id)
         except RSLError:

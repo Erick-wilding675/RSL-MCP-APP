@@ -88,12 +88,12 @@ Nada muda para quem hospeda: o visual é do app desktop. O guia (`docs/hospedage
 
 ## Pronto quando
 
-- [ ] `apply_theme()` e `render_shell()` em todas as cinco telas, com a navegação lateral e o item ativo marcado
-- [ ] O tema segue o sistema, e a troca grava `theme` no `desktop.json`, com teste
-- [ ] As quatro peças comuns existem, com teste de que montam sem erro
-- [ ] A tela Buscar no novo arranjo, com Ctrl+Enter, com teste
-- [ ] Os testes de `tests_desktop` que já existiam passam sem mudar o que conferem
-- [ ] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
+- [x] `apply_theme()` e `render_shell()` em todas as cinco telas, com a navegação lateral e o item ativo marcado
+- [x] O tema segue o sistema, e a troca grava `theme` no `desktop.json`, com teste
+- [x] As quatro peças comuns existem, com teste de que montam sem erro
+- [x] A tela Buscar no novo arranjo, com Ctrl+Enter, com teste
+- [x] Os testes de `tests_desktop` que já existiam passam sem mudar o que conferem
+- [x] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
 
 ## Vem de
 
@@ -106,7 +106,19 @@ D-024, D-025, D-031, FR-16; teste do Erick em 2026-11-16.
 
 ## Resultado da entrega
 
-(a preencher)
+Entregue conforme a spec em quatro commits (um por item):
+
+1. **Item 1 (Tema):** commit `862ad26` (`feat(desktop): tema visual com cores, tipografia e modo escuro (D-031)`). Módulo `src/rslapp/desktop/theme.py` com `apply_theme()`, paleta Quasar completa claro/escuro, modo escuro persistido em `desktop.json` (campo `theme`), tipografia nativa e CSS global num só lugar. Testes em `tests_desktop/test_theme.py`.
+2. **Item 2 (Casca):** commit `023ba52` (`feat(desktop): casca com navegacao lateral e barra de cima (D-031, FR-16)`). `render_shell(title, subtitle)` com drawer lateral (itens Buscar, Histórico, Conectar IA e Configurações na ordem da spec, recolhendo para ícones abaixo de 1000px, item ativo destacado em `primary` translúcido, versão e alternador de tema no pé) e barra de conteúdo superior com títulos e subtítulos preservados. Aplicado nas cinco telas e atualizado `docs/hospedagem.md`. Testes em `tests_desktop/test_shell.py`.
+3. **Item 3 (Peças comuns):** commit `d8eb558` (`feat(desktop): componentes reutilizaveis de interface (D-031, FR-16)`). Módulo `src/rslapp/desktop/components.py` com `section_card` (usável com `with`), `empty_state`, `status_badge` e `copy_block`. Testes em `tests_desktop/test_components.py`.
+4. **Item 4 (Tela Buscar):** commit `372b655` (`feat(desktop): tela Buscar refeita com novo layout e atalho Ctrl+Enter (D-031, FR-16)`). Cartões de seção para String de busca (textarea com atalho Ctrl+Enter e proteção contra concorrência/duplo disparo), Fontes em grade de chips com descrições específicas e bloqueio de pagas sem chave, Opções lado a lado, botão Buscar grande alinhado à direita e cartão de progresso com barra linear indeterminada. Testes em `tests_desktop/test_search_and_list.py`.
+5. **Correção pós-revisão (Modo escuro):** commit `5c5f95b` (`fix(desktop): modo escuro sem variantes dark: do Tailwind (D-031)`): remoção de classes `dark:` do Tailwind e criação de classes semânticas (`.rsl-title`, `.rsl-muted`, `.rsl-surface-2`, `.rsl-surface-disabled`, `.rsl-code`) no CSS do tema via `body.body--dark`, corrigindo contraste e visibilidade no tema escuro do Quasar.
+
+### Resultado dos gates
+
+- `uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest -c tests_desktop/pytest.ini tests_desktop -q`: 38 passed in 7.77s
+- `uv run --python 3.10 --extra dev python -m pytest -q`: 707 passed, 1 skipped in 53.49s
+- `uv run --extra dev python -m ruff check .`: All checks passed!
 
 ## Como testar
 

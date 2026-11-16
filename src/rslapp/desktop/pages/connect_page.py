@@ -24,8 +24,9 @@ from rslapp.desktop.connect import (
     vscode_add_mcp_command,
     vscode_mcp_config_json,
 )
-from rslapp.desktop.pages import render_header
+from rslapp.desktop.pages import render_shell
 from rslapp.desktop.service import DesktopService
+from rslapp.desktop.theme import apply_theme
 
 TOP_SUBTITLE = (
     "Ligue a sua IA ao RSL.app deste computador. As buscas que ela fizer "
@@ -48,11 +49,12 @@ def _safe_initial_claude_state(config_path: Path) -> tuple[str, str | None]:
         return "não conectado", str(err)
 
 
-# FR-19, D-026, D-028, D-029: Monta a tela /conectar com os seis cartões de IA
+# FR-19, D-026, D-028, D-029, D-031: Monta a tela /conectar com os seis cartões de IA
 def build(service: DesktopService | None = None) -> None:
     """Renderiza a tela 'Conectar IA' com os seis cartões e ações de conexão."""
     _ = service
-    render_header()
+    apply_theme()
+    render_shell("Conectar IA", TOP_SUBTITLE)
 
     claude_cfg_path = claude_desktop_config_path()
     initial_state, initial_err = _safe_initial_claude_state(claude_cfg_path)
@@ -66,9 +68,7 @@ def build(service: DesktopService | None = None) -> None:
         ui.clipboard.write(text)
         ui.notify("Copiado para a área de transferência.", type="positive")
 
-    with ui.column().classes("w-full max-w-4xl mx-auto p-4 gap-4"):
-        ui.label("Conectar IA").classes("text-h5 font-bold")
-        ui.label(TOP_SUBTITLE).mark("connect-subtitle")
+    with ui.column().classes("w-full gap-4"):
 
         # 1. Claude Desktop (FR-19, D-028)
         with ui.card().classes("w-full p-4 gap-2").mark("card-claude-desktop"):

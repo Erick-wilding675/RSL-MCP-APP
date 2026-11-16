@@ -126,22 +126,25 @@ def settings_path() -> Path:
     return base / "rslapp" / "desktop.json"
 
 
-# D-026, FR-18, NFR-03: Estrutura de configuração do app desktop com mascaramento de chaves no repr
+# D-026, D-031, FR-18, NFR-03: Estrutura de configuração do app desktop com mascaramento de chaves no repr
 @dataclass
 class DesktopSettings:
     """Guarda os valores configurados no app desktop, mascarando chaves em __repr__."""
 
     values: dict[str, str] = field(default_factory=dict)
+    theme: str = "auto"
 
     def __post_init__(self) -> None:
         if not isinstance(self.values, dict):
             self.values = {}
-            return
-        self.values = {
-            k: v
-            for k, v in self.values.items()
-            if k in ALLOWED_VARS and isinstance(v, str)
-        }
+        else:
+            self.values = {
+                k: v
+                for k, v in self.values.items()
+                if k in ALLOWED_VARS and isinstance(v, str)
+            }
+        if self.theme not in ("auto", "light", "dark"):
+            self.theme = "auto"
 
     def __repr__(self) -> str:
         masked = {
@@ -149,10 +152,10 @@ class DesktopSettings:
             for k, v in self.values.items()
             if k in ALLOWED_VARS
         }
-        return f"DesktopSettings(values={masked!r})"
+        return f"DesktopSettings(values={masked!r}, theme={self.theme!r})"
 
 
-# D-026, FR-18, NFR-03: Carrega desktop.json sem levantar exceção em arquivo ausente ou corrompido
+# D-026, D-031, FR-18, NFR-03: Carrega desktop.json sem levantar exceção em arquivo ausente ou corrompido
 def load_settings() -> DesktopSettings:
     """Lê o arquivo de configuração do app desktop, ignorando chaves desconhecidas ou valores inválidos."""
     path = settings_path()
@@ -172,10 +175,13 @@ def load_settings() -> DesktopSettings:
         val = data.get(key)
         if isinstance(val, str) and val.strip():
             cleaned[key] = val.strip()
-    return DesktopSettings(values=cleaned)
+
+    raw_theme = data.get("theme")
+    theme = raw_theme if raw_theme in ("auto", "light", "dark") else "auto"
+    return DesktopSettings(values=cleaned, theme=theme)
 
 
-# D-026, FR-18, NFR-03: Grava desktop.json atomicamente, sem chaves desconhecidas nem valores vazios
+# D-026, D-031, FR-18, NFR-03: Grava desktop.json atomicamente, sem chaves desconhecidas nem valores vazios
 def save_settings(settings: DesktopSettings) -> Path:
     """Grava as configurações válidas e não vazias em desktop.json com permissão 0o600 fora do Windows."""
     path = settings_path()
@@ -186,12 +192,31 @@ def save_settings(settings: DesktopSettings) -> Path:
         if isinstance(val, str) and val.strip():
             cleaned[key] = val.strip()
 
+    theme = getattr(settings, "theme", "auto")
+    if theme in ("auto", "light", "dark"):
+        cleaned["theme"] = theme
+
     path.parent.mkdir(parents=True, exist_ok=True)
     content = json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n"
     atomic_write_replace(path, content)
     if sys.platform != "win32":
         os.chmod(path, 0o600)
     return path
+
+
+# D-031: Leitura e alteração do tema preservando as demais configurações intactas
+def get_theme() -> str:
+    """Devolve o tema configurado ('auto', 'light' ou 'dark'), padrão 'auto'."""
+    return load_settings().theme
+
+
+def set_theme(theme: str) -> str:
+    """Atualiza o tema no arquivo desktop.json mantendo as demais configurações intactas."""
+    cfg = load_settings()
+    normalized = theme if theme in ("auto", "light", "dark") else "auto"
+    cfg.theme = normalized
+    save_settings(cfg)
+    return normalized
 
 
 # D-026, FR-18, NFR-03: Aplica configurações no ambiente do processo sem sobrescrever variáveis já definidas
