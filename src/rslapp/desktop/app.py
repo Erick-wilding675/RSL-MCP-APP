@@ -111,6 +111,37 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     return resolved_service
 
 
+# FR-16, D-025: No Windows, valida a carga do pythonnet e das DLLs do WebView2 / WinForms
+def _ensure_windows_dotnet() -> None:
+    """Carrega o pythonnet e as DLLs do WebView2 que a janela nativa utiliza no Windows."""
+    try:
+        try:
+            import clr
+        except (ImportError, RuntimeError, OSError):
+            os.environ["PYTHONNET_RUNTIME"] = "coreclr"
+            import clr
+
+        clr.AddReference("System.Windows.Forms")
+        clr.AddReference("System.Collections")
+        clr.AddReference("System.Threading")
+        clr.AddReference("System.Reflection")
+
+        from webview.platforms import winforms  # noqa: F401
+        from webview.util import interop_dll_path
+
+        clr.AddReference(interop_dll_path("Microsoft.Web.WebView2.Core.dll"))
+        clr.AddReference(interop_dll_path("Microsoft.Web.WebView2.WinForms.dll"))
+        from Microsoft.Web.WebView2.Core import CoreWebView2Cookie  # noqa: F401
+        from Microsoft.Web.WebView2.WinForms import WebView2  # noqa: F401
+    except Exception as exc:
+        if sys.stderr is not None:
+            print(
+                f"Erro ao carregar .NET / WebView2 no Windows: {exc}",
+                file=sys.stderr,
+            )
+        raise SystemExit(1) from exc
+
+
 # D-025, FR-16: Executa a verificação de fumaça (--check) sem iniciar servidor nem abrir janela
 def _run_check() -> None:
     """Importa o núcleo, as fontes, o NiceGUI e as páginas e registra as rotas sem chamar ui.run."""
@@ -118,6 +149,10 @@ def _run_check() -> None:
     from rslapp.core.search import run_search  # noqa: F401
     from rslapp.exporters import run_export  # noqa: F401
     from rslapp.sources import build_sources, list_sources_info  # noqa: F401
+
+    # FR-16, D-025: No Windows, garante que pythonnet e WebView2 carregam sem abrir janela
+    if sys.platform == "win32":
+        _ensure_windows_dotnet()
 
     service = register_pages()
     build_sources(include_paid=True)
@@ -175,7 +210,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     apply_to_environ(settings)
 
     if args.check:
-        _run_check()
+        try:
+            _run_check()
+        except SystemExit as exc:
+            return exc.code if isinstance(exc.code, int) else 1
         return 0
 
     register_pages()

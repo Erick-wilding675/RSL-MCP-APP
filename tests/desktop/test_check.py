@@ -68,10 +68,18 @@ def test_d025_fr16_main_check_registra_paginas_e_sai_zero_sem_ui_run(
 
     monkeypatch.setattr(desktop_app, "register_pages", fake_register_pages)
     monkeypatch.setattr(desktop_app, "_run_ui", fake_run_ui)
+    monkeypatch.setattr(
+        desktop_app, "_ensure_windows_dotnet", lambda: events.append("ensure_windows_dotnet")
+    )
 
     exit_code = desktop_app.main(["--check"])
     assert exit_code == 0
-    assert events == ["register_pages"]
+    expected_check_events = (
+        ["ensure_windows_dotnet", "register_pages"]
+        if sys.platform == "win32"
+        else ["register_pages"]
+    )
+    assert events == expected_check_events
     assert os.environ.get("RSL_CONTACT_EMAIL") == "check@exemplo.org"
     assert "nicegui" not in sys.modules
 

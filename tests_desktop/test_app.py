@@ -115,3 +115,69 @@ def test_d025_fr16_main_check_com_nicegui_nao_chama_ui_run(
     code = desktop_app.main(["--check"])
     assert code == 0
     assert run_calls == []
+
+
+# FR-16, D-025: No Windows, _ensure_windows_dotnet carrega pythonnet e DLLs do WebView2 com sucesso
+def test_fr16_d025_ensure_windows_dotnet_sucesso_no_windows() -> None:
+    if sys.platform != "win32":
+        pytest.skip("Teste exclusivo do ambiente Windows nativo")
+    desktop_app._ensure_windows_dotnet()
+
+
+# FR-16, D-025: Fora do Windows, o --check não tenta carregar o pythonnet/.NET
+def test_fr16_d025_check_nao_carrega_dotnet_fora_do_windows(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    chamou_dotnet = False
+
+    def fake_ensure() -> None:
+        nonlocal chamou_dotnet
+        chamou_dotnet = True
+
+    monkeypatch.setattr(desktop_app, "_ensure_windows_dotnet", fake_ensure)
+    code = desktop_app.main(["--check"])
+    assert code == 0
+    assert not chamou_dotnet
+
+
+# FR-16, D-025: No Windows, se o .NET falhar ao carregar, o --check sai com código diferente de zero
+def test_fr16_d025_check_falha_com_codigo_diferente_de_zero_quando_dotnet_falha(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    monkeypatch.setattr(sys, "platform", "win32")
+
+    def fake_falha() -> None:
+        raise SystemExit(1)
+
+    monkeypatch.setattr(desktop_app, "_ensure_windows_dotnet", fake_falha)
+    code = desktop_app.main(["--check"])
+    assert code != 0
+
+
+# FR-16, D-025: _ensure_windows_dotnet imprime mensagem no stderr e sai com código 1 em caso de exceção
+def test_fr16_d025_ensure_windows_dotnet_imprime_stderr_e_sai_em_excecao(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class FakeClr:
+        @staticmethod
+        def AddReference(*_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError("DLL bloqueada por Zone.Identifier")
+
+    monkeypatch.setitem(sys.modules, "clr", FakeClr)
+
+    with pytest.raises(SystemExit) as exc_info:
+        desktop_app._ensure_windows_dotnet()
+
+    assert exc_info.value.code == 1
+    err = capsys.readouterr().err
+    assert "Erro ao carregar .NET / WebView2 no Windows" in err
+    assert "DLL bloqueada por Zone.Identifier" in err
