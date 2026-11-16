@@ -138,6 +138,21 @@ Decidido em 2026-11-15 (D-027 a D-029): sem servidor do projeto; o executável d
 
 A 12-02 depende da 12-01. A 12-03 é só documento e teste no servidor de teste, então anda em paralelo com as duas. A 12-05 vem depois da 12-02. A 12-04 espera as outras cinco e o ok do Erick para publicar.
 
+### 13 · 2.2: visual novo e ganhos rápidos
+
+Decidido em 2026-11-16 (D-030, D-031): o rumo é o de `docs/ideias-proximas-versoes.md`, e a 2.2 começa pelo visual do app, pedido pelo Erick no teste.
+
+1. Visual novo: casca, tema e tela Buscar. Spec: `specs/13-01-visual-casca-tema-e-buscar.md`
+2. Visual novo: Lista e Histórico. Spec: `specs/13-02-visual-lista-e-historico.md`
+3. Visual novo: Configurações e Conectar IA. Spec: `specs/13-03-visual-configuracoes-e-conectar.md`
+4. Verificador de referências contra alucinação (ideia 5.1). Spec a escrever, depois de ler as páginas oficiais do Crossref e do OpenAlex.
+5. Retratações nas listas (ideia 5.2). Spec a escrever, depois de ler como o Crossref publica os dados do Retraction Watch.
+6. Importar exportações de fora: RIS, BibTeX e os formatos do Scopus e da Web of Science (ideia 7). Spec a escrever.
+7. Referências na ABNT (ideia 4.3). Spec a escrever, depois de ler o estilo CSL da NBR 6023.
+8. Publicação da 2.2.0. Spec a escrever.
+
+O código da fase 13 fica na branch `fase13` até a 2.1.0 ser publicada, para a 2.1 não levar o que é da 2.2. A 13-02 e a 13-03 dependem da 13-01 e andam em paralelo entre si. As tarefas 4 a 7 não dependem do visual na parte do núcleo e das ferramentas MCP; a parte de tela de cada uma usa as peças da 13-01.
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):

@@ -1,6 +1,6 @@
 # Correções da revisão geral (2.1)
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** entregue (2026-11-16)
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** pronta (testada pelo Erick em 2026-11-16)
 
 ## O que faz
 

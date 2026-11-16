@@ -1,6 +1,6 @@
 # Tela "Conectar IA"
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** para testar
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** pronta (testada pelo Erick em 2026-11-16)
 
 ## O que faz
 

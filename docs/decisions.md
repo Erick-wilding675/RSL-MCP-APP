@@ -296,3 +296,41 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Fontes:** conversa de 2026-11-15 (Claude Code); https://developers.openai.com/apps-sdk/build/auth (lida em 2026-11-15)
 - **Cuidados:** os dados de autores passam a ficar no servidor da instituição, que responde por eles; a conferência da LGPD (T-007) pesa mais para esse público.
 - **Situação:** decidida
+
+## D-030 · Rumo das próximas versões: as sugestões de `docs/ideias-proximas-versoes.md`, na ordem proposta
+
+- **Decisão:** todas as ideias de `docs/ideias-proximas-versoes.md` entram no rumo do projeto, na ordem da tabela "Uma ordem possível":
+  - **2.2:** verificador de referências, retratações, importar exportações de fora, ABNT;
+  - **2.3:** bases brasileiras e DeCS, roteiros por tipo de revisão;
+  - **3.0:** protocolo, triagem com rastro, PRISMA, declaração de uso de IA, pacote de reprodutibilidade;
+  - **3.x:** leitura, síntese e redes;
+  - **4.0:** escala institucional.
+  
+  Cada versão vira uma fase do plano, com uma spec por tarefa, escrita quando a fase começa. A ideia que depende de API ou de formato de terceiros só vira spec depois de ler a página oficial (T-001).
+- **Motivo:** o Erick aprovou todas as sugestões em 2026-11-16. Elas cobrem a revisão inteira com a IA declarada e conferível, que é o Fundamento.
+- **Limites que continuam:**
+  - **O que custa dinheiro** volta ao Erick antes de virar spec: o executável assinado; a adesão à CAFe, se tiver custo ou contrato; qualquer serviço pago.
+  - **A LGPD** (T-007) e o pacote para instituições (6.4) vêm antes de divulgar o modo hospedado (D-018).
+  - **Publicar uma versão** pede o ok do Erick.
+- **Alternativas:** escolher só algumas ideias; outra ordem.
+- **Decidido por:** Erick · **Data:** 2026-11-16
+- **Fontes:** `docs/ideias-proximas-versoes.md`; conversa de 2026-11-16 (Claude Code)
+- **Situação:** decidida. A 2.2 é a fase 13 do plano.
+
+## D-031 · Visual do app desktop: moderno e amigável, com navegação lateral, tema claro e escuro
+
+- **Decisão:** a 2.2 começa por uma reforma do visual das cinco telas, sem mudar o que cada uma faz.
+  - **Navegação:** lateral, com ícone e nome de cada tela.
+  - **Cores:** paleta própria (índigo para as ações, verde-azulado de destaque, cinzas neutros), com tema claro e escuro. O padrão segue o sistema, e a pessoa pode escolher.
+  - **Letra:** a do sistema (Segoe UI no Windows, a padrão no Linux). Não depende de internet nem de arquivo de fonte no pacote.
+  - **Componentes:** cartões, estados vazios com orientação e próximo passo, e contraste WCAG AA.
+  - **Teclado:** Ctrl+Enter para buscar.
+- **Motivo:**
+  - No teste de 2026-11-16, o Erick achou o app rápido, mas simples demais no visual.
+  - Para o pesquisador sem conhecimento técnico (Fundamento), uma tela clara e convidativa é parte do acesso.
+  - Vem antes dos recursos da 2.2, que acrescentam telas: elas já nascem no visual novo.
+- **Alternativas:**
+  - trocar o NiceGUI por outra interface: refaz o app inteiro, e a D-024 continua valendo;
+  - só trocar as cores: não resolve a navegação nem os estados vazios.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Specs 13-01 a 13-03.

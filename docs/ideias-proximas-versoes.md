@@ -1,6 +1,6 @@
 # Ideias para as próximas versões
 
-**Projeto:** RSL.app · **Data:** 2026-11-16 · **Situação:** sugestões do Claude para o Erick decidir. Nada aqui é decisão nem entrou no plano.
+**Projeto:** RSL.app · **Data:** 2026-11-16 · **Situação:** aprovadas pelo Erick em 2026-11-16, todas e na ordem proposta (D-030). A 2.2 é a fase 13 do plano. O que custa dinheiro ainda volta a ele antes de virar spec.
 
 > **Em resumo:** o RSL.app já busca, junta, registra e exporta. O próximo salto é cobrir a revisão inteira: protocolo, triagem, leitura, fichamento, síntese e o relato no método. Em cada passo, a IA do pesquisador ajuda, e o app registra o que ela fez e o que a pessoa decidiu. Esse registro é o que tira o tabu: a IA deixa de ser escondida e passa a ser declarada e conferível.
 >
