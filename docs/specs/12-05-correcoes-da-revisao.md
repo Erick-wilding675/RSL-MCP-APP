@@ -31,6 +31,14 @@ O ChatGPT pede confirmação antes de toda ferramenta que não declara `readOnly
 
 Se a 12-02 tiver ficado com o comando `rslapp` (sem argumentos) para quem instalou pelo `pip`, troque por `rslapp-desktop --mcp`, como diz a spec corrigida em 2026-11-16: o `rslapp` não lê o `desktop.json`.
 
+### 5. O comando do VS Code quebra no PowerShell do Windows (bug)
+
+O cartão do VS Code mostra `code --add-mcp '<JSON>'`. O Claude testou em 2026-11-16 com um `.cmd` que imita o `code.cmd`: no Windows PowerShell 5.1, que vem com o Windows, o JSON chega **sem as aspas duplas** (`{name:rslapp,...}`) e não é JSON válido. No Prompt de Comando (`cmd`), com as aspas internas escapadas como `\"` e o JSON entre aspas duplas, chega certo.
+
+- No Windows (`sys.platform == "win32"`), o comando mostrado é `code --add-mcp "<JSON com cada \" escapado>"`, e a linha abaixo do bloco diz: "Cole no Prompt de Comando (cmd), não no PowerShell."
+- Fora do Windows, fica como está (aspas simples, para bash e zsh).
+- Teste: o comando do Windows, interpretado pelas regras de argumentos do Windows (`subprocess.list2cmdline` ao contrário, ou o caso montado à mão), devolve o mesmo JSON, inclusive com caminho que tem espaço e barras invertidas.
+
 ## O que não faz
 
 - Não muda o OAuth nem o anúncio de `token_endpoint_auth_methods_supported`: isso espera o teste do ChatGPT (12-03).
@@ -45,6 +53,8 @@ Os itens 1 e 2 são para quem hospeda: depois da 2.1, as variáveis opcionais do
 - [ ] O compose repassa as cinco variáveis, e o `.env.example` as mostra comentadas
 - [ ] `RSL_CACHE_DAYS` vazio vale o padrão, com teste
 - [ ] `tools/list` traz `readOnlyHint` certo nas nove ferramentas, com teste
+- [ ] O caso `pip` usa `rslapp-desktop --mcp`, com teste
+- [ ] No Windows, o comando do VS Code é o do Prompt de Comando, com teste
 - [ ] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
 
 ## Vem de

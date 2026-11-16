@@ -113,6 +113,9 @@ Entregue pelo Gemini (`agy`) em 2026-11-15:
   - Seis cartões (Claude Desktop, Cursor, VS Code (Copilot), Claude Code, Outras IAs e ChatGPT) com confirmação antes de gravar no Claude Desktop, exibição da entrada atual quando aponta para outra instalação e botões "Copiar".
 - **Guia de hospedagem (`docs/hospedagem.md`):** acrescentada a subseção "Distribuir o app aos pesquisadores" dentro de "Para instituições de ensino".
 - **Testes:** 9 testes em `tests/desktop/test_connect.py` (sem NiceGUI) e 2 testes de página em `tests_desktop/test_connect_page.py` (além da verificação da rota `/conectar` em `tests_desktop/test_app.py`).
+- **Revisão do Claude (2026-11-16):** gates passaram na worktree (`tests_desktop` 21; suíte principal 703 passaram e 1 pulado no 3.10; ruff limpo). Conferido: a gravação preserva as outras chaves e servidores, faz a cópia `.bak` antes, cria a pasta do Claude se faltar, e nenhuma chave entra em nenhuma saída. Dois achados, que viraram itens da 12-05:
+  - o caso `pip` aponta para `rslapp` sem argumentos, que não lê o `desktop.json` (a correção da spec chegou depois de o Gemini escrever);
+  - no Windows, o `code --add-mcp '<JSON>'` perde as aspas no PowerShell 5.1 (testado com um `.cmd` que imita o `code.cmd`); o Prompt de Comando com `\"` funciona.
 
 ## Como testar
 
