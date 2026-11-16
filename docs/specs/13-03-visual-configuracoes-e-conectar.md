@@ -59,6 +59,7 @@ D-026, D-028, D-031, FR-19.
 
 - A 13-01 integrada.
 - Um commit por tela.
+- **Modo escuro:** não use as variantes `dark:` do Tailwind. Elas não reagem ao modo escuro do NiceGUI, que só põe `body--dark` no `<body>`, e foi isso que quebrou a primeira entrega da 13-01. Use as classes do `theme.py` (`rsl-title`, `rsl-muted`, `rsl-surface-2`, `rsl-surface-disabled`, `rsl-code`) ou crie outras nele, com a cor do claro e a do escuro (`body.body--dark`).
 
 ## Resultado da entrega
 
