@@ -17,6 +17,18 @@ from pathlib import Path
 SMOKE_TIMEOUT_SECONDS = 30.0
 
 
+# D-028, FR-19: Resolve o executável para caminho absoluto quando o arquivo existe no disco
+def resolve_command(command: Sequence[str]) -> list[str]:
+    """Monta a linha de comando usando caminho absoluto se o executável existir."""
+    exe_candidate = Path(command[0])
+    resolved_exe = (
+        str(exe_candidate.resolve())
+        if exe_candidate.exists()
+        else (shutil.which(command[0]) or command[0])
+    )
+    return [resolved_exe, *command[1:]]
+
+
 # D-028, FR-19: Inicia o executável com --mcp via Popen e pipes e valida o handshake JSON-RPC initialize em até 30 s
 def run_smoke_test(
     command: Sequence[str],
@@ -28,13 +40,7 @@ def run_smoke_test(
         print("Uso: python packaging/smoke_mcp.py <executavel> [args...]", file=sys.stderr)
         return 2
 
-    exe_candidate = Path(command[0])
-    resolved_exe = (
-        str(exe_candidate)
-        if exe_candidate.exists()
-        else (shutil.which(command[0]) or command[0])
-    )
-    full_command = [resolved_exe, *command[1:]]
+    full_command = resolve_command(command)
 
     with tempfile.TemporaryDirectory(prefix="rslapp-smoke-") as tmp_dir:
         env = os.environ.copy()

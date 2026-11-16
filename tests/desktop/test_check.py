@@ -298,7 +298,10 @@ async def test_d026_d028_fr19_ponta_a_ponta_desktop_mcp_stdio_initialize_e_tools
 
 
 # D-028, FR-19: Script packaging/smoke_mcp.py valida initialize via Popen/pipes e falha quando não há JSON-RPC
-def test_d028_fr19_smoke_mcp_script_valida_initialize_e_erros() -> None:
+def test_d028_fr19_smoke_mcp_script_valida_initialize_e_erros(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     smoke_path = Path(__file__).resolve().parents[2] / "packaging" / "smoke_mcp.py"
     if not smoke_path.exists():
         pytest.skip("packaging/smoke_mcp.py ausente fora do repositório")
@@ -307,6 +310,19 @@ def test_d028_fr19_smoke_mcp_script_valida_initialize_e_erros() -> None:
     assert spec is not None and spec.loader is not None
     smoke_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(smoke_mod)
+
+    fake_appimage = tmp_path / "RSL.app-2.0.0-linux-x86_64.AppImage"
+    fake_appimage.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    built_cmd = smoke_mod.resolve_command(
+        ["./RSL.app-2.0.0-linux-x86_64.AppImage", "--appimage-extract-and-run", "--mcp"]
+    )
+    assert built_cmd == [
+        str(fake_appimage.resolve()),
+        "--appimage-extract-and-run",
+        "--mcp",
+    ]
+    assert Path(built_cmd[0]).is_absolute()
 
     assert smoke_mod.main([]) == 2
     assert smoke_mod.main([sys.executable, "-m", "rslapp.desktop", "--mcp"]) == 0
