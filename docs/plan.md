@@ -151,7 +151,7 @@ Decidido em 2026-11-16 (D-030, D-031): o rumo é o de `docs/ideias-proximas-vers
 7. Referências na ABNT (ideia 4.3). Spec a escrever, depois de ler o estilo CSL da NBR 6023.
 8. Publicação da 2.2.0. Spec a escrever.
 
-O código da fase 13 fica na branch `fase13` até a 2.1.0 ser publicada, para a 2.1 não levar o que é da 2.2. A 13-02 e a 13-03 dependem da 13-01 e andam em paralelo entre si. As tarefas 4 a 7 não dependem do visual na parte do núcleo e das ferramentas MCP; a parte de tela de cada uma usa as peças da 13-01.
+O código da fase 13 fica na branch `integracao-2.2` até a 2.1.0 ser publicada, para a 2.1 não levar o que é da 2.2. A 13-02 e a 13-03 dependem da 13-01 e andam em paralelo entre si. As tarefas 4 a 7 não dependem do visual na parte do núcleo e das ferramentas MCP; a parte de tela de cada uma usa as peças da 13-01.
 
 ### Depois da 1.2: a versão maior (2.0)
 
