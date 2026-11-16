@@ -11,8 +11,9 @@ from rslapp.core.search import (
     MAX_MAX_RESULTS,
     MIN_MAX_RESULTS,
 )
-from rslapp.desktop.pages import render_header
+from rslapp.desktop.pages import render_shell
 from rslapp.desktop.service import DesktopService
+from rslapp.desktop.theme import apply_theme
 
 SOURCE_LABELS: dict[str, str] = {
     "openalex": "OpenAlex",
@@ -28,15 +29,14 @@ LIFE_SCIENCES_SOURCES: frozenset[str] = frozenset({"pubmed", "europe_pmc"})
 PAID_SOURCES: frozenset[str] = frozenset({"scopus", "web_of_science"})
 
 
-# FR-16, D-022, D-023, D-024, D-025: Formulário da tela Buscar (/)
+# FR-16, D-022, D-023, D-024, D-025, D-031: Formulário da tela Buscar (/)
 def build(service: DesktopService) -> None:
     """Monta a tela de busca de artigos acadêmicos."""
-    render_header()
+    apply_theme()
+    render_shell("Buscar", "Busque artigos nas bases acadêmicas configuradas.")
     sources_info = service.list_sources()
 
-    with ui.column().classes("w-full max-w-4xl mx-auto p-4 gap-4"):
-        ui.label("Buscar").classes("text-h5 font-bold")
-        ui.label("Busque artigos nas bases acadêmicas configuradas.")
+    with ui.column().classes("w-full gap-4"):
 
         # FR-16: String de busca enviada diretamente a cada base, sem IA no meio
         query_input = (

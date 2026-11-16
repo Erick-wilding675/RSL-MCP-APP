@@ -108,6 +108,9 @@ body.body--dark .nav-item-inactive:hover {
 .q-drawer--mini .drawer-full-only {
   display: none !important;
 }
+.q-drawer--mini .drawer-footer-row {
+  justify-content: center !important;
+}
 """
 
 
@@ -138,6 +141,8 @@ def apply_theme() -> ui.dark_mode:
         dm_value = None
 
     dm = ui.dark_mode(dm_value)
+    if hasattr(ui.context, "client") and ui.context.client is not None:
+        ui.context.client._rsl_dark_mode = dm
 
     # 3. CSS comum (fontes, cartões, foco visível, transições de 150ms)
     ui.add_css(COMMON_CSS)

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from nicegui import ui
 
 import rslapp.config
-from rslapp.desktop.pages import render_header
+from rslapp.desktop.pages import render_shell
 from rslapp.desktop.service import DesktopService
 from rslapp.desktop.settings import (
     KEY_VARS,
@@ -21,6 +21,7 @@ from rslapp.desktop.settings import (
     save_settings,
     set_app_env_var,
 )
+from rslapp.desktop.theme import apply_theme
 
 
 @dataclass(frozen=True)
@@ -103,11 +104,15 @@ def _key_status_text(
     return "não configurada"
 
 
-# FR-18, D-023, D-024, D-025, D-026, NFR-03: Tela Configurações (/configuracoes)
+# FR-18, D-023, D-024, D-025, D-026, D-031, NFR-03: Tela Configurações (/configuracoes)
 def build(service: DesktopService) -> None:
     """Monta a tela de configuração de chaves de API, e-mail de contato e pastas locais."""
     _ = service
-    render_header()
+    apply_theme()
+    render_shell(
+        "Configurações",
+        "Configure as chaves de API, o e-mail de contato e as pastas locais.",
+    )
 
     file_settings = load_settings()
     sys_vars = get_system_env_vars()
@@ -125,11 +130,7 @@ def build(service: DesktopService) -> None:
         "RSL_EXPORT_DIR": str(current_cfg.export_dir),
     }
 
-    with ui.column().classes("w-full max-w-4xl mx-auto p-4 gap-4"):
-        ui.label("Configurações").classes("text-h5 font-bold")
-        ui.label(
-            "Configure as chaves de API, o e-mail de contato e as pastas locais."
-        )
+    with ui.column().classes("w-full gap-4"):
 
         # FR-18, D-026, NFR-03: Campos de senha para cada chave de KEY_VARS, sempre vazios na tela
         ui.label("Chaves de API").classes("text-subtitle1 font-bold")

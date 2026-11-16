@@ -12,9 +12,10 @@ from typing import Any
 from nicegui import events, ui
 
 from rslapp.core.errors import RSLError
-from rslapp.desktop.pages import render_header
+from rslapp.desktop.pages import render_shell
 from rslapp.desktop.pages.search import SOURCE_LABELS
 from rslapp.desktop.service import DesktopService
+from rslapp.desktop.theme import apply_theme
 
 MAX_QUERY_CHARS = 80
 
@@ -137,10 +138,14 @@ def open_log_in_default_app(log_file: Path) -> None:
         subprocess.run(["xdg-open", str(log_file)], check=False)
 
 
-# FR-17, FR-11, FR-13, D-024, D-025: Tela Histórico (/historico)
+# FR-17, FR-11, FR-13, D-024, D-025, D-031: Tela Histórico (/historico)
 def build(service: DesktopService) -> None:
     """Monta a tela de histórico de buscas e acesso ao log metodológico."""
-    render_header()
+    apply_theme()
+    render_shell(
+        "Histórico",
+        "Consulte as buscas já feitas, repita uma busca ou abra o log.",
+    )
     raw_searches = service.list_searches()
     ordered_searches = [
         s
@@ -152,14 +157,8 @@ def build(service: DesktopService) -> None:
         if isinstance(s, dict)
     ]
 
-    with ui.column().classes("w-full max-w-6xl mx-auto p-4 gap-4"):
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.column().classes("gap-1"):
-                ui.label("Histórico").classes("text-h5 font-bold")
-                ui.label(
-                    "Consulte as buscas já feitas, repita uma busca ou abra o log."
-                )
-
+    with ui.column().classes("w-full gap-4"):
+        with ui.row().classes("w-full items-center justify-end"):
             def on_open_log() -> None:
                 log_file = service.log_path()
                 if not log_file.is_file():
