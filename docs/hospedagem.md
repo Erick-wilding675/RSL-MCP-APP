@@ -1,6 +1,6 @@
 # Guia de hospedagem (uso por link)
 
-<!-- D-011, D-012, D-013, D-014, D-015, D-016, D-017, D-018, D-027, D-029, FR-20 -->
+<!-- D-011, D-012, D-013, D-014, D-015, D-016, D-017, D-018, D-027, D-028, D-029, FR-19, FR-20 -->
 
 Este guia mostra como colocar o **RSL.app** no ar num servidor próprio, com HTTPS automático pelo Caddy, para que pesquisadores de uma universidade, laboratório, grupo de pesquisa ou equipe usem o servidor como conector por link no Claude, no ChatGPT ou no Claude Code — sem precisar instalar Python, `uv` nem chaves de API no próprio computador (**D-011**, **D-013**, **D-017**).
 
@@ -27,10 +27,12 @@ As universidades e institutos são o público principal do RSL.app (**D-029**). 
 
 **O que fica com a instituição.** Os dados de autores retornados nas buscas e o cadastro das pessoas ficam no servidor da instituição, e ela responde por eles. Leia o aviso abaixo antes de abrir o serviço.
 
-**As duas formas de oferecer:**
+### Distribuir o app aos pesquisadores
 
-1. **O servidor hospedado** (este guia): a pessoa não instala nada e conecta a IA pelo link e pelo código pessoal. É a única forma de usar o **ChatGPT**, que só se liga a servidores na internet.
-2. **O app desktop distribuído aos pesquisadores**: cada pessoa roda o RSL.app no próprio computador, com os dados na própria máquina (veja o README).
+<!-- FR-19, FR-20, D-028, D-029 -->
+
+1. **O executável do app desktop** (em laboratórios, máquinas da biblioteca ou para download interno): cada pesquisador abre a tela **Conectar IA** (`/conectar`) e liga a própria IA local (Claude Desktop, Cursor, VS Code ou Claude Code) ao RSL.app do computador, sem instalar Python nem editar arquivos (**FR-19**, **D-028**). Os dados ficam na máquina de quem usa, e é por ela que funcionam o Scopus e o Web of Science na rede da instituição (**D-023**).
+2. **O servidor hospedado** (descrito nas seções a seguir): para quem prefere não instalar nada, a instituição oferece o servidor e cada pessoa conecta pelo link (`https://<domínio>/mcp`) e pelo código pessoal (`rsl_...`). É a única forma de usar o **ChatGPT**, que só se liga a servidores na internet (**FR-20**, **D-029**).
 
 > [!IMPORTANT]
 > **Aviso sobre dados pessoais e LGPD (D-018, T-007)**
