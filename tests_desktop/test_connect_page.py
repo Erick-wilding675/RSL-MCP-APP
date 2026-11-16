@@ -8,12 +8,13 @@ from pathlib import Path
 import pytest
 from nicegui.testing import User
 
+from rslapp.desktop import connect
 from rslapp.desktop.app import register_pages
 from rslapp.desktop.pages import connect_page
 from rslapp.desktop.settings import KEY_VARS
 
 
-# FR-19, D-028, D-029: A tela /conectar mostra os seis cartões, o estado do Claude Desktop e abre o link do Cursor
+# FR-19, D-028, D-029: A tela /conectar mostra os seis cartões, o comando do VS Code para cmd no Windows, o estado do Claude Desktop e abre o link do Cursor
 async def test_fr19_d028_d029_conectar_mostra_seis_cartoes_conecta_desconecta_e_abre_cursor(
     user: User,
     monkeypatch: pytest.MonkeyPatch,
@@ -25,6 +26,8 @@ async def test_fr19_d028_d029_conectar_mostra_seis_cartoes_conecta_desconecta_e_
         "claude_desktop_config_path",
         lambda: claude_cfg,
     )
+    monkeypatch.setattr(connect_page.sys, "platform", "win32")
+    monkeypatch.setattr(connect.sys, "platform", "win32")
 
     register_pages()
 
@@ -40,8 +43,8 @@ async def test_fr19_d028_d029_conectar_mostra_seis_cartoes_conecta_desconecta_e_
     await user.should_see("Claude Code")
     await user.should_see("Outras IAs")
     await user.should_see("ChatGPT")
-    await user.should_see("code --add-mcp")
-    await user.should_see("No Windows, o comando com aspas simples é para o PowerShell.")
+    await user.should_see('code --add-mcp "{\\"name\\":')
+    await user.should_see("Cole no Prompt de Comando (cmd), não no PowerShell.")
     await user.should_see(".vscode/mcp.json")
     await user.should_see("claude mcp add")
     await user.should_see(

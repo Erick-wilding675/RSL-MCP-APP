@@ -289,10 +289,46 @@ def test_fr07_rsl_cache_days_valido(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cfg.cache_days == 14
 
 
-@pytest.mark.parametrize("invalid_days", ["0", "-1", "-30", "abc", "3.5", ""])
+# D-011, D-017, D-029, FR-07, FR-20: RSL_CACHE_DAYS vazio ou só espaços usa o padrão (7)
+@pytest.mark.parametrize("empty_days", ["", "  ", "\t\n"])
+def test_d011_d017_d029_fr07_fr20_rsl_cache_days_vazio_usa_padrao(
+    monkeypatch: pytest.MonkeyPatch, empty_days: str
+) -> None:
+    monkeypatch.setenv("RSL_CACHE_DAYS", empty_days)
+    cfg = config.load()
+    assert cfg.cache_days == 7
+
+
+@pytest.mark.parametrize("invalid_days", ["0", "-1", "-30", "abc", "3.5"])
 def test_fr07_rsl_cache_days_invalido_gera_value_error(
     monkeypatch: pytest.MonkeyPatch, invalid_days: str
 ) -> None:
     monkeypatch.setenv("RSL_CACHE_DAYS", invalid_days)
     with pytest.raises(ValueError, match="RSL_CACHE_DAYS"):
         config.load()
+
+
+# D-011, D-014, D-016, D-017, D-029, FR-20: docker-compose.yml repassa as 5 variáveis opcionais e .env.example as mostra comentadas
+def test_d011_d014_d016_d017_d029_fr20_compose_repassa_variaveis_opcionais_e_env_example_comenta() -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    compose_text = (repo_root / "deploy" / "docker-compose.yml").read_text(encoding="utf-8")
+    env_example_text = (repo_root / "deploy" / ".env.example").read_text(encoding="utf-8")
+
+    optional_vars = (
+        "RSL_DOWNLOAD_TTL_MINUTES",
+        "RSL_EXPORT_RETENTION_HOURS",
+        "RSL_ACCESS_TOKEN_MINUTES",
+        "RSL_CACHE_DAYS",
+        "RSL_SECRET_KEY",
+    )
+    for var_name in optional_vars:
+        assert f"{var_name}: ${{{var_name}:-}}" in compose_text
+        assert f"# {var_name}=" in env_example_text
+        for line in env_example_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith((f"# {var_name}=", f"#{var_name}=")):
+                _, val = stripped.split("=", 1)
+                assert val == ""
+            else:
+                assert not stripped.startswith(f"{var_name}=")
+

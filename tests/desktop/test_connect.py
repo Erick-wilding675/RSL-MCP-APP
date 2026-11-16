@@ -40,8 +40,8 @@ def test_fr19_d028_import_connect_nao_importa_nicegui() -> None:
     assert "nicegui" not in sys.modules
 
 
-# FR-19, D-028: mcp_launch_command nos casos executável empacotado, AppImage e pip (com e sem binário rslapp)
-def test_fr19_d028_mcp_launch_command_executavel_appimage_e_pip(
+# FR-19, D-026, D-028: mcp_launch_command nos casos executável empacotado, AppImage e pip (rslapp-desktop --mcp e fallback)
+def test_fr19_d026_d028_mcp_launch_command_executavel_appimage_e_pip(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -68,25 +68,27 @@ def test_fr19_d028_mcp_launch_command_executavel_appimage_e_pip(
     assert cmd_appimage == str(fake_appimage.resolve())
     assert args_appimage == ["--mcp"]
 
-    # 3. Instalado pelo pip, com comando rslapp ao lado de sys.executable
+    # 3. Instalado pelo pip, com comando rslapp-desktop ao lado de sys.executable
     monkeypatch.delattr(sys, "frozen", raising=False)
     venv_dir = tmp_path / "venv_bin"
     venv_dir.mkdir(parents=True, exist_ok=True)
     fake_python = venv_dir / ("python.exe" if sys.platform == "win32" else "python")
     fake_python.write_text("", encoding="utf-8")
-    fake_rslapp = venv_dir / ("rslapp.exe" if sys.platform == "win32" else "rslapp")
-    fake_rslapp.write_text("", encoding="utf-8")
+    fake_rslapp_desktop = venv_dir / (
+        "rslapp-desktop.exe" if sys.platform == "win32" else "rslapp-desktop"
+    )
+    fake_rslapp_desktop.write_text("", encoding="utf-8")
     monkeypatch.setattr(sys, "executable", str(fake_python))
 
     cmd_pip, args_pip = mcp_launch_command(environ={})
-    assert cmd_pip == str(fake_rslapp)
-    assert args_pip == []
+    assert cmd_pip == str(fake_rslapp_desktop)
+    assert args_pip == ["--mcp"]
 
-    # 4. Instalado pelo pip, sem binário rslapp ao lado de sys.executable: recua para python -m rslapp
-    fake_rslapp.unlink()
+    # 4. Instalado pelo pip, sem binário rslapp-desktop ao lado de sys.executable: recua para python -m rslapp.desktop --mcp
+    fake_rslapp_desktop.unlink()
     cmd_fallback, args_fallback = mcp_launch_command(environ={})
     assert cmd_fallback == str(fake_python)
-    assert args_fallback == ["-m", "rslapp"]
+    assert args_fallback == ["-m", "rslapp.desktop", "--mcp"]
 
 
 # FR-19, D-028: Confere que `python -m rslapp --help` funciona no ambiente atual
@@ -331,12 +333,40 @@ def test_fr19_d028_cursor_install_url_decodifica_mesmo_json_e_abre_sem_shell(
     assert subprocess_calls == [(["xdg-open", url], {"check": False})]
 
 
-# FR-19, D-028: JSON do code --add-mcp, .vscode/mcp.json e comando do Claude Code com e sem RSL_DESKTOP_CONFIG e com espaço
+def _parse_windows_quoted_arg(quoted: str) -> str:
+    """Interpreta um argumento entre aspas duplas pelas regras do C runtime do Windows (inverso de list2cmdline)."""
+    assert len(quoted) >= 2 and quoted[0] == '"' and quoted[-1] == '"'
+    inner = quoted[1:-1]
+    out: list[str] = []
+    bs_count = 0
+    for ch in inner:
+        if ch == "\\":
+            bs_count += 1
+        elif ch == '"':
+            # No C runtime do Windows, 2n+1 barras antes de " viram n barras e uma " literal;
+            # 2n barras antes de " fechariam a aspa antes do fim do argumento.
+            assert bs_count % 2 == 1, "Aspa dupla não escapada no meio do argumento do Windows"
+            out.append("\\" * (bs_count // 2))
+            out.append('"')
+            bs_count = 0
+        else:
+            if bs_count:
+                out.append("\\" * bs_count)
+                bs_count = 0
+            out.append(ch)
+    # Barras no final antes da aspa de fechamento seriam divididas por 2 se pares, ou escapariam a aspa final se ímpares
+    assert bs_count % 2 == 0, "Barra invertida final escaparia a aspa de fechamento"
+    if bs_count:
+        out.append("\\" * (bs_count // 2))
+    return "".join(out)
+
+
+# FR-19, D-028: JSON do code --add-mcp (Windows cmd e POSIX), .vscode/mcp.json e comando do Claude Code com espaço e barras invertidas
 def test_fr19_d028_vscode_e_claude_code_com_e_sem_rsl_desktop_config_e_com_espaco() -> None:
     cmd_space = r"C:\Program Files\RSL.app\RSL.app.exe"
     args = ["--mcp"]
 
-    # 1. Sem RSL_DESKTOP_CONFIG
+    # 1. Sem RSL_DESKTOP_CONFIG (fora do Windows e no Windows)
     vs_json_no_env = vscode_add_mcp_json(command=cmd_space, args=args, environ={})
     assert json.loads(vs_json_no_env) == {
         "name": "rslapp",
@@ -344,8 +374,28 @@ def test_fr19_d028_vscode_e_claude_code_com_e_sem_rsl_desktop_config_e_com_espac
         "command": cmd_space,
         "args": ["--mcp"],
     }
-    vs_cmd_no_env = vscode_add_mcp_command(command=cmd_space, args=args, environ={})
-    assert vs_cmd_no_env == f"code --add-mcp '{vs_json_no_env}'"
+    vs_cmd_posix = vscode_add_mcp_command(
+        command=cmd_space, args=args, environ={}, platform="linux"
+    )
+    assert vs_cmd_posix == f"code --add-mcp '{vs_json_no_env}'"
+
+    vs_cmd_win = vscode_add_mcp_command(
+        command=cmd_space, args=args, environ={}, platform="win32"
+    )
+    assert "'" not in vs_cmd_win
+    assert vs_cmd_win.startswith('code --add-mcp "')
+    assert vs_cmd_win.endswith('"')
+    assert vs_cmd_win == subprocess.list2cmdline(["code", "--add-mcp", vs_json_no_env])
+    parsed_win_no_env = _parse_windows_quoted_arg(
+        vs_cmd_win.removeprefix("code --add-mcp ")
+    )
+    assert parsed_win_no_env == vs_json_no_env
+    assert json.loads(parsed_win_no_env) == {
+        "name": "rslapp",
+        "type": "stdio",
+        "command": cmd_space,
+        "args": ["--mcp"],
+    }
 
     vs_file_no_env = json.loads(
         vscode_mcp_config_json(command=cmd_space, args=args, environ={})
@@ -381,12 +431,29 @@ def test_fr19_d028_vscode_e_claude_code_com_e_sem_rsl_desktop_config_e_com_espac
     assert cc_simple_env.index("--env") < cc_simple_env.index("--transport")
     assert cc_simple_env.index("--transport") < cc_simple_env.index("rslapp")
 
-    # 3. Com RSL_DESKTOP_CONFIG contendo espaço no caminho
+    # 3. Com RSL_DESKTOP_CONFIG contendo espaço e barras invertidas no caminho
     cfg_with_space = r"C:\Users\Maria Silva\Config RSL\desktop.json"
     env_space = {"RSL_DESKTOP_CONFIG": cfg_with_space}
 
     vs_json_env = vscode_add_mcp_json(command=cmd_space, args=args, environ=env_space)
     assert json.loads(vs_json_env) == {
+        "name": "rslapp",
+        "type": "stdio",
+        "command": cmd_space,
+        "args": ["--mcp"],
+        "env": {"RSL_DESKTOP_CONFIG": cfg_with_space},
+    }
+
+    vs_cmd_win_env = vscode_add_mcp_command(
+        command=cmd_space, args=args, environ=env_space, platform="win32"
+    )
+    assert "'" not in vs_cmd_win_env
+    assert vs_cmd_win_env == subprocess.list2cmdline(["code", "--add-mcp", vs_json_env])
+    parsed_win_env = _parse_windows_quoted_arg(
+        vs_cmd_win_env.removeprefix("code --add-mcp ")
+    )
+    assert parsed_win_env == vs_json_env
+    assert json.loads(parsed_win_env) == {
         "name": "rslapp",
         "type": "stdio",
         "command": cmd_space,

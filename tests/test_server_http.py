@@ -145,6 +145,9 @@ async def test_d011_serve_lista_ferramentas_por_http(
             stdio_tool_names = [t.name for t in stdio_tools.tools]
             assert set(http_tool_names) == EXPECTED_TOOLS
             assert http_tool_names == stdio_tool_names
+            for h_tool, s_tool in zip(http_tools.tools, stdio_tools.tools, strict=True):
+                assert h_tool.annotations is not None
+                assert h_tool.annotations == s_tool.annotations
 
             http_prompts = await http_client.list_prompts()
             stdio_prompts = await stdio_client.list_prompts()

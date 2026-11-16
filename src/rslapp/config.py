@@ -42,9 +42,10 @@ def _is_key_configured(env_var: str) -> bool:
     return bool(raw and raw.strip())
 
 
+# D-011, D-017, D-029, FR-07, FR-20: Trata RSL_CACHE_DAYS ausente ou vazio/espaços como o padrão (7)
 def _parse_cache_days(raw_value: str | None) -> int:
     """Valida e converte RSL_CACHE_DAYS para inteiro positivo."""
-    if raw_value is None:
+    if raw_value is None or not raw_value.strip():
         return DEFAULT_CACHE_DAYS
     try:
         days = int(raw_value.strip())

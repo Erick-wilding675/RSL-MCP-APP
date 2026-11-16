@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from nicegui import ui
@@ -31,9 +32,7 @@ TOP_SUBTITLE = (
     "ficam na sua pasta de dados e aparecem no Histórico."
 )
 CLAUDE_RESTART_NOTICE = "Feche e abra o Claude Desktop para ele ver o RSL.app."
-WINDOWS_POWERSHELL_NOTE = (
-    "No Windows, o comando com aspas simples é para o PowerShell."
-)
+WINDOWS_CMD_NOTE = "Cole no Prompt de Comando (cmd), não no PowerShell."
 CHATGPT_NOTE = (
     "O ChatGPT só se liga a servidores na internet, não ao computador da pessoa. "
     "A forma de usá-lo é pela instituição, pelo guia de hospedagem (seção ChatGPT)."
@@ -265,9 +264,10 @@ def build(service: DesktopService | None = None) -> None:
                     on_click=lambda: _copy_text(vscode_add_mcp_command()),
                 ).props("outline").mark("vscode-copy-cmd-btn")
 
-            ui.label(WINDOWS_POWERSHELL_NOTE).classes(
-                "text-caption text-grey-7"
-            ).mark("vscode-powershell-note")
+            if sys.platform == "win32":
+                ui.label(WINDOWS_CMD_NOTE).classes(
+                    "text-caption text-grey-7"
+                ).mark("vscode-cmd-note")
 
             ui.label("Ou copie para o .vscode/mcp.json:").classes(
                 "text-caption font-medium mt-2"
