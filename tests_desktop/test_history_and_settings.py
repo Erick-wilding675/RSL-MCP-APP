@@ -285,6 +285,56 @@ async def test_fr17_historico_vazio_mostra_mensagem_e_link_buscar(
     await user.should_see("A string vai como está para cada base")
 
 
+# D-031, FR-17: Histórico com data curta, paginação de 25, selos de fontes e novo cabeçalho
+async def test_d031_fr17_historico_componentes_e_formato_data(
+    user: User,
+) -> None:
+    fake_service = FakeHistoryService(
+        searches=[
+            {
+                "id": "s-0100",
+                "list_id": "l-0100",
+                "created_at": "2026-11-16T14:25:00Z",
+                "kind": "terms",
+                "request_summary": "app desktop",
+                "params": {
+                    "query": "machine learning AND bibliometrics",
+                    "max_results": 20,
+                    "sources": ["openalex", "europe_pmc"],
+                    "include_peer_review": False,
+                },
+                "sources": [
+                    {
+                        "name": "openalex",
+                        "status": "ok",
+                        "reason": None,
+                        "found": 15,
+                        "fetched": 15,
+                    },
+                    {
+                        "name": "europe_pmc",
+                        "status": "ok",
+                        "reason": None,
+                        "found": 5,
+                        "fetched": 5,
+                    },
+                ],
+            }
+        ]
+    )
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/historico")
+    await user.should_see("1 buscas registradas")
+    table = user.find(marker="history-table").elements.pop()
+    assert table.props.get("pagination", {}).get("rowsPerPage") == 25
+    assert len(table.rows) == 1
+    row = table.rows[0]
+    assert row["date_short"] == "16/11/2026 14:25"
+    assert row["created_at"] == "2026-11-16T14:25:00Z"
+    assert row["sources_list"] == ["OpenAlex", "Europe PMC"]
+
+
 # FR-17, FR-13: Botão "Abrir log" avisa quando log.md não existe e abre sem shell=True quando existe
 async def test_fr17_fr13_abrir_log_avisa_ausente_e_abre_sem_shell_true(
     user: User,
