@@ -41,7 +41,7 @@ FR-19, FR-20, D-028, D-029.
 
 ## Antes de começar
 
-12-01 a 12-03 integradas, e o ok do Erick para publicar.
+12-01, 12-02, 12-03 e 12-05 integradas, e o ok do Erick para publicar.
 
 ## Resultado da entrega
 

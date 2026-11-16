@@ -133,8 +133,9 @@ Decidido em 2026-11-15 (D-027 a D-029): sem servidor do projeto; o executável d
 2. Tela "Conectar IA". Spec: `specs/12-02-tela-conectar-ia.md`
 3. Guia das instituições, com o ChatGPT pelo servidor da instituição. Spec: `specs/12-03-guia-das-instituicoes.md`
 4. Publicação da 2.1.0 e teste real. Spec: `specs/12-04-publicacao-2-1-e-teste-real.md`
+5. Correções da revisão geral (compose, `RSL_CACHE_DAYS` vazio, ferramentas só de leitura). Spec: `specs/12-05-correcoes-da-revisao.md`
 
-A 12-02 depende da 12-01. A 12-03 é só documento e teste no servidor de teste, então anda em paralelo com as duas. A 12-04 espera as três e o ok do Erick para publicar.
+A 12-02 depende da 12-01. A 12-03 é só documento e teste no servidor de teste, então anda em paralelo com as duas. A 12-05 vem depois da 12-02. A 12-04 espera as outras quatro e o ok do Erick para publicar.
 
 ### Depois da 1.2: a versão maior (2.0)
 
