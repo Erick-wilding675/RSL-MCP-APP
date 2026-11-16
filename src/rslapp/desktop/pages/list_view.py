@@ -1,10 +1,12 @@
-"""Tela Lista do app desktop (FR-16, FR-06, FR-08, FR-12, D-024, D-025)."""
+"""Tela Lista do app desktop (FR-16, FR-06, FR-08, FR-12, D-024, D-025, D-031)."""
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,12 @@ from nicegui import ui
 from rslapp import config
 from rslapp.core.errors import RSLError
 from rslapp.core.search import PAGE_SIZE
+from rslapp.desktop.components import (
+    copy_block,
+    empty_state,
+    section_card,
+    status_badge,
+)
 from rslapp.desktop.pages import render_shell
 from rslapp.desktop.pages.search import SOURCE_LABELS
 from rslapp.desktop.service import DesktopService
@@ -25,6 +33,14 @@ EXPORT_FORMATS: tuple[tuple[str, str], ...] = (
     ("JSON", "json"),
     ("DOIs", "dois"),
 )
+
+EXPORT_ICONS: dict[str, str] = {
+    "ris": "description",
+    "csv": "table_view",
+    "bibtex": "menu_book",
+    "json": "data_object",
+    "dois": "link",
+}
 
 
 def _format_authors(raw_authors: Any) -> str:
@@ -126,14 +142,23 @@ def open_folder_in_file_manager(folder: Path) -> None:
 def build(service: DesktopService, list_id: str = "") -> None:
     """Monta a tela de visualização e exportação de uma lista salva."""
     apply_theme()
-    render_shell("Lista", "")
+    render_shell(
+        "Lista",
+        "Visualize os artigos recuperados, consulte os metadados e exporte para ferramentas de revisão sistemática.",
+    )
 
-    with ui.column().classes("w-full gap-4"):
+    with ui.column().classes("w-full gap-5"):
         try:
             list_data = service.get_list(list_id)
         except RSLError:
-            ui.label(f"Lista {list_id}: lista não encontrada.").mark("list-not-found")
-            ui.link("Voltar para Buscar", "/").mark("back-to-search")
+            with ui.column().classes("w-full items-center justify-center p-8 gap-3 text-center"):
+                empty_state(
+                    icon="search_off",
+                    title="Lista não encontrada",
+                    text=f"Lista {list_id}: lista não encontrada.",
+                )
+                ui.label(f"Lista {list_id}: lista não encontrada.").classes("hidden").mark("list-not-found")
+                ui.link("Voltar para Buscar", "/").props("outline").classes("mt-2").mark("back-to-search")
             return
 
         raw_works = list_data.get("works")
@@ -147,24 +172,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
             service, list_data
         )
 
-        # FR-16, FR-05: Cabeçalho da lista com string, data, total e resultados por fonte
-        with ui.card().classes("w-full p-4 gap-2"):
-            ui.label(f"Identificador: {list_data.get('id', list_id)}").classes(
-                "text-subtitle2 text-grey-7"
-            )
-            ui.label(f"String de busca: {query_str}").classes("font-medium")
-            ui.label(f"Data: {created_at}")
-            ui.label(f"Total de artigos: {total}").classes("font-bold")
-
-            if sources_list:
-                with ui.row().classes("gap-4 flex-wrap"):
-                    for src in sources_list:
-                        src_name = str(src.get("name", ""))
-                        src_label = SOURCE_LABELS.get(src_name, src_name)
-                        fetched = src.get("fetched") or 0
-                        ui.label(f"{src_label} ({src_name}): {fetched} resultados")
-
-        # FR-08, FR-16: Aviso visível quando a lista for incompleta, indicando fonte e motivo
+        # 1. Aviso de lista incompleta no topo (FR-08, FR-16, D-031)
         failed_sources = [
             src
             for src in sources_list
@@ -172,11 +180,13 @@ def build(service: DesktopService, list_id: str = "") -> None:
         ]
         if list_data.get("status") == "incomplete" or failed_sources:
             with ui.card().classes(
-                "w-full bg-amber-50 border border-amber-400 p-3 gap-1"
+                "w-full p-4 gap-2 border-l-4 border-warning rsl-surface-2"
             ).mark("incomplete-warning"):
-                ui.label(
-                    "Aviso: lista incompleta — uma ou mais fontes falharam."
-                ).classes("font-bold text-amber-900")
+                with ui.row().classes("items-center gap-2 text-warning"):
+                    ui.icon("warning").classes("text-xl")
+                    ui.label(
+                        "Aviso: lista incompleta — uma ou mais fontes falharam."
+                    ).classes("font-bold")
                 for src in failed_sources:
                     src_name = str(src.get("name", ""))
                     src_label = SOURCE_LABELS.get(src_name, src_name)
@@ -185,43 +195,144 @@ def build(service: DesktopService, list_id: str = "") -> None:
                         or src.get("status")
                         or "falha na consulta"
                     )
-                    ui.label(f"{src_label} ({src_name}): {reason}").classes(
-                        "text-amber-900"
-                    )
+                    with ui.row().classes("items-center gap-2 pl-7"):
+                        status_badge(src_label, kind="warning")
+                        ui.label(f"{src_label} ({src_name}): {reason}").classes(
+                            "rsl-muted text-sm"
+                        )
 
-        # FR-06, FR-12, FR-16: Botões de exportação por formato e abertura da pasta
-        last_export_dir: list[Path] = [config.load().export_dir]
+        # 2. Faixa de resumo no topo com números grandes em cartões pequenos (D-031, FR-16)
+        with ui.row().classes("w-full gap-3 flex-wrap"):
+            with ui.card().classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1"):
+                ui.label(str(total)).classes("text-2xl font-bold rsl-title")
+                ui.label(f"Total de artigos: {total}").classes("text-xs rsl-muted")
 
-        def _make_export_handler(fmt: str) -> Any:
-            def _handle_export() -> None:
-                try:
-                    res = service.export(list_id, fmt)
-                except RSLError as err:
-                    ui.notify(err.message, type="negative")
-                    return
-                exported_path = str(res.get("path", ""))
-                if exported_path:
-                    last_export_dir[0] = Path(exported_path).parent
-                ui.notify(exported_path, type="positive")
-
-            return _handle_export
-
-        def _handle_open_folder() -> None:
-            try:
-                open_folder_in_file_manager(last_export_dir[0])
-            except OSError as err:
-                ui.notify(f"Não foi possível abrir a pasta: {err}", type="negative")
-
-        with ui.row().classes("items-center gap-2 flex-wrap"):
-            for label, fmt in EXPORT_FORMATS:
-                ui.button(label, on_click=_make_export_handler(fmt)).mark(
-                    f"export-{fmt}"
+            with ui.card().classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1"):
+                num_sources = len(sources_list) if sources_list else (
+                    len(list_data.get("sources", []))
+                    if isinstance(list_data.get("sources"), list)
+                    else 1
                 )
-            ui.button("Abrir pasta", on_click=_handle_open_folder).props(
-                "outline"
-            ).mark("open-export-folder")
+                ui.label(str(num_sources)).classes("text-2xl font-bold rsl-title")
+                ui.label("Fontes consultadas").classes("text-xs rsl-muted")
 
-        # FR-16, FR-03: Tabela paginada (25 por página), com filtro por texto e ordenação por ano e título
+            duplicates_count = None
+            if isinstance(list_data.get("merge"), dict):
+                merged_val = list_data["merge"].get("merged")
+                if isinstance(merged_val, int) and not isinstance(merged_val, bool):
+                    duplicates_count = merged_val
+            elif isinstance(list_data.get("duplicates_removed"), int) and not isinstance(
+                list_data.get("duplicates_removed"), bool
+            ):
+                duplicates_count = list_data.get("duplicates_removed")
+
+            if duplicates_count is not None:
+                with ui.card().classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1"):
+                    ui.label(str(duplicates_count)).classes("text-2xl font-bold rsl-title")
+                    ui.label("Repetidos unificados").classes("text-xs rsl-muted")
+
+            with ui.card().classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1"):
+                short_date = created_at
+                with contextlib.suppress(ValueError, TypeError):
+                    dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    short_date = dt.strftime("%d/%m/%Y %H:%M")
+                ui.label(short_date).classes("text-lg font-bold rsl-title")
+                ui.label(f"Data: {created_at}").classes("text-xs rsl-muted")
+
+        # 3. Cartão "Busca": string em monoespaçado com copy_block, ID e fontes (D-031, FR-16)
+        with section_card("Busca", icon="search"):
+            ui.label(f"Identificador: {list_data.get('id', list_id)}").classes(
+                "text-xs rsl-muted"
+            )
+            ui.label(f"String de busca: {query_str}").classes(
+                "text-xs font-semibold rsl-muted"
+            )
+            copy_block(query_str, mark="query-copy")
+
+            if sources_list:
+                ui.label("Resultados por fonte:").classes(
+                    "text-xs font-medium rsl-muted mt-2"
+                )
+                with ui.column().classes("gap-2 w-full"):
+                    for src in sources_list:
+                        src_name = str(src.get("name", ""))
+                        src_label = SOURCE_LABELS.get(src_name, src_name)
+                        fetched = src.get("fetched") or 0
+                        status = str(src.get("status", "ok"))
+                        with ui.row().classes("items-center gap-2"):
+                            if status == "ok":
+                                status_badge(f"{fetched} resultados", kind="ok")
+                                ui.label(
+                                    f"{src_label} ({src_name}): {fetched} resultados"
+                                ).classes("text-sm rsl-title")
+                            else:
+                                reason = (
+                                    src.get("reason") or status or "falha na consulta"
+                                )
+                                status_badge("incompleta", kind="warning")
+                                ui.label(
+                                    f"{src_label} ({src_name}): {reason}"
+                                ).classes("text-sm text-warning")
+
+        # 4. Cartão "Exportar": botões com ícones lado a lado e abrir pasta (FR-06, FR-12, FR-16, D-031)
+        with section_card(
+            "Exportar",
+            icon="file_download",
+            description="Exporte a lista nos formatos compatíveis com ferramentas de revisão sistemática",
+        ):
+            last_export_dir: list[Path] = [config.load().export_dir]
+
+            export_feedback_row = ui.row().classes(
+                "w-full items-center gap-2 p-3 rounded rsl-surface-2"
+            )
+            export_feedback_row.set_visibility(False)
+            with export_feedback_row:
+                ui.icon("check_circle").classes("text-positive text-xl")
+                export_feedback_label = ui.label("").classes(
+                    "text-xs font-mono break-all flex-1"
+                )
+                ui.button(
+                    "Abrir pasta", on_click=lambda: _handle_open_folder()
+                ).props("outline size=sm")
+
+            def _make_export_handler(fmt: str) -> Any:
+                def _handle_export() -> None:
+                    try:
+                        res = service.export(list_id, fmt)
+                    except RSLError as err:
+                        ui.notify(err.message, type="negative")
+                        return
+                    exported_path = str(res.get("path", ""))
+                    if exported_path:
+                        last_export_dir[0] = Path(exported_path).parent
+                        export_feedback_label.text = exported_path
+                        export_feedback_row.set_visibility(True)
+                    ui.notify(exported_path, type="positive")
+
+                return _handle_export
+
+            def _handle_open_folder() -> None:
+                try:
+                    open_folder_in_file_manager(last_export_dir[0])
+                except OSError as err:
+                    ui.notify(f"Não foi possível abrir a pasta: {err}", type="negative")
+
+            with ui.row().classes("items-center gap-3 flex-wrap"):
+                for label, fmt in EXPORT_FORMATS:
+                    ui.button(
+                        label,
+                        icon=EXPORT_ICONS.get(fmt, "download"),
+                        on_click=_make_export_handler(fmt),
+                    ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
+                        f"export-{fmt}"
+                    )
+                ui.button(
+                    "Abrir pasta",
+                    icon="folder_open",
+                    on_click=_handle_open_folder,
+                ).props("outline").mark("open-export-folder")
+
+        # 5. Cartão Tabela de artigos: cabeçalho fixo, linhas alternadas, título em negrito e autores em cinza, DOI link e filtro com lupa (D-031, FR-16, FR-03)
         rows: list[dict[str, Any]] = []
         for idx, work in enumerate(works, start=1):
             doi_text, doi_url = _format_doi(work.get("doi"))
@@ -241,16 +352,9 @@ def build(service: DesktopService, list_id: str = "") -> None:
         columns: list[dict[str, Any]] = [
             {
                 "name": "title",
-                "label": "Título",
+                "label": "Título e autores",
                 "field": "title",
                 "sortable": True,
-                "align": "left",
-            },
-            {
-                "name": "authors",
-                "label": "Autores",
-                "field": "authors",
-                "sortable": False,
                 "align": "left",
             },
             {
@@ -283,33 +387,64 @@ def build(service: DesktopService, list_id: str = "") -> None:
             },
         ]
 
-        filter_input = (
-            ui.input(
-                label="Filtrar na tabela",
-                placeholder="Buscar por título, autor, periódico ou DOI...",
+        with section_card("Artigos da lista", icon="article"):
+            with ui.row().classes("w-full items-center justify-between gap-4 mb-2"):
+                filter_input = (
+                    ui.input(
+                        placeholder="Filtrar por título, autor ou DOI",
+                    )
+                    .props("dense outlined clearable")
+                    .classes("w-full max-w-md")
+                    .mark("table-filter")
+                )
+                with filter_input.add_slot("prepend"):
+                    ui.icon("search").classes("text-grey-6")
+
+                ui.label(f"{len(works)} artigos").classes("text-xs rsl-muted")
+
+            table = (
+                ui.table(
+                    columns=columns,
+                    rows=rows,
+                    row_key="id",
+                    pagination=PAGE_SIZE,
+                )
+                .classes("w-full rsl-table sticky-header-table")
+                .props("flat")
+                .mark("works-table")
             )
-            .classes("w-full max-w-md")
-            .mark("table-filter")
-        )
-        table = (
-            ui.table(
-                columns=columns,
-                rows=rows,
-                row_key="id",
-                pagination=PAGE_SIZE,
+            filter_input.bind_value(table, "filter")
+
+            table.add_slot(
+                "body-cell-title",
+                r"""
+                <q-td :props="props">
+                    <div class="font-bold rsl-title leading-snug">{{ props.row.title }}</div>
+                    <div v-if="props.row.authors" class="text-xs rsl-muted mt-0.5">{{ props.row.authors }}</div>
+                </q-td>
+                """,
             )
-            .classes("w-full")
-            .mark("works-table")
-        )
-        table.add_slot(
-            "body-cell-doi",
-            r"""
-            <q-td :props="props">
-                <a v-if="props.row.doi_url" :href="props.row.doi_url" target="_blank" class="text-primary underline">
-                    {{ props.value }}
-                </a>
-                <span v-else>—</span>
-            </q-td>
-            """,
-        )
-        filter_input.bind_value(table, "filter")
+
+            table.add_slot(
+                "body-cell-doi",
+                r"""
+                <q-td :props="props">
+                    <a v-if="props.row.doi_url" :href="props.row.doi_url" target="_blank" class="text-primary underline font-mono text-xs">
+                        {{ props.value }}
+                    </a>
+                    <span v-else class="rsl-muted">—</span>
+                </q-td>
+                """,
+            )
+
+            table.add_slot(
+                "body-cell-sources",
+                r"""
+                <q-td :props="props">
+                    <span v-if="props.value" class="text-xs px-2 py-0.5 rounded-full font-medium rsl-surface-2 rsl-muted">
+                        {{ props.value }}
+                    </span>
+                    <span v-else class="rsl-muted">—</span>
+                </q-td>
+                """,
+            )

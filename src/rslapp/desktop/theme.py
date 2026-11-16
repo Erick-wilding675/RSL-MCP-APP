@@ -177,6 +177,26 @@ body.body--dark .progress-card {
   border: 1px solid rgba(129, 140, 248, 0.25) !important;
 }
 
+/* D-031: Tabela com cabeçalho fixo e linhas alternadas suaves */
+.sticky-header-table thead tr th {
+  position: sticky !important;
+  z-index: 1 !important;
+  top: 0 !important;
+}
+body:not(.body--dark) .sticky-header-table thead tr th {
+  background-color: #F9FAFB !important;
+}
+body.body--dark .sticky-header-table thead tr th {
+  background-color: #121933 !important;
+}
+
+body:not(.body--dark) .q-table tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+body.body--dark .q-table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
 .drawer-footer {
   border-top: 1px solid #E5E7EB !important;
 }

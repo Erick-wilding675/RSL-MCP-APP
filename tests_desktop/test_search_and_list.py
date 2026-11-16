@@ -608,3 +608,58 @@ async def test_d031_fr16_ctrl_enter_nao_dispara_duas_buscas(user: User) -> None:
     assert len(fake_service.search_calls) == 1
 
 
+# D-031, FR-16: Tela Lista com faixa de resumo, cartões de Busca/Exportar e tabela estilizada
+async def test_d031_fr16_lista_faixa_resumo_e_cartoes(user: User) -> None:
+    fake_service = FakeDesktopService(
+        lists={
+            "l-0010": {
+                "id": "l-0010",
+                "search_id": "s-0010",
+                "created_at": "2026-11-16T10:00:00Z",
+                "status": "complete",
+                "total": 3,
+                "merge": {"merged": 2, "divergences": {}},
+                "works": [
+                    {
+                        "title": "Quantum Computing Review",
+                        "doi": "10.1000/quantum",
+                        "year": 2026,
+                        "venue": "Nature Reviews",
+                        "authors": [{"name": "David Deutsch"}],
+                        "source_ids": {"openalex": "W10"},
+                    }
+                ],
+            }
+        },
+        searches=[
+            {
+                "id": "s-0010",
+                "list_id": "l-0010",
+                "created_at": "2026-11-16T10:00:00Z",
+                "kind": "terms",
+                "params": {
+                    "query": "quantum computing AND algorithms",
+                    "sources": ["openalex", "crossref"],
+                },
+                "sources": [
+                    {"name": "openalex", "status": "ok", "fetched": 3},
+                ],
+            }
+        ],
+    )
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/lista/l-0010")
+    await user.should_see("Total de artigos: 3")
+    await user.should_see("Fontes consultadas")
+    await user.should_see("Repetidos unificados")
+    await user.should_see("Data: 2026-11-16T10:00:00Z")
+    await user.should_see("Identificador: l-0010")
+    await user.should_see(marker="query-copy")
+    await user.should_see(marker="export-ris")
+    await user.should_see(marker="works-table")
+    table = user.find(marker="works-table").elements.pop()
+    assert "sticky-header-table" in table._classes
+
+
+
