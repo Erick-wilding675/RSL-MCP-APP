@@ -63,13 +63,13 @@ def build(service: DesktopService) -> None:
             )
 
             with ui.row().classes(
-                "w-full justify-between items-center text-caption text-grey-7 dark:text-grey-4"
+                "w-full justify-between items-center text-caption rsl-muted"
             ):
                 ui.label(
                     "A string vai como está para cada base selecionada; o app não usa IA."
                 )
                 ui.label("Ctrl+Enter para buscar").classes(
-                    "font-mono text-xs bg-grey-2 dark:bg-grey-9 px-2 py-0.5 rounded text-grey-8 dark:text-grey-3"
+                    "rsl-code text-xs px-2 py-0.5 rounded"
                 )
 
         # FR-16, D-020, D-023, D-031: Cartão 'Fontes' com chips/cartões em grade de 2 a 3 colunas
@@ -89,13 +89,14 @@ def build(service: DesktopService) -> None:
                         name in PAID_SOURCES and status == "missing_key"
                     )
 
-                    card_classes = (
-                        "p-3 rounded-lg border gap-1 flex flex-col justify-between transition-colors "
-                    )
                     if is_paid_missing_key:
-                        card_classes += "bg-grey-1 dark:bg-grey-9 border-grey-3 dark:border-grey-8 opacity-75"
+                        card_classes = (
+                            "rsl-surface-disabled p-3 rounded-lg gap-1 flex flex-col justify-between transition-colors"
+                        )
                     else:
-                        card_classes += "bg-white dark:bg-[#121933] border-grey-3 dark:border-grey-8 hover:border-primary"
+                        card_classes = (
+                            "rsl-surface-2 p-3 rounded-lg gap-1 flex flex-col justify-between transition-colors hover:border-primary"
+                        )
 
                     with ui.card().classes(card_classes).style(
                         "box-shadow: none !important;"
@@ -103,7 +104,7 @@ def build(service: DesktopService) -> None:
                         cb = ui.checkbox(
                             label,
                             value=False if is_paid_missing_key else default_checked,
-                        ).mark(f"source-{name}").classes("font-semibold text-sm")
+                        ).mark(f"source-{name}").classes("rsl-title font-semibold text-sm")
                         if is_paid_missing_key:
                             cb.disable()
                             permanently_disabled.add(name)
@@ -120,9 +121,7 @@ def build(service: DesktopService) -> None:
                         else:
                             desc = SOURCE_DESCRIPTIONS.get(name, "")
                             if desc:
-                                ui.label(desc).classes(
-                                    "text-caption text-grey-6 dark:text-grey-4"
-                                )
+                                ui.label(desc).classes("rsl-muted text-caption")
 
         # FR-16, D-022, D-031: Cartão 'Opções' com Quantidade e Pareceres lado a lado
         with (
@@ -150,10 +149,7 @@ def build(service: DesktopService) -> None:
         # D-031, FR-16: Cartão de progresso com texto e barra indeterminada durante a busca
         with (
             ui.card()
-            .classes(
-                "w-full p-4 gap-3 bg-indigo-50/50 dark:bg-indigo-950/20 "
-                "border border-primary/20"
-            )
+            .classes("progress-card w-full p-4 gap-3")
             .mark("progress-card") as progress_card
         ):
             with ui.row().classes("items-center gap-3"):

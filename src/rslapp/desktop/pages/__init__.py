@@ -79,21 +79,19 @@ def render_shell(
                             ui.icon(icon).classes(
                                 "text-primary text-xl"
                                 if is_active
-                                else "text-grey-7 dark:text-grey-3 text-xl"
+                                else "rsl-muted text-xl"
                             )
                         with ui.item_section():
                             ui.label(name).classes(
                                 "font-semibold text-sm"
                                 if is_active
-                                else "font-medium text-sm text-grey-8 dark:text-grey-2"
+                                else "rsl-title font-medium text-sm"
                             )
                         ui.tooltip(name)
 
         # Pé do drawer com versão e alternador de tema
         with (
-            ui.column().classes(
-                "w-full pt-3 border-t border-grey-3 dark:border-grey-8 gap-2"
-            ),
+            ui.column().classes("w-full pt-3 drawer-footer gap-2"),
             ui.row().classes(
                 "w-full items-center justify-between px-2 drawer-footer-row"
             ),
@@ -141,7 +139,7 @@ def render_shell(
     with ui.column().classes("w-full gap-1 mb-4"):
         ui.label(title).classes("page-title text-2xl font-bold")
         if subtitle:
-            ui.label(subtitle).classes("text-sm text-grey-7 dark:text-grey-4")
+            ui.label(subtitle).classes("rsl-muted text-sm")
 
 
 # D-024, D-025: Mantém compatibilidade com chamadas legadas a render_header

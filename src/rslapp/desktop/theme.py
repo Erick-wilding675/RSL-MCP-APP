@@ -111,6 +111,78 @@ body.body--dark .nav-item-inactive:hover {
 .q-drawer--mini .drawer-footer-row {
   justify-content: center !important;
 }
+
+/* D-031: Classes semânticas próprias para suporte confiável ao tema claro e escuro */
+.rsl-title {
+  color: #111827 !important;
+}
+body.body--dark .rsl-title {
+  color: #F3F4F6 !important;
+}
+
+/* Herança da cor rsl-title para checkboxes dentro de cartões de fonte */
+.rsl-title .q-checkbox__label,
+.rsl-surface-2 .q-checkbox__label {
+  color: inherit !important;
+}
+
+.rsl-muted {
+  color: #6B7280 !important;
+}
+body.body--dark .rsl-muted {
+  color: #9CA3AF !important;
+}
+
+.rsl-surface-2 {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+  color: #111827 !important;
+}
+body.body--dark .rsl-surface-2 {
+  background-color: #18213F !important;
+  border: 1px solid #2A3766 !important;
+  color: #F3F4F6 !important;
+}
+
+.rsl-surface-disabled {
+  background-color: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
+  opacity: 0.6 !important;
+}
+body.body--dark .rsl-surface-disabled {
+  background-color: #141B33 !important;
+  border: 1px solid #2A3766 !important;
+  opacity: 0.6 !important;
+}
+
+.rsl-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  background-color: #F3F4F6 !important;
+  color: #1F2937 !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.body--dark .rsl-code {
+  background-color: #0F1630 !important;
+  color: #E5E7EB !important;
+  border: 1px solid #2A3766 !important;
+}
+
+/* D-031: Cartão de progresso e divisor do rodapé do drawer */
+.progress-card {
+  background-color: rgba(79, 70, 229, 0.06) !important;
+  border: 1px solid rgba(79, 70, 229, 0.25) !important;
+}
+body.body--dark .progress-card {
+  background-color: rgba(129, 140, 248, 0.12) !important;
+  border: 1px solid rgba(129, 140, 248, 0.25) !important;
+}
+
+.drawer-footer {
+  border-top: 1px solid #E5E7EB !important;
+}
+body.body--dark .drawer-footer {
+  border-top: 1px solid #1F2A4D !important;
+}
 """
 
 

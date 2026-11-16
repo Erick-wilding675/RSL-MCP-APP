@@ -154,3 +154,35 @@ async def test_d031_apply_theme_inicializa_dark_mode(
 
     await user.open("/test-theme-auto")
     await user.should_see("dm-value: None")
+
+
+# D-031: Nenhum arquivo em src/rslapp/desktop contém 'dark:' fora de comentários
+def test_d031_sem_variantes_dark_do_tailwind() -> None:
+    desktop_dir = Path(__file__).resolve().parent.parent / "src" / "rslapp" / "desktop"
+    assert desktop_dir.is_dir()
+
+    violating_lines: list[str] = []
+    for py_file in desktop_dir.rglob("*.py"):
+        lines = py_file.read_text(encoding="utf-8").splitlines()
+        for idx, line in enumerate(lines, start=1):
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            code_part = line.split("#", 1)[0]
+            if "dark:" in code_part:
+                violating_lines.append(f"{py_file.name}:{idx}: {line.strip()}")
+
+    assert not violating_lines, f"Classes 'dark:' do Tailwind encontradas: {violating_lines}"
+
+
+# D-031: O CSS comum define body.body--dark para cada uma das cinco classes semânticas
+def test_d031_classes_semanticas_modo_escuro() -> None:
+    classes_esperadas = (
+        "body.body--dark .rsl-title",
+        "body.body--dark .rsl-muted",
+        "body.body--dark .rsl-surface-2",
+        "body.body--dark .rsl-surface-disabled",
+        "body.body--dark .rsl-code",
+    )
+    for selector in classes_esperadas:
+        assert selector in COMMON_CSS, f"Seletor {selector} ausente em COMMON_CSS"

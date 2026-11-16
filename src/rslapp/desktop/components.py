@@ -24,13 +24,9 @@ class section_card(ui.card):
             with ui.row().classes("items-center gap-2 w-full"):
                 if icon:
                     ui.icon(icon).classes("text-primary text-xl")
-                ui.label(title).classes(
-                    "text-base font-semibold text-grey-9 dark:text-grey-1"
-                )
+                ui.label(title).classes("rsl-title text-base font-semibold")
             if description:
-                ui.label(description).classes(
-                    "text-xs text-grey-6 dark:text-grey-4 -mt-1"
-                )
+                ui.label(description).classes("rsl-muted text-xs -mt-1")
 
 
 # D-031, FR-16: Estado vazio com ícone suave, título, frase de orientação e botão de ação
@@ -48,13 +44,9 @@ class empty_state(ui.column):
         super().__init__()
         self.classes("w-full items-center justify-center p-8 gap-3 text-center")
         with self:
-            ui.icon(icon).classes("text-5xl text-grey-4 dark:text-grey-6")
-            ui.label(title).classes(
-                "text-lg font-semibold text-grey-8 dark:text-grey-2"
-            )
-            ui.label(text).classes(
-                "text-sm text-grey-6 dark:text-grey-4 max-w-md"
-            )
+            ui.icon(icon).classes("text-5xl rsl-muted opacity-60")
+            ui.label(title).classes("rsl-title text-lg font-semibold")
+            ui.label(text).classes("rsl-muted text-sm max-w-md")
             if action_label and action_target:
                 on_click = (
                     action_target
@@ -75,13 +67,17 @@ class status_badge(ui.badge):
         "warning": "warning",
         "error": "negative",
         "info": "info",
-        "neutral": "grey-6",
+        "neutral": "",
     }
 
     def __init__(self, text: str, kind: str = "neutral") -> None:
-        color = self.KIND_COLORS.get(kind, "grey-6")
-        super().__init__(text, color=color)
-        self.classes("text-xs px-2 py-0.5 rounded-full font-medium")
+        color = self.KIND_COLORS.get(kind, "")
+        super().__init__(text, color=color if color else None)
+        base = "text-xs px-2 py-0.5 rounded-full font-medium"
+        if kind == "neutral":
+            self.classes(f"{base} rsl-surface-2 rsl-muted")
+        else:
+            self.classes(base)
 
 
 # D-031, FR-16: Bloco de código monoespaçado com botão Copiar
@@ -100,8 +96,7 @@ class copy_block(ui.row):
 
         with self:
             lbl = ui.label(text).classes(
-                "font-mono text-xs bg-grey-2 dark:bg-grey-9 p-2 rounded flex-grow "
-                "whitespace-pre-wrap break-all text-grey-9 dark:text-grey-2"
+                "rsl-code text-xs p-2 rounded flex-grow whitespace-pre-wrap break-all"
             )
             if mark:
                 lbl.mark(f"{mark}-text")
