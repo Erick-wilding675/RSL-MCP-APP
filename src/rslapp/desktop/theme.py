@@ -203,6 +203,58 @@ body.body--dark .q-table tbody tr:nth-child(even) {
 body.body--dark .drawer-footer {
   border-top: 1px solid #1F2A4D !important;
 }
+
+/* D-031: Caixa de informação info compatível com tema claro e escuro */
+.rsl-info-box {
+  background-color: #EFF6FF !important;
+  border: 1px solid #BFDBFE !important;
+  color: #1E40AF !important;
+}
+body.body--dark .rsl-info-box {
+  background-color: #0B1936 !important;
+  border: 1px solid #1D4ED8 !important;
+  color: #93C5FD !important;
+}
+
+/* D-031: Caixa de aviso warning compatível com tema claro e escuro */
+.rsl-warning-box {
+  background-color: #FFFBEB !important;
+  border: 1px solid #FCD34D !important;
+  color: #78350F !important;
+}
+body.body--dark .rsl-warning-box {
+  background-color: #2D2005 !important;
+  border: 1px solid #78350F !important;
+  color: #FDE68A !important;
+}
+
+/* D-031: Barra de salvar fixa no pé da página */
+.save-bar {
+  position: sticky !important;
+  bottom: 16px !important;
+  z-index: 30 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
+}
+.save-bar-clean {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+}
+body.body--dark .save-bar-clean {
+  background-color: #121933 !important;
+  border: 1px solid #1F2A4D !important;
+}
+.save-bar-dirty {
+  background-color: #F0FDF4 !important;
+  border: 1px solid #86EFAC !important;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2) !important;
+}
+body.body--dark .save-bar-dirty {
+  background-color: #062817 !important;
+  border: 1px solid #15803D !important;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.2) !important;
+}
 """
 
 

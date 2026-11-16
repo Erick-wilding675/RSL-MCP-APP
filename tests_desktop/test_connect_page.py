@@ -143,3 +143,36 @@ async def test_fr19_d026_d028_conectar_arquivo_ilegivel_e_nenhuma_chave_na_tela(
     for var_name, secret_val in secrets.items():
         await user.should_not_see(var_name)
         await user.should_not_see(secret_val)
+
+
+# D-031, FR-19: Tela /conectar com subtítulo, faixa informativa e cancelamento do diálogo sem alterações
+async def test_d031_fr19_conectar_grade_e_cancelar_dialogo(
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    claude_cfg = tmp_path / "Claude" / "claude_desktop_config.json"
+    claude_cfg.parent.mkdir(parents=True, exist_ok=True)
+    initial_content = '{\n  "mcpServers": {}\n}\n'
+    claude_cfg.write_text(initial_content, encoding="utf-8")
+
+    monkeypatch.setattr(
+        connect_page,
+        "claude_desktop_config_path",
+        lambda: claude_cfg,
+    )
+
+    register_pages()
+    await user.open("/conectar")
+
+    await user.should_see(marker="connect-subtitle")
+    await user.should_see("As buscas que a IA fizer aparecem no Histórico deste app.")
+
+    # Abre o diálogo de confirmação e clica em Cancelar
+    user.find(marker="claude-connect-btn").click()
+    await user.should_see("Confirmar conexão ao Claude Desktop")
+
+    user.find(marker="claude-cancel-btn").click()
+    # Arquivo permanece intocado após Cancelar
+    assert claude_cfg.read_text(encoding="utf-8") == initial_content
+

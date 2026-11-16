@@ -79,12 +79,28 @@ class status_badge(ui.badge):
         else:
             self.classes(base)
 
+    def set_status(self, text: str, kind: str = "neutral") -> None:
+        """Atualiza o texto e a cor semântica do selo."""
+        self.text = text
+        color = self.KIND_COLORS.get(kind, "")
+        self._props["color"] = color if color else None
+        if kind == "neutral":
+            self.classes(add="rsl-surface-2 rsl-muted")
+        else:
+            self.classes(remove="rsl-surface-2 rsl-muted")
+        self.update()
+
 
 # D-031, FR-16: Bloco de código monoespaçado com botão Copiar
 class copy_block(ui.row):
     """Bloco monoespaçado para comandos ou trechos de código com botão de cópia."""
 
-    def __init__(self, text: str, mark: str | None = None) -> None:
+    def __init__(
+        self,
+        text: str,
+        mark: str | None = None,
+        button_mark: str | None = None,
+    ) -> None:
         super().__init__()
         self.classes("w-full items-center gap-2")
         if mark:
@@ -99,11 +115,13 @@ class copy_block(ui.row):
                 "rsl-code text-xs p-2 rounded flex-grow whitespace-pre-wrap break-all"
             )
             if mark:
-                lbl.mark(f"{mark}-text")
+                lbl.mark(mark).mark(f"{mark}-text")
             btn = (
                 ui.button("Copiar", on_click=_copy)
                 .props("outline size=sm")
-                .classes("shrink-0")
+                .classes("shrink-0 rsl-surface-2")
             )
+            if button_mark:
+                btn.mark(button_mark)
             if mark:
                 btn.mark(f"{mark}-btn")

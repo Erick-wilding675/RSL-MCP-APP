@@ -542,3 +542,63 @@ async def test_fr18_d026_nfr03_configuracoes_variavel_do_sistema_nao_sobrescrita
     user.find(marker="remove-OPENALEX_API_KEY").click()
     assert os.environ.get("OPENALEX_API_KEY") == sys_secret
     assert oa_status.text == "definida no sistema; o valor do sistema vale"
+
+
+# D-031, FR-18: Configurações com três section_card, badges semânticos e open_folder
+async def test_d031_fr18_configuracoes_novos_componentes_e_abrir_pasta(
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _clear_desktop_env(monkeypatch)
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    capture_system_env_vars()
+
+    from rslapp.desktop.pages import settings_page
+
+    # 1. Testa open_folder em pasta existente e inexistente
+    folder_existing = tmp_path / "export_teste"
+    folder_existing.mkdir()
+
+    startfile_calls: list[Path] = []
+    monkeypatch.setattr(settings_page.sys, "platform", "win32")
+    monkeypatch.setattr(
+        settings_page.os,
+        "startfile",
+        lambda p: startfile_calls.append(Path(p)),
+        raising=False,
+    )
+    settings_page.open_folder(str(folder_existing))
+    assert startfile_calls == [folder_existing]
+
+    # 2. Testa _key_status_kind
+    assert settings_page._key_status_kind("OPENALEX_API_KEY", {}, frozenset()) == "neutral"
+    assert (
+        settings_page._key_status_kind("SCOPUS_API_KEY", {}, frozenset()) == "warning"
+    )
+    assert (
+        settings_page._key_status_kind(
+            "OPENALEX_API_KEY", {"OPENALEX_API_KEY": "val"}, frozenset()
+        )
+        == "ok"
+    )
+    assert (
+        settings_page._key_status_kind(
+            "OPENALEX_API_KEY", {}, frozenset(["OPENALEX_API_KEY"])
+        )
+        == "info"
+    )
+
+    # 3. Testa renderização dos 3 section_cards na tela
+    register_pages(service=FakeHistoryService())  # type: ignore[arg-type]
+
+    await user.open("/configuracoes")
+    await user.should_see("Chaves de API")
+    await user.should_see("E-mail de contato")
+    await user.should_see("Pastas")
+    await user.should_see("Salvar")
+
+    scopus_status = user.find(marker="status-SCOPUS_API_KEY").elements.pop()
+    assert scopus_status.text == "não configurada"
+

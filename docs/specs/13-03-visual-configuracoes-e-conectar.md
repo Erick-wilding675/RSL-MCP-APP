@@ -1,6 +1,6 @@
 # Visual novo: Configurações e Conectar IA (2.2)
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** a fazer
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** integrada (2026-11-16)
 
 ## O que faz
 
@@ -46,10 +46,10 @@ Nada muda para quem hospeda.
 
 ## Pronto quando
 
-- [ ] Configurações com os três cartões, olho nas chaves, barra de salvar, com teste de que nenhuma chave salva aparece na página
-- [ ] Conectar IA em grade, com a confirmação do Claude Desktop em diálogo, com teste
-- [ ] Os testes de `tests_desktop` que já existiam passam sem mudar o que conferem
-- [ ] Os gates passam
+- [x] Configurações com os três cartões, olho nas chaves, barra de salvar, com teste de que nenhuma chave salva aparece na página
+- [x] Conectar IA em grade, com a confirmação do Claude Desktop em diálogo, com teste
+- [x] Os testes de `tests_desktop` que já existiam passam sem mudar o que conferem
+- [x] Os gates passam
 
 ## Vem de
 
@@ -63,7 +63,19 @@ D-026, D-028, D-031, FR-19.
 
 ## Resultado da entrega
 
-(a preencher)
+Entregue em dois commits, um por tela, preservando todos os marcadores (`mark()`), textos esperados e comportamento de segurança dos segredos:
+1. `d2b8985` (`feat(desktop): tela Configuracoes refeita com novo tema e componentes (D-031, FR-18)`):
+   - Três `section_card` ("Chaves de API", "E-mail de contato", "Pastas") com ícones e descrições semânticas.
+   - Cada chave com campo Quasar de senha e toggle de visualização, iniciando vazio e oculto; badges semânticos de situação (`status_badge` com `ok`, `warning` quando paga e não configurada, `info` quando definida no sistema, `neutral`), link com `open_in_new` e botão de remoção discreto.
+   - Campos de pastas locais com botão de ícone `folder_open` para abrir a pasta no gerenciador de arquivos nativo (`open_folder` compatível com Windows e Linux) e caixa de aviso em `rsl-warning-box` (`DATA_DIR_WARNING`).
+   - Barra fixa no rodapé (`save-bar`) destacada dinamicamente (`save-bar-dirty` com badge "Alterações não salvas") ao modificar campos, botão Salvar com feedback persistente (`save-feedback`).
+   - Teste `test_d031_fr18_configuracoes_novos_componentes_e_abrir_pasta` em `tests_desktop/test_history_and_settings.py` conferindo o comportamento e a ausência total de segredos no HTML/props da página.
+2. `1365a64` (`feat(desktop): tela Conectar IA refeita com grade, diálogo de confirmação e tema (D-031, FR-19)`):
+   - Subtítulo com marker `connect-subtitle` e faixa de informação contextual em `rsl-info-box`.
+   - Grade responsiva de 6 cartões (2 por linha em desktop largo, 1 em telas estreitas) com ícones genéricos e descrições padronizadas (`card-claude-desktop`, `card-cursor`, `card-vscode`, `card-claude-code`, `card-other-ais`, `card-chatgpt`).
+   - Claude Desktop com `status_badge` semântico, caminho do arquivo de configuração e diálogo de confirmação modal (`ui.dialog`) contendo snippet monoespaçado, aviso de substituição de entradas anteriores e botões de ação ("Confirmar" e "Cancelar").
+   - Comandos do VS Code, Claude Code e JSON genérico encapsulados em `copy_block` com botões de cópia e cópia rápida para clipboard.
+   - Teste `test_d031_fr19_conectar_grade_e_cancelar_dialogo` em `tests_desktop/test_connect_page.py`.
 
 ## Como testar
 
