@@ -204,6 +204,18 @@ body.body--dark .drawer-footer {
   border-top: 1px solid #1F2A4D !important;
 }
 
+/* D-031: Caixa de informação info compatível com tema claro e escuro */
+.rsl-info-box {
+  background-color: #EFF6FF !important;
+  border: 1px solid #BFDBFE !important;
+  color: #1E40AF !important;
+}
+body.body--dark .rsl-info-box {
+  background-color: #0B1936 !important;
+  border: 1px solid #1D4ED8 !important;
+  color: #93C5FD !important;
+}
+
 /* D-031: Caixa de aviso warning compatível com tema claro e escuro */
 .rsl-warning-box {
   background-color: #FFFBEB !important;
