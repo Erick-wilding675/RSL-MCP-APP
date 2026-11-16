@@ -12,7 +12,7 @@ Uma função sem o NiceGUI, `mcp_launch_command() -> tuple[str, list[str]]`, em 
 
 - **No executável empacotado** (`sys.frozen`):
   - o caminho absoluto do próprio executável (`sys.executable`), com `["--mcp"]`;
-  - ou o do `rslapp-mcp.exe`, se a 12-01 tiver precisado dele.
+  - o teste de fumaça da 12-01 provou, em 2026-11-15, que o `RSL.app.exe` sem console recebe o stdio, então o `rslapp-mcp.exe` não é preciso.
 - **No AppImage:** o caminho do arquivo `.AppImage` (variável de ambiente `APPIMAGE`), com `["--mcp"]`, e não o caminho temporário de dentro dele.
 - **Instalado pelo `pip`:** o caminho absoluto do comando `rslapp` do mesmo ambiente (ao lado de `sys.executable`), sem argumentos. Se não achar, usa `sys.executable` com `["-m", "rslapp"]`, desde que `python -m rslapp` funcione; confira e, se não funcionar, ajuste.
 - **Nenhuma chave entra na configuração das IAs.** O modo `--mcp` lê as chaves do `desktop.json` (12-01). Só o `RSL_DESKTOP_CONFIG` vai no `env`, e só quando estiver definido no ambiente do app.
@@ -34,15 +34,17 @@ Uma função sem o NiceGUI, `mcp_launch_command() -> tuple[str, list[str]]`, em 
    - **O estado mostrado:** "conectado" quando a entrada existe e aponta para este app; "conectado a outra instalação" quando ela aponta para outro comando; "não conectado" quando não existe.
 2. **Cursor**
    - O botão "Instalar no Cursor" abre `cursor://anysphere.cursor-deeplink/mcp/install?name=rslapp&config=<base64>`, que o Cursor confirma (fonte: cursor.com/docs/mcp/install-links, lida em 2026-11-15).
-   - O JSON em base64 é `{"command": ..., "args": [...]}`. Confira na página do Cursor se o `config` leva o objeto do servidor ou o objeto com o nome por fora, e siga o exemplo de lá.
+   - O `config` é o objeto do servidor, sem o nome por fora: `{"command": ..., "args": [...]}`, passado por `json.dumps` e depois base64 (o nome vai no parâmetro `name`). Fonte: cursor.com/docs/mcp/install-links, relida em 2026-11-15. Codifique o base64 para a URL (`urllib.parse.quote`), porque ele pode ter `+`, `/` e `=`.
    - Abra o link com o mesmo mecanismo que o app já usa para abrir pastas (`os.startfile` no Windows, `xdg-open` no Linux), sem shell.
 3. **VS Code (Copilot)**
-   - O botão "Instalar no VS Code" abre `vscode:mcp/install?<JSON com name, command e args, codificado para URL>`.
-   - A página oficial lida não descreve esse link (research.md). Antes de escrever, procure a página oficial do VS Code que o descreve.
-   - Se não achar, troque o botão por "Copiar configuração", com o trecho para `.vscode/mcp.json` e o link da documentação, e registre isso na spec.
+   - Não há link de instalação documentado: as páginas oficiais relidas em 2026-11-15 (code.visualstudio.com/docs/copilot/customization/mcp-servers e /docs/agents/reference/mcp-configuration) não descrevem `vscode:mcp/install`. Não use esse link.
+   - O cartão mostra o comando oficial, com o botão "Copiar": `code --add-mcp '<JSON>'`, em que o JSON é `{"name": "rslapp", "type": "stdio", "command": ..., "args": [...]}` (mais `env` quando houver). Ele grava no perfil do usuário do VS Code.
+   - E um segundo bloco "Ou copie para o `.vscode/mcp.json`", com `{"servers": {"rslapp": {"type": "stdio", "command": ..., "args": [...]}}}`, e o link da página de referência.
+   - No Windows, o comando com aspas simples é para o PowerShell; diga isso numa linha abaixo do bloco.
 4. **Claude Code**
-   - Mostra o comando pronto, com um botão "Copiar": `claude mcp add rslapp -- "<command>" <args>`.
-   - Confira a sintaxe atual do `claude mcp add` na documentação do Claude Code antes de escrever.
+   - Mostra o comando pronto, com um botão "Copiar": `claude mcp add --transport stdio --scope user rslapp -- "<command>" <args>`.
+   - Com `RSL_DESKTOP_CONFIG`: `claude mcp add --env RSL_DESKTOP_CONFIG=<caminho> --transport stdio --scope user rslapp -- ...`. O `--env` não pode vir logo antes do nome (a documentação avisa), por isso o `--transport` fica entre eles.
+   - Fonte: code.claude.com/docs/en/mcp, relida em 2026-11-15: as opções vêm antes do nome, e tudo depois do `--` vai para o servidor sem mudança.
 5. **Outras IAs**
    - Um bloco com o trecho JSON genérico (`command` e `args`) e o botão "Copiar", para qualquer cliente que aceite MCP local.
 6. **ChatGPT**
@@ -75,6 +77,7 @@ Uma função sem o NiceGUI, `mcp_launch_command() -> tuple[str, list[str]]`, em 
   - arquivo ilegível;
   - remover;
   - o link do Cursor decodificado de volta ao mesmo JSON;
+  - o JSON do `code --add-mcp` e o comando do Claude Code, com e sem `RSL_DESKTOP_CONFIG`, e com caminho que tem espaço;
   - nenhuma chave na saída, mesmo com chaves no ambiente.
 - [ ] Teste da tela em `tests_desktop`
 - [ ] Os gates passam
