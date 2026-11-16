@@ -95,6 +95,8 @@ O RSL.app é um servidor MCP por **stdio**. O comando é `uvx rslapp`, e as chav
 ## Usar por link (servidor hospedado)
 
 <!-- D-011, D-017, D-018 -->
+**Para instituições de ensino:** uma universidade pode oferecer o RSL.app a todos os seus pesquisadores, no Claude e no ChatGPT, num servidor próprio. Comece pela seção "Para instituições de ensino" do [guia de hospedagem](docs/hospedagem.md).
+
 Um laboratório, grupo de pesquisa ou pessoa também pode hospedar o RSL.app num servidor próprio com Docker e HTTPS pelo Caddy, gerando um código de acesso individual para cada pesquisador conectar por link (`https://<domínio>/mcp`) sem instalar nada na própria máquina. As chaves das bases e os dados das buscas ficam no servidor de quem hospeda. Veja o passo a passo e o aviso sobre a LGPD em [`docs/hospedagem.md`](docs/hospedagem.md).
 
 ## App desktop

@@ -1,10 +1,36 @@
 # Guia de hospedagem (uso por link)
 
-<!-- D-011, D-012, D-013, D-014, D-015, D-016, D-017, D-018 -->
+<!-- D-011, D-012, D-013, D-014, D-015, D-016, D-017, D-018, D-027, D-029, FR-20 -->
 
-Este guia mostra como colocar o **RSL.app** no ar num servidor próprio, com HTTPS automático pelo Caddy, para que pesquisadores de um laboratório, grupo de pesquisa ou equipe usem o servidor como conector por link no Claude ou no Claude Code — sem precisar instalar Python, `uv` nem chaves de API no próprio computador (**D-011**, **D-013**, **D-017**).
+Este guia mostra como colocar o **RSL.app** no ar num servidor próprio, com HTTPS automático pelo Caddy, para que pesquisadores de uma universidade, laboratório, grupo de pesquisa ou equipe usem o servidor como conector por link no Claude, no ChatGPT ou no Claude Code — sem precisar instalar Python, `uv` nem chaves de API no próprio computador (**D-011**, **D-013**, **D-017**).
 
-O projeto não mantém servidor central: quem hospeda administra a própria instância, configura as chaves das bases e gerencia os códigos de acesso das pessoas (**D-011**, **D-016**).
+O projeto não mantém servidor central: quem hospeda administra a própria instância, configura as chaves das bases e gerencia os códigos de acesso das pessoas (**D-011**, **D-016**, **D-027**).
+
+## Para instituições de ensino
+
+As universidades e institutos são o público principal do RSL.app (**D-029**). Esta parte resume o que a instituição oferece e do que precisa; as seções numeradas trazem o passo a passo.
+
+**O que a instituição oferece.** Cada pesquisador liga a própria IA ao servidor da instituição com um código pessoal: o Claude, o ChatGPT ou outra IA que aceite servidor MCP remoto. Cada pessoa tem as suas buscas, as suas listas e o seu log, separados dos das outras.
+
+**Por que interessa à instituição:**
+
+- toda busca fica registrada, com a string, a data e o número de resultados por base, e o registro pode ser anexado à metodologia da revisão;
+- as listas saem prontas para o VOSviewer e outras ferramentas de revisão;
+- o uso da IA na revisão fica rastreável e reproduzível, que é o que um comitê ou uma banca pede;
+- não há custo de licença: o RSL.app é gratuito e as chaves das bases também.
+
+**Do que a instituição precisa:**
+
+- um servidor com Docker e um domínio com HTTPS (seção [1](#1-do-que-você-precisa));
+- uma pessoa de TI para cadastrar os pesquisadores e revogar acessos (seção [3](#3-cadastrar-e-gerenciar-as-pessoas));
+- as chaves gratuitas das bases (OpenAlex obrigatória; Semantic Scholar e NCBI opcionais).
+
+**O que fica com a instituição.** Os dados de autores retornados nas buscas e o cadastro das pessoas ficam no servidor da instituição, e ela responde por eles. Leia o aviso abaixo antes de abrir o serviço.
+
+**As duas formas de oferecer:**
+
+1. **O servidor hospedado** (este guia): a pessoa não instala nada e conecta a IA pelo link e pelo código pessoal. É a única forma de usar o **ChatGPT**, que só se liga a servidores na internet.
+2. **O app desktop distribuído aos pesquisadores**: cada pessoa roda o RSL.app no próprio computador, com os dados na própria máquina (veja o README).
 
 > [!IMPORTANT]
 > **Aviso sobre dados pessoais e LGPD (D-018, T-007)**
@@ -125,7 +151,7 @@ A revogação corta o acesso e os links de download da pessoa imediatamente, sem
 
 ---
 
-## 4. Como cada pessoa conecta o Claude
+## 4. Como cada pessoa conecta a IA
 
 Cada pessoa logada tem a própria pasta de buscas, listas, exportações e `log.md`, isolada das demais (**D-012**). Quando a pessoa pede uma exportação (`export_list`), a IA devolve um link temporário (`download_url`, válido por 1 hora) para baixar o arquivo direto no navegador e abrir no VOSviewer (**D-014**). O log de buscas, que vai na metodologia, também sai por link: peça à IA "mostre o log de buscas" e abra o `log_download_url`.
 
@@ -151,6 +177,30 @@ claude mcp add --transport http rslapp https://rsl.seu-laboratorio.org/mcp
 ```
 
 Na primeira vez em que o conector for usado (ou pelo comando `/mcp` dentro do Claude Code), conclua o login OAuth no navegador digitando o seu código pessoal (`rsl_...`).
+
+### No ChatGPT
+
+<!-- FR-20, D-029: passos lidos em developers.openai.com em 2026-11-15 -->
+
+O ChatGPT só se liga a servidores MCP na internet, por isso o uso dele passa pelo servidor da instituição. O cadastro é feito no ChatGPT da web:
+
+1. Abra [chatgpt.com/plugins](https://chatgpt.com/plugins), clique no botão **+** e escolha **Add custom MCP server**.
+2. Dê um nome (por exemplo, `RSL.app`) e, em **Connection**, preencha o **Server URL** com `https://<domínio>/mcp`.
+3. Em autenticação, escolha **OAuth**, sem preencher credenciais: o ChatGPT se registra sozinho no servidor.
+4. Leia o aviso de risco, confirme com **I understand and want to continue** e clique em **Create as a plugin**.
+5. Instale o plugin na sua conta. Na primeira vez, o navegador abre a tela de login do RSL.app: digite o seu **código pessoal** (`rsl_...`).
+6. Numa conversa, ative o plugin e peça uma busca.
+
+**Planos.** A página oficial lida não diz em quais planos o cadastro funciona, e a página de ajuda da OpenAI não pôde ser lida. Guias de terceiros dizem que funciona nos planos Business, Enterprise e Edu e, com limites, no Plus e no Pro, e não no gratuito. Nos planos de organização (Business, Enterprise, Edu), só quem administra o espaço de trabalho cria e publica o plugin. **Para a instituição que tem ChatGPT Edu**, o caminho é a equipe que administra o ChatGPT cadastrar o RSL.app uma vez e publicá-lo para os pesquisadores; cada pessoa entra com o próprio código.
+
+**Confirmações.** O ChatGPT pede confirmação antes de cada ferramenta que não se declara só de leitura. Por enquanto, as ferramentas do RSL.app não fazem essa declaração, então espere uma confirmação por busca; dá para lembrar a aprovação durante a conversa.
+
+**Se o ChatGPT recusar o login:**
+
+- confira que `https://<domínio>/health` responde e que o certificado HTTPS é válido;
+- confira que o código pessoal está ativo (`rslapp token list`);
+- veja o log do servidor (`docker compose logs rslapp --tail 100`) no momento da tentativa: um erro em `/register`, `/authorize` ou `/token` mostra em que passo parou;
+- se nada disso explicar, abra uma issue no repositório com a mensagem do ChatGPT e as linhas do log, **sem o código pessoal**.
 
 ---
 
