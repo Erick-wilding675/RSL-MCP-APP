@@ -1,6 +1,6 @@
 # Correções da revisão geral (2.1)
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** a fazer
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** entregue (2026-11-16)
 
 ## O que faz
 
@@ -50,12 +50,12 @@ Os itens 1 e 2 são para quem hospeda: depois da 2.1, as variáveis opcionais do
 
 ## Pronto quando
 
-- [ ] O compose repassa as cinco variáveis, e o `.env.example` as mostra comentadas
-- [ ] `RSL_CACHE_DAYS` vazio vale o padrão, com teste
-- [ ] `tools/list` traz `readOnlyHint` certo nas nove ferramentas, com teste
-- [ ] O caso `pip` usa `rslapp-desktop --mcp`, com teste
-- [ ] No Windows, o comando do VS Code é o do Prompt de Comando, com teste
-- [ ] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
+- [x] O compose repassa as cinco variáveis, e o `.env.example` as mostra comentadas
+- [x] `RSL_CACHE_DAYS` vazio vale o padrão, com teste
+- [x] `tools/list` traz `readOnlyHint` certo nas nove ferramentas, com teste
+- [x] O caso `pip` usa `rslapp-desktop --mcp`, com teste
+- [x] No Windows, o comando do VS Code é o do Prompt de Comando, com teste
+- [x] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
 
 ## Vem de
 
@@ -69,8 +69,25 @@ D-011, D-014, D-016, D-017, D-029, FR-20; revisão do Claude em 2026-11-16.
 
 ## Resultado da entrega
 
-(preenche quem entrega)
+Código pelo Gemini (`agy`), um commit por item. O sistema parou o Gemini por falta de memória depois do último commit de código; o Claude revisou e escreveu esta seção.
+
+- `26fb416` **compose e `.env.example`:** as cinco variáveis passam com `${VAR:-}`; no `.env.example` ficam comentadas, sem valor, com o padrão no comentário.
+- `99c0498` **`RSL_CACHE_DAYS` vazio** ou só espaços vale `7`, com testes.
+- `b637361` **anotações:** `ToolAnnotations` de `mcp.types`; `readOnlyHint=True` em `list_sources`, `get_list` e `get_search_log`; `readOnlyHint=False` e `destructiveHint=False` nas outras seis. Vale no stdio e no HTTP (o servidor HTTP registra as mesmas anotações). Nomes, entradas e respostas não mudaram. O guia (seção "No ChatGPT") foi atualizado.
+- `05d6b5d` **caso `pip`:** `rslapp-desktop --mcp`, com recuo para `python -m rslapp.desktop --mcp`.
+- `456a31c` **comando do VS Code no Windows:** aspas duplas com `\"`, para o Prompt de Comando, e o aviso na tela; fora do Windows, aspas simples.
+- **Gates (Claude, 2026-11-16):** suíte principal 707 passaram e 1 pulado no 3.10 e no 3.14; `tests_desktop` 21; ruff limpo.
+- **Limite conhecido do item 5:** um valor do JSON que termine em barra invertida (`\`) quebraria as regras de aspas do Windows. Os caminhos que entram (o `.exe` e o `desktop.json`) não terminam assim.
 
 ## Como testar
 
-(preenche quem entrega)
+**Onde olhar primeiro:**
+
+1. `deploy/docker-compose.yml`: as variáveis novas vazias não podem impedir o servidor de subir. O teste de verdade é a atualização do servidor de teste na 12-04 (`docker compose pull && docker compose up -d`, depois `/health`).
+2. `src/rslapp/server.py`: as anotações no stdio e no HTTP; nenhuma ferramenta mudou de nome ou de entrada.
+3. `src/rslapp/desktop/connect.py`: o comando do VS Code no Windows.
+
+**Para conferir:**
+
+- No Windows, abra o app, vá em **Conectar IA**, copie o comando do VS Code e cole no **Prompt de Comando**: o VS Code deve registrar o servidor `rslapp`.
+- No ChatGPT (12-03), `list_sources` e `get_list` não pedem confirmação; uma busca pede.
