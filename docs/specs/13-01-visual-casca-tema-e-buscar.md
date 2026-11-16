@@ -1,6 +1,6 @@
 # Visual novo: casca, tema e tela Buscar (2.2)
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** a fazer
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** integrada (2026-11-16)
 
 ## O que faz
 
