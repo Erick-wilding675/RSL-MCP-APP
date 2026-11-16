@@ -112,11 +112,12 @@ Entregue conforme a spec em quatro commits (um por item):
 2. **Item 2 (Casca):** commit `023ba52` (`feat(desktop): casca com navegacao lateral e barra de cima (D-031, FR-16)`). `render_shell(title, subtitle)` com drawer lateral (itens Buscar, Histórico, Conectar IA e Configurações na ordem da spec, recolhendo para ícones abaixo de 1000px, item ativo destacado em `primary` translúcido, versão e alternador de tema no pé) e barra de conteúdo superior com títulos e subtítulos preservados. Aplicado nas cinco telas e atualizado `docs/hospedagem.md`. Testes em `tests_desktop/test_shell.py`.
 3. **Item 3 (Peças comuns):** commit `d8eb558` (`feat(desktop): componentes reutilizaveis de interface (D-031, FR-16)`). Módulo `src/rslapp/desktop/components.py` com `section_card` (usável com `with`), `empty_state`, `status_badge` e `copy_block`. Testes em `tests_desktop/test_components.py`.
 4. **Item 4 (Tela Buscar):** commit `372b655` (`feat(desktop): tela Buscar refeita com novo layout e atalho Ctrl+Enter (D-031, FR-16)`). Cartões de seção para String de busca (textarea com atalho Ctrl+Enter e proteção contra concorrência/duplo disparo), Fontes em grade de chips com descrições específicas e bloqueio de pagas sem chave, Opções lado a lado, botão Buscar grande alinhado à direita e cartão de progresso com barra linear indeterminada. Testes em `tests_desktop/test_search_and_list.py`.
+5. **Correção pós-revisão (Modo escuro):** commit `5c5f95b` (`fix(desktop): modo escuro sem variantes dark: do Tailwind (D-031)`): remoção de classes `dark:` do Tailwind e criação de classes semânticas (`.rsl-title`, `.rsl-muted`, `.rsl-surface-2`, `.rsl-surface-disabled`, `.rsl-code`) no CSS do tema via `body.body--dark`, corrigindo contraste e visibilidade no tema escuro do Quasar.
 
 ### Resultado dos gates
 
-- `uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest -c tests_desktop/pytest.ini tests_desktop -q`: 36 passed in 6.75s
-- `uv run --python 3.10 --extra dev python -m pytest -q`: 707 passed, 1 skipped in 66.52s
+- `uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest -c tests_desktop/pytest.ini tests_desktop -q`: 38 passed in 7.77s
+- `uv run --python 3.10 --extra dev python -m pytest -q`: 707 passed, 1 skipped in 53.49s
 - `uv run --extra dev python -m ruff check .`: All checks passed!
 
 ## Como testar
