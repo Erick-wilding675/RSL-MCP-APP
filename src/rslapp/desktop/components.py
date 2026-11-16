@@ -79,6 +79,17 @@ class status_badge(ui.badge):
         else:
             self.classes(base)
 
+    def set_status(self, text: str, kind: str = "neutral") -> None:
+        """Atualiza o texto e a cor semântica do selo."""
+        self.text = text
+        color = self.KIND_COLORS.get(kind, "")
+        self._props["color"] = color if color else None
+        if kind == "neutral":
+            self.classes(add="rsl-surface-2 rsl-muted")
+        else:
+            self.classes(remove="rsl-surface-2 rsl-muted")
+        self.update()
+
 
 # D-031, FR-16: Bloco de código monoespaçado com botão Copiar
 class copy_block(ui.row):
