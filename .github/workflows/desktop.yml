@@ -42,6 +42,16 @@ jobs:
           if (-not (Test-Path "dist/RSL.app/RSL.app.exe")) {
             throw "Executável dist/RSL.app/RSL.app.exe não foi gerado."
           }
+          # FR-16, D-025: Copia RSL.app.exe.config para permitir carregar DLLs do WebView2 quando extraído pelo Explorer
+          Copy-Item packaging/RSL.app.exe.config dist/RSL.app/RSL.app.exe.config
+
+      # FR-16, D-025: Marca todos os arquivos com Zone.Identifier para imitar extração de zip baixado da internet
+      - name: Marcar arquivos com Zone.Identifier (imita arquivo baixado)
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "dist/RSL.app" -Recurse -File | ForEach-Object {
+            Set-Content -Path $_.FullName -Stream "Zone.Identifier" -Value "[ZoneTransfer]`r`nZoneId=3"
+          }
 
       # D-025, FR-16: Teste de fumaça do executável gerado com --check
       - name: Executar teste de fumaça (--check)
@@ -49,11 +59,28 @@ jobs:
         run: |
           python -c "import subprocess, sys; res = subprocess.run([r'dist\RSL.app\RSL.app.exe', '--check'], check=False); sys.exit(res.returncode)"
 
+      # FR-16, D-025: Controle negativo - sem o RSL.app.exe.config, o --check tem de falhar com código != 0
+      - name: Executar controle negativo do teste de fumaça (sem .config)
+        shell: pwsh
+        run: |
+          Rename-Item -Path "dist/RSL.app/RSL.app.exe.config" -NewName "RSL.app.exe.config.bak"
+          try {
+            python -c "import subprocess, sys; res = subprocess.run([r'dist\RSL.app\RSL.app.exe', '--check'], check=False); sys.exit(0 if res.returncode != 0 else (print('Erro: controle negativo falhou, o --check deveria ter falhado sem o .config', file=sys.stderr) or 1))"
+          } finally {
+            Rename-Item -Path "dist/RSL.app/RSL.app.exe.config.bak" -NewName "RSL.app.exe.config"
+          }
+
       # D-028, FR-19: Teste de fumaça do modo servidor MCP por stdio (--mcp)
       - name: Executar teste de fumaça (--mcp)
         shell: pwsh
         run: |
           python packaging/smoke_mcp.py dist\RSL.app\RSL.app.exe --mcp
+
+      # FR-16, D-025: Remove marcas Zone.Identifier antes de compactar o zip
+      - name: Remover marcas Zone.Identifier dos arquivos
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "dist/RSL.app" -Recurse -File | Unblock-File
 
       - name: Compactar pasta em arquivo .zip
         shell: pwsh

@@ -1,6 +1,6 @@
 # Janela do app no Windows quando o zip vem do navegador (2.1)
 
-**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** a fazer (aberta em 2026-11-16)
+**Fase:** 12 · Conectar a IA ao app (2.1) · **Situação:** entregue (2026-11-16)
 
 ## O que faz
 
@@ -91,12 +91,12 @@ Quem distribui o zip nos laboratórios (pasta de rede, Intune, cópia manual) re
 
 ## Pronto quando
 
-- [ ] `packaging/RSL.app.exe.config` existe e o workflow o copia para `dist/RSL.app/`
-- [ ] No Windows, o `--check` carrega o pythonnet e as DLLs do WebView2, com teste em `tests_desktop` que não exige Windows para passar fora dele
-- [ ] O workflow marca os arquivos como baixados, o `--check` passa, o controle negativo falha como esperado, e as marcas saem antes do zip
-- [ ] README e guia com a linha do desbloqueio para a 2.0.0
+- [x] `packaging/RSL.app.exe.config` existe e o workflow o copia para `dist/RSL.app/`
+- [x] No Windows, o `--check` carrega o pythonnet e as DLLs do WebView2, com teste em `tests_desktop` que não exige Windows para passar fora dele
+- [x] O workflow marca os arquivos como baixados, o `--check` passa, o controle negativo falha como esperado, e as marcas saem antes do zip
+- [x] README e guia com a linha do desbloqueio para a 2.0.0
 - [ ] O workflow roda verde num `workflow_dispatch` da branch
-- [ ] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
+- [x] Os gates passam: `tests_desktop`, a suíte principal em 3.10 e 3.14, e o ruff
 
 ## Vem de
 
@@ -109,7 +109,16 @@ D-024, D-025, FR-16; teste do Erick em 2026-11-16.
 
 ## Resultado da entrega
 
-(a preencher)
+Código pelo Gemini (`agy`), um commit por item, mensagens em português (FR-16, D-025):
+
+- `ddbf4f7` **Item 1 (config ao lado do `.exe`):** arquivo `packaging/RSL.app.exe.config` com `<loadFromRemoteSources enabled="true"/>`; no workflow `.github/workflows/desktop.yml`, passo de empacotamento copia o `.config` para `dist/RSL.app/RSL.app.exe.config`.
+- `2616b9c` **Item 2 (`--check` carrega .NET no Windows):** `_ensure_windows_dotnet()` em `src/rslapp/desktop/app.py` carrega pythonnet, `winforms`, e as DLLs `Microsoft.Web.WebView2.Core.dll` e `Microsoft.Web.WebView2.WinForms.dll` via `interop_dll_path`; se falhar, imprime no stderr e sai com código != 0 (`SystemExit(1)`); testes em `tests_desktop/test_app.py` cobrem sucesso no Windows nativo, ausência de chamada fora do Windows, falha com código != 0 e mensagem no stderr; teste de integração em `tests/desktop/test_check.py` atualizado.
+- `85868b6` **Item 3 (teste de fumaça imita arquivo baixado):** job do Windows no CI grava fluxo `Zone.Identifier` (`ZoneId=3`) em todos os arquivos de `dist/RSL.app`; executa `--check`; executa controle negativo renomeando temporariamente o `.config` para `.bak` e exigindo código diferente de zero; remove as marcas com `Unblock-File` antes de compactar o zip.
+- `c5fbc92` **Item 4 (documentação):** linha no `README.md` orientando o desbloqueio do zip nas Propriedades para quem ainda tem a 2.0.0; linha em `docs/hospedagem.md` ("Distribuir o app aos pesquisadores") informando que a partir da 2.1 o zip funciona extraído diretamente pelo Explorer e na 2.0.0 exige desbloqueio.
+- **Gates (2026-11-16):**
+  - `tests_desktop` (Python 3.12): 25 passaram em 6.28s;
+  - Suíte principal (Python 3.10): 707 passaram e 1 pulado em 71.62s;
+  - `ruff`: all checks passed.
 
 ## Como testar
 
