@@ -13,7 +13,13 @@ if "--mcp" not in sys.argv[1:]:
     with contextlib.suppress(ImportError):
         from nicegui import app
 
-        from rslapp.desktop.pages import history, list_view, search, settings_page  # noqa: F401
+        from rslapp.desktop.pages import (  # noqa: F401
+            connect_page,
+            history,
+            list_view,
+            search,
+            settings_page,
+        )
 
         # D-024, D-025: Opções de app.native fora do bloco if __name__ conforme a documentação do NiceGUI
         app.native.window_args.setdefault("resizable", True)

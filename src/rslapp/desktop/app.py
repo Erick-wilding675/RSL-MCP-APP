@@ -72,12 +72,18 @@ def _ensure_native_backend() -> None:
         )
 
 
-# D-024, D-025, FR-16, FR-17, FR-18: Registra as quatro rotas do app desktop
+# D-024, D-025, D-028, FR-16, FR-17, FR-18, FR-19: Registra as rotas do app desktop
 def register_pages(service: DesktopService | None = None) -> DesktopService:
-    """Registra as páginas /, /lista/{list_id}, /historico e /configuracoes no NiceGUI."""
+    """Registra as páginas /, /lista/{list_id}, /historico, /conectar e /configuracoes no NiceGUI."""
     from nicegui import app, ui
 
-    from rslapp.desktop.pages import history, list_view, search, settings_page
+    from rslapp.desktop.pages import (
+        connect_page,
+        history,
+        list_view,
+        search,
+        settings_page,
+    )
 
     app.native.window_args.setdefault("resizable", True)
     resolved_service = service if service is not None else DesktopService()
@@ -93,6 +99,10 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     @ui.page("/historico")
     def history_page() -> None:
         history.build(resolved_service)
+
+    @ui.page("/conectar")
+    def connect_route_page() -> None:
+        connect_page.build(resolved_service)
 
     @ui.page("/configuracoes")
     def settings_route_page() -> None:

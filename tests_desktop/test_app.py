@@ -23,6 +23,7 @@ async def test_d024_d025_fr16_rotas_e_cabecalho_no_user_fixture(user: User) -> N
     await user.should_see("RSL.app")
     await user.should_see("Buscar")
     await user.should_see("Histórico")
+    await user.should_see("Conectar IA")
     await user.should_see("Configurações")
     await user.should_see("Busque artigos nas bases acadêmicas configuradas.")
 
@@ -35,6 +36,13 @@ async def test_d024_d025_fr16_rotas_e_cabecalho_no_user_fixture(user: User) -> N
     await user.should_see("RSL.app")
     await user.should_see("Histórico")
     await user.should_see("Consulte as buscas já feitas, repita uma busca ou abra o log.")
+
+    await user.open("/conectar")
+    await user.should_see("RSL.app")
+    await user.should_see("Conectar IA")
+    await user.should_see(
+        "Ligue a sua IA ao RSL.app deste computador. As buscas que ela fizer ficam na sua pasta de dados e aparecem no Histórico."
+    )
 
     await user.open("/configuracoes")
     await user.should_see("RSL.app")
