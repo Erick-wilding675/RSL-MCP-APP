@@ -102,3 +102,17 @@ class DesktopService:
         """Devolve o caminho do arquivo log.md na pasta de dados atual."""
         store, _ = self._build_store()
         return store.log_path
+
+    # FR-21, D-030: Verifica referências contra alucinação usando as fontes configuradas
+    async def verify_references(
+        self,
+        references: str | list[Any],
+    ) -> dict[str, Any]:
+        """Verifica uma lista de referências contra as fontes configuradas."""
+        from rslapp.core.verify import run_verify_references
+
+        return await run_verify_references(
+            build_sources(include_paid=True),
+            references=references,
+            request_summary="app desktop",
+        )
