@@ -84,6 +84,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     from rslapp.desktop.pages import (
         connect_page,
         history,
+        import_view,
         list_view,
         search,
         settings_page,
@@ -102,6 +103,11 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     def verify_route_page() -> None:
         assert _active_service is not None
         verify_view.build(_active_service)
+
+    @ui.page("/importar")
+    def import_route_page() -> None:
+        assert _active_service is not None
+        import_view.build(_active_service)
 
     @ui.page("/lista/{list_id}")
     def list_detail_page(list_id: str) -> None:
