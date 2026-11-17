@@ -59,6 +59,10 @@ As universidades e institutos são o público principal do RSL.app (**D-029**). 
    - uma chave gratuita do NCBI (`NCBI_API_KEY`, na página de configurações da conta do NCBI), que sobe o limite do PubMed de 3 para 10 pedidos por segundo;
    - um e-mail de contato (`RSL_CONTACT_EMAIL`), enviado à Crossref, ao NCBI e ao Europe PMC para identificar o servidor.
 
+   **BDTD (IBICT):** A Biblioteca Digital Brasileira de Teses e Dissertações funciona nativamente em todas as instâncias sem necessidade de chave ou cadastro, permitindo o resgate de mais de 700 mil teses e dissertações defendidas no Brasil como literatura cinzenta essencial para mitigar viés de publicação (**D-035**).
+
+   **Roteiros Metodológicos Integrados:** Na versão 2.3, o servidor disponibiliza prompts MCP para orientar discentes e pós-graduandos em 4 metodologias clássicas de revisão (`plan_scoping_review` pelo JBI/PRISMA-ScR com PCC, `plan_integrative_review` pelas 6 fases de Mendes et al., `plan_systematic_review` por Cochrane/PRISMA com PICO e `plan_bibliometric_study` para VOSviewer com Leis de Bradford, Lotka e Zipf).
+
    As chaves ficam somente no servidor e atendem a todas as pessoas cadastradas (**D-013**, **D-020**).
 
    **O Scopus e o Web of Science não entram no servidor hospedado** (**D-023**). Os termos das duas bases proíbem servir os dados a quem é de fora da instituição, e o Scopus confere a assinatura pelo IP de quem chama, que aqui seria o do servidor. No modo hospedado, `list_sources` não as mostra, e uma busca que as peça recebe `invalid_input` com a explicação. Quem tem acesso usa as duas no RSL.app instalado no próprio computador (veja o README).

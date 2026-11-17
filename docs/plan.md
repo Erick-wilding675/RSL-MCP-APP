@@ -165,6 +165,8 @@ Decidido em 2026-11-16 (D-030, D-035): integração da BDTD para literatura cinz
 
 A 14-01 e a 14-03 são independentes e podem andar em paralelo. A 14-02 espera a 14-01. A 14-04 espera a 14-02 e a 14-03. A 14-05 fecha a fase e espera o ok do Erick.
 
+**Fase 14 pronta em 2026-11-17:** tarefas 14-01 a 14-05 concluídas, 761 testes do núcleo e 60 testes do desktop passando, pacote 2.3.0 preparado para publicação no PyPI e release GitHub.
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):

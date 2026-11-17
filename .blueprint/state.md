@@ -8,8 +8,8 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-14T17:00:00Z
-updated_by: Claude Code
+updated: 2026-11-17T00:15:00Z
+updated_by: Antigravity (Gemini)
 ---
 
 # Project state
@@ -210,7 +210,12 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - **13-06 integrada em 2026-11-16:** importar exportações de fora: RIS, BibTeX, Scopus CSV e Web of Science TSV/Tagged (FR-23, D-033). Núcleo (`src/rslapp/importers/`) com parsers e `auto_detect_format`, persistência no Store com registro em `log.md`; ferramenta MCP `import_works` (11 ferramentas no total); tela `/importar` no desktop com upload e área de texto.
   - **13-07 integrada em 2026-11-16:** referências na ABNT NBR 6023:2018 (FR-24, D-034). Núcleo (`src/rslapp/core/abnt.py`) com normalização de autores e regras da edição 2018; exportador `abnt` (`.txt`) gerando lista em ordem alfabética; botão `ABNT` na tela Lista do app desktop e suporte no servidor MCP.
   - **13-08 publicada em 2026-11-16:** pacote `rslapp` 2.2.0 publicado no PyPI, tag e release `v2.2.0` no GitHub com executáveis (.zip Windows, AppImage Linux) e imagem multi-arquitetura no GHCR. 739 testes do núcleo em 3.10 e 3.14, 55 testes do desktop, ruff limpo.
-  - **Próximo:** Planejamento e especificação da Fase 14 (v2.3 · Academia Brasileira: SciELO, BDTD, LILACS/BVS, DeCS).
+- **Fase 14 (2.3 · Academia Brasileira) concluída e pronta para publicação em 2026-11-17:**
+  - **14-01 integrada em 2026-11-17:** conector da Biblioteca Digital Brasileira de Teses e Dissertações (BDTD / IBICT) via API REST VuFind pública, sem chave, com extração de metadados, autores/orientadores e tipos `thesis` e `dissertation`.
+  - **14-02 integrada em 2026-11-17:** inclusão de `bdtd` no servidor MCP stdio e HTTP, precedência na deduplicação de literatura cinzenta, 27 colunas no CSV com `BDTD ID`, orientações à IA no prompt e docstrings.
+  - **14-03 integrada em 2026-11-17:** 4 roteiros metodológicos e prompts de planejamento científico rigoroso (`plan_scoping_review` pelo JBI/PRISMA-ScR com PCC, `plan_integrative_review` pelas 6 fases de Mendes et al., `plan_systematic_review` por Cochrane/PRISMA com PICO e `plan_bibliometric_study` para VOSviewer com Leis de Bradford, Lotka e Zipf).
+  - **14-04 integrada em 2026-11-17:** interface desktop com suporte a BDTD na tela Buscar, pré-preenchimento via `initial_query`, selos visuais distintivos `TESE` e `DISSERTAÇÃO` na tela Lista, item "Roteiros" no drawer lateral e nova página `/roteiros` interativa com 4 abas, formulários e cópia de prompts para a IA.
+  - **14-05 integrada em 2026-11-17:** bumping de versão para 2.3.0, guia de hospedagem e contrato de interfaces atualizados, suíte de 761 testes do núcleo e 60 testes de interface do desktop passando com 100% de sucesso. Pronta para release `v2.3.0` no GitHub e PyPI após confirmação do Erick.
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
