@@ -334,3 +334,19 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
   - só trocar as cores: não resolve a navegação nem os estados vazios.
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
 - **Situação:** decidida. Specs 13-01 a 13-03.
+
+## D-032 · Retratações nas listas: identificação automática via Retraction Watch (Crossref) e OpenAlex, com avisos nas listas, fichas e exportações
+
+- **Decisão:** o sistema identifica automaticamente artigos formalmente retratados ou com expressão de preocupação oficial:
+  - **Identificação:** via atributo nativo `is_retracted` no OpenAlex (alimentado pela base Retraction Watch) e via `updated-by` na API da Crossref (comprovando procedência do Retraction Watch / Crossmark), além de Europe PMC (`isRetracted`) e PubMed (`PublicationType`).
+  - **Comportamento metodológico:** não exclui os artigos retratados da lista (preserva a integridade do fluxograma PRISMA e o registro das buscas).
+  - **Sinalização visual:** badge vermelho `RETRATADO` com tooltip na tabela de artigos e cartão de alerta na faixa superior da tela de Lista quando houver estudos retratados.
+  - **Exportações:** notas explícitas em RIS (`N1`), BibTeX (`note`) e marcação em `Document Type` no CSV compatível com Scopus/VOSviewer.
+- **Motivo:**
+  - Evitar que revisores sistemáticos incluam acidentalmente estudos fraudulentos, com dados forjados ou erros metodológicos graves em sínteses de evidências.
+  - Alinhado ao Fundamento do projeto: rigor, rastreabilidade e reprodutibilidade na pesquisa científica.
+- **Alternativas:**
+  - Excluir automaticamente artigos retratados: violaria a metodologia de revisões sistemáticas (PRISMA), que exige reportar todas as obras recuperadas pelas strings.
+  - Consultar base privada: a base do Retraction Watch tornou-se aberta e integrada pela Crossref em 2023, permitindo consulta gratuita e sem custo adicional de infraestrutura.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Spec 13-05.
