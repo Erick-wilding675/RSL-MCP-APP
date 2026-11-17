@@ -147,11 +147,23 @@ Decidido em 2026-11-16 (D-030, D-031): o rumo é o de `docs/ideias-proximas-vers
 3. Visual novo: Configurações e Conectar IA. Spec: `specs/13-03-visual-configuracoes-e-conectar.md`
 4. Verificador de referências contra alucinação (ideia 5.1). Spec a escrever, depois de ler as páginas oficiais do Crossref e do OpenAlex.
 5. Retratações nas listas (ideia 5.2). Spec a escrever, depois de ler como o Crossref publica os dados do Retraction Watch.
-6. Importar exportações de fora: RIS, BibTeX e os formatos do Scopus e da Web of Science (ideia 7). Spec a escrever.
-7. Referências na ABNT (ideia 4.3). Spec a escrever, depois de ler o estilo CSL da NBR 6023.
-8. Publicação da 2.2.0. Spec a escrever.
+6. Importar exportações de fora: RIS, BibTeX e os formatos do Scopus e da Web of Science (ideia 7). Spec: `specs/13-06-importar-exportacoes.md`
+7. Referências na ABNT (ideia 4.3). Spec: `specs/13-07-referencias-na-abnt.md`
+8. Publicação da 2.2.0. Spec: `specs/13-08-publicacao-2-2-e-teste-real.md`
 
-O código da fase 13 fica na branch `integracao-2.2` até a 2.1.0 ser publicada, para a 2.1 não levar o que é da 2.2. A 13-02 e a 13-03 dependem da 13-01 e andam em paralelo entre si. As tarefas 4 a 7 não dependem do visual na parte do núcleo e das ferramentas MCP; a parte de tela de cada uma usa as peças da 13-01.
+**Fase 13 pronta em 2026-11-16:** `rslapp` 2.2.0 no PyPI e no ghcr.io, release `v2.2.0` no GitHub com executáveis Windows e Linux.
+
+### 14 · Versão 2.3: Academia Brasileira
+
+Decidido em 2026-11-16 (D-030, D-035): integração da BDTD para literatura cinzenta nacional (teses e dissertações), prompts de planejamento metodológico por tipo de revisão e nova tela de Roteiros Metodológicos.
+
+1. Fonte BDTD: conector da Biblioteca Digital Brasileira de Teses e Dissertações via API REST VuFind (`https://bdtd.ibict.br/vufind/api/v1/search`), mapeamento de campos (título, autores, orientadores, resumo, instituição, datas, DOIs/URLs) e modelo com tipo `thesis` ou `dissertation`. Spec: `specs/14-01-fonte-bdtd.md`
+2. BDTD no servidor MCP e deduplicação: adicionar `bdtd` nas fontes suportadas, `list_sources`, busca unificada, deduplicação por título/ano/autor e orientações à IA sobre literatura cinzenta nacional. Spec: `specs/14-02-bdtd-no-servidor-mcp.md`
+3. Roteiros e Prompts para Tipos de Revisão: prompts MCP especializados (`plan_scoping_review` com PCC, `plan_integrative_review` com Whittemore/Mendes, `plan_systematic_review` com PICO/PRISMA e `plan_bibliometric_study`). Spec: `specs/14-03-prompts-roteiros-revisao.md`
+4. Interface Desktop: BDTD na busca, selos de teses e dissertações, e tela de Roteiros Metodológicos (`/roteiros`) guiando a escolha e os critérios do estudo. Spec: `specs/14-04-desktop-bdtd-e-roteiros.md`
+5. Publicação da 2.3.0 e teste real. Spec: `specs/14-05-publicacao-2-3-e-teste-real.md`
+
+A 14-01 e a 14-03 são independentes e podem andar em paralelo. A 14-02 espera a 14-01. A 14-04 espera a 14-02 e a 14-03. A 14-05 fecha a fase e espera o ok do Erick.
 
 ### Depois da 1.2: a versão maior (2.0)
 
