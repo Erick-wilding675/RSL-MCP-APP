@@ -329,6 +329,7 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "repeat_search",
         "merge_lists",
         "export_list",
+        "import_works",
     }
 
     async with Client(server.mcp) as client:
