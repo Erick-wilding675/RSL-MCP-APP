@@ -33,8 +33,9 @@ __all__ = [
 ]
 
 
+# FR-03, FR-22, D-032: Resumo compacto do trabalho para respostas das ferramentas MCP
 def _summarize_work(work: Work) -> dict[str, Any]:
-    return {
+    res: dict[str, Any] = {
         "doi": work.doi,
         "title": work.title,
         "authors": [author.name for author in work.authors],
@@ -43,6 +44,11 @@ def _summarize_work(work: Work) -> dict[str, Any]:
         "references_count": work.references_count,
         "citations": dict(work.citations),
     }
+    if work.is_retracted:
+        res["is_retracted"] = True
+        if work.retraction_details:
+            res["retraction_details"] = dict(work.retraction_details)
+    return res
 
 
 # D-020: Fontes acadêmicas padrão consultadas quando sources não for especificado

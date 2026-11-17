@@ -231,6 +231,24 @@ def _parse_work(raw_work: Any) -> Work | None:
 
     source_ids: dict[str, str] = {"crossref": doi} if doi else {}
 
+    # FR-22, D-032: Extrai retratações do campo updated-by (Retraction Watch / Crossmark)
+    is_retracted = False
+    retraction_details: dict[str, Any] | None = None
+    raw_updates = raw_work.get("updated-by")
+    if isinstance(raw_updates, list):
+        for upd in raw_updates:
+            if isinstance(upd, dict):
+                u_type = str(upd.get("type", "")).lower().strip()
+                if u_type in ("retraction", "expression-of-concern"):
+                    is_retracted = True
+                    retraction_details = {
+                        "type": u_type,
+                        "label": upd.get("label") or "Retraction",
+                        "source": upd.get("source") or "crossref",
+                        "doi": _normalize_doi(upd.get("DOI") or upd.get("doi")),
+                    }
+                    break
+
     return Work(
         title=title,
         doi=doi,
@@ -244,6 +262,8 @@ def _parse_work(raw_work: Any) -> Work | None:
         references_count=references_count,
         citations=citations,
         source_ids=source_ids,
+        is_retracted=is_retracted,
+        retraction_details=retraction_details,
     )
 
 

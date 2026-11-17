@@ -71,7 +71,7 @@ class Author:
         )
 
 
-# FR-03, FR-14, D-004, D-010: Registro completo do artigo com autores, referências e citações
+# FR-03, FR-14, FR-22, D-004, D-010, D-032: Registro completo do artigo com autores, referências, citações e retratações
 @dataclass
 class Work:
     """Artigo acadêmico normalizado no formato comum do miolo."""
@@ -88,6 +88,8 @@ class Work:
     references_count: int | None = None
     citations: dict[str, int] = field(default_factory=dict)
     source_ids: dict[str, str] = field(default_factory=dict)
+    is_retracted: bool = False
+    retraction_details: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -103,6 +105,10 @@ class Work:
             "references_count": self.references_count,
             "citations": dict(self.citations),
             "source_ids": dict(self.source_ids),
+            "is_retracted": self.is_retracted,
+            "retraction_details": (
+                dict(self.retraction_details) if self.retraction_details else None
+            ),
         }
 
     @classmethod
@@ -120,6 +126,12 @@ class Work:
             references_count=data.get("references_count"),
             citations=dict(data.get("citations") or {}),
             source_ids=dict(data.get("source_ids") or {}),
+            is_retracted=bool(data.get("is_retracted", False)),
+            retraction_details=(
+                dict(data["retraction_details"])
+                if isinstance(data.get("retraction_details"), Mapping)
+                else None
+            ),
         )
 
 

@@ -296,6 +296,12 @@ def _parse_work(raw_work: Any) -> Work | None:
         if pmid_str:
             source_ids["pubmed"] = pmid_str
 
+    # FR-22, D-032: Extrai indicador isRetracted do Europe PMC
+    is_retracted = str(raw_work.get("isRetracted", "")).strip().lower() == "y"
+    retraction_details = (
+        {"source": "europe_pmc", "label": "Retracted"} if is_retracted else None
+    )
+
     return Work(
         title=title,
         doi=doi,
@@ -309,6 +315,8 @@ def _parse_work(raw_work: Any) -> Work | None:
         references_count=None,
         citations=citations,
         source_ids=source_ids,
+        is_retracted=is_retracted,
+        retraction_details=retraction_details,
     )
 
 

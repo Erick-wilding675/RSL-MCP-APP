@@ -170,6 +170,15 @@ def _extract_type(article_elem: ET.Element) -> str | None:
     return None
 
 
+# FR-22, D-032: Detecta artigos retratados no PublicationTypeList do PubMed
+def _extract_retraction(article_elem: ET.Element) -> tuple[bool, dict[str, Any] | None]:
+    for pt in article_elem.findall(".//PublicationTypeList/PublicationType"):
+        text = " ".join("".join(pt.itertext()).split()).lower()
+        if "retracted publication" in text or "retraction of publication" in text:
+            return True, {"source": "pubmed", "label": text}
+    return False, None
+
+
 # FR-03, D-004, D-020: Nome (ForeName LastName, LastName ou CollectiveName), ORCID e afiliações
 def _parse_author(author_elem: ET.Element) -> Author | None:
     fore = " ".join(author_elem.findtext("ForeName", "").split())
@@ -291,6 +300,9 @@ def _parse_pubmed_article(article_container: ET.Element) -> Work | None:
     pmid_elem = medline_citation.find("PMID")
     pmid = "".join(pmid_elem.itertext()).strip() if pmid_elem is not None else None
 
+    # FR-22, D-032: Extrai status de retratação
+    is_retracted, retraction_details = _extract_retraction(article_elem)
+
     return Work(
         title=title,
         doi=doi,
@@ -304,6 +316,8 @@ def _parse_pubmed_article(article_container: ET.Element) -> Work | None:
         references_count=references_count,
         citations={},
         source_ids={"pubmed": pmid} if pmid else {},
+        is_retracted=is_retracted,
+        retraction_details=retraction_details,
     )
 
 
