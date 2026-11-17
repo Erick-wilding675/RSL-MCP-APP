@@ -1,6 +1,6 @@
 # Referências na ABNT NBR 6023:2018 (2.2)
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** em andamento
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** integrada
 
 ## O que faz
 
@@ -50,12 +50,44 @@ A grande maioria dos programas de pós-graduação, comitês de ética, periódi
 
 ## Pronto quando
 
-- [ ] Módulo `src/rslapp/core/abnt.py` implementado com formatação de obras segundo a ABNT NBR 6023:2018.
-- [ ] Exportador `ABNTExporter` implementado em `src/rslapp/exporters/abnt.py` e registrado em `_EXPORTERS`.
-- [ ] Ferramenta MCP `export_list(format="abnt")` testada e validada no stdio e HTTP.
-- [ ] Botão de exportação "ABNT" adicionado ao cartão Exportar da tela Lista no app desktop.
-- [ ] Testes de unidade e integração cobrindo artigos normais, artigos com mais de 3 autores, artigos retratados e listas completas.
-- [ ] Todos os gates passam (testes 3.10 e 3.14, testes do desktop, linter Ruff limpo).
+- [x] Módulo `src/rslapp/core/abnt.py` implementado com formatação de obras segundo a ABNT NBR 6023:2018.
+- [x] Exportador `ABNTExporter` implementado em `src/rslapp/exporters/abnt.py` e registrado em `_EXPORTERS`.
+- [x] Ferramenta MCP `export_list(format="abnt")` testada e validada no stdio e HTTP.
+- [x] Botão de exportação "ABNT" adicionado ao cartão Exportar da tela Lista no app desktop.
+- [x] Testes de unidade e integração cobrindo artigos normais, artigos com mais de 3 autores, artigos retratados e listas completas.
+- [x] Todos os gates passam (testes 3.10 e 3.14, testes do desktop, linter Ruff limpo).
+
+## Resultado da entrega
+
+1. **Formatador ABNT no núcleo (`src/rslapp/core/abnt.py`):**
+   - Normalização de autores em caixa alta no sobrenome principal (`SILVA, Carlos`), com tratamento de sufixos de parentesco brasileiros (`SILVA FILHO, João`) e múltiplos autores.
+   - Formatação fiel à ABNT NBR 6023:2018 para artigos de periódicos, livros e conferências, com destaque correto no periódico para artigos e no título para monografias.
+   - Inclusão automática de DOI/endereço eletrônico e nota de alerta quando o artigo for formalmente retratado (D-032).
+2. **Exportador ABNT (`src/rslapp/exporters/abnt.py`):**
+   - Classe `ABNTExporter` registrada com formato `abnt` e extensão `.txt`.
+   - Gera a lista de referências completa ordenada alfabeticamente pelo primeiro autor, separada por linhas em branco.
+3. **Interface Desktop (`src/rslapp/desktop/pages/list_view.py`):**
+   - Botão `ABNT` com ícone `format_quote` adicionado ao cartão "Exportar" da tela de Lista.
+4. **Testes automatizados:**
+   - Testes unitários de formatação e ordenação alfabética em `tests/exporters/test_abnt.py`.
+   - Testes de integração da ferramenta MCP em `tests/test_server_export_list.py`.
+   - Testes de interface desktop em `tests_desktop/test_search_and_list.py`.
+
+## Como testar
+
+1. **Testes do exportador ABNT:**
+   ```bash
+   uv run --python 3.10 --extra dev python -m pytest tests/exporters/test_abnt.py tests/test_server_export_list.py
+   uv run --python 3.14 --extra dev python -m pytest tests/exporters/test_abnt.py tests/test_server_export_list.py
+   ```
+2. **Testes da interface desktop:**
+   ```bash
+   uv run --python 3.12 --extra desktop --extra desktop-dev --extra dev python -m pytest tests_desktop/test_search_and_list.py
+   ```
+3. **Linter Ruff:**
+   ```bash
+   uv run --extra dev python -m ruff check .
+   ```
 
 ## Vem de
 
