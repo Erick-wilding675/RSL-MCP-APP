@@ -239,6 +239,21 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 ui.label(short_date).classes("text-lg font-bold rsl-title")
                 ui.label(f"Data: {created_at}").classes("text-xs rsl-muted")
 
+            # FR-22, D-032: Cartão de alerta de retratação caso a lista contenha artigos retratados
+            retracted_count = sum(
+                1 for w in works if isinstance(w, dict) and w.get("is_retracted")
+            )
+            if retracted_count > 0:
+                with (
+                    ui.card()
+                    .classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1")
+                    .mark("card-retracted")
+                ):
+                    ui.label(str(retracted_count)).classes("text-2xl font-bold text-negative")
+                    ui.label(
+                        f"Artigo{'s' if retracted_count > 1 else ''} retratado{'s' if retracted_count > 1 else ''}"
+                    ).classes("text-xs text-negative font-medium")
+
         # 3. Cartão "Busca": string em monoespaçado com copy_block, ID e fontes (D-031, FR-16)
         with section_card("Busca", icon="search"):
             ui.label(f"Identificador: {list_data.get('id', list_id)}").classes(
@@ -346,6 +361,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     "doi": doi_text,
                     "doi_url": doi_url,
                     "sources": _format_work_sources(work),
+                    "is_retracted": bool(work.get("is_retracted", False)),
                 }
             )
 
@@ -419,7 +435,13 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 "body-cell-title",
                 r"""
                 <q-td :props="props">
-                    <div class="font-bold rsl-title leading-snug">{{ props.row.title }}</div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold rsl-title leading-snug">{{ props.row.title }}</span>
+                        <q-badge v-if="props.row.is_retracted" color="negative" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            RETRATADO
+                            <q-tooltip>Artigo formalmente retratado ou com expressão de preocupação oficial</q-tooltip>
+                        </q-badge>
+                    </div>
                     <div v-if="props.row.authors" class="text-xs rsl-muted mt-0.5">{{ props.row.authors }}</div>
                 </q-td>
                 """,
