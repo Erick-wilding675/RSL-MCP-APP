@@ -182,7 +182,7 @@ class FakeDesktopService:
         if list_id not in self.lists:
             raise RSLError("list_not_found", f"Lista não encontrada: {list_id}")
         self.export_calls.append((list_id, export_format))
-        ext = "bib" if export_format == "bibtex" else ("txt" if export_format == "dois" else export_format)
+        ext = "bib" if export_format == "bibtex" else ("txt" if export_format in ("dois", "abnt") else export_format)
         out_path = self.export_dir / f"{list_id}.{ext}"
         return {"path": str(out_path), "format": export_format, "count": 2}
 
@@ -424,6 +424,11 @@ async def test_fr06_fr12_fr16_exportar_mostra_caminho_e_abrir_pasta(
     expected_bib = str(tmp_path / "l-0003.bib")
     await user.should_see(expected_bib)
     assert fake_service.export_calls == [("l-0003", "ris"), ("l-0003", "bibtex")]
+
+    user.find(marker="export-abnt").click()
+    expected_abnt = str(tmp_path / "l-0003.txt")
+    await user.should_see(expected_abnt)
+    assert fake_service.export_calls == [("l-0003", "ris"), ("l-0003", "bibtex"), ("l-0003", "abnt")]
 
     opened_folders: list[Path] = []
     monkeypatch.setattr(
