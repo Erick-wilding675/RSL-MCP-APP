@@ -10,6 +10,7 @@ from mcp import Client
 
 from rslapp import server
 from rslapp.core.models import Author, SourceResult, Work
+from rslapp.sources.bdtd import BDTDSource
 from rslapp.sources.crossref import CrossrefSource
 from rslapp.sources.europe_pmc import EuropePMCSource
 from rslapp.sources.openalex import OpenAlexSource
@@ -71,20 +72,21 @@ def _extract_result_dict(call_result: Any) -> dict[str, Any]:
     return sc
 
 
-# FR-01, FR-07, D-002, D-020, D-023: _build_sources instancia as sete fontes na ordem canônica no stdio
+# FR-01, FR-07, D-002, D-020, D-023, D-035: _build_sources instancia as oito fontes na ordem canônica no stdio
 def test_fr01_fr07_d002_build_sources_instancia_tres_fontes() -> None:
     sources = server._build_sources()
-    assert len(sources) == 7
+    assert len(sources) == 8
     assert isinstance(sources[0], OpenAlexSource)
     assert isinstance(sources[1], CrossrefSource)
     assert isinstance(sources[2], SemanticScholarSource)
     assert isinstance(sources[3], EuropePMCSource)
     assert isinstance(sources[4], PubmedSource)
-    assert isinstance(sources[5], ScopusSource)
-    assert isinstance(sources[6], WebOfScienceSource)
+    assert isinstance(sources[5], BDTDSource)
+    assert isinstance(sources[6], ScopusSource)
+    assert isinstance(sources[7], WebOfScienceSource)
 
 
-# FR-07, D-002, D-020, D-023: list_sources mostra as sete fontes no stdio e a docstring tem a nota das bases
+# FR-07, D-002, D-020, D-023, D-035: list_sources mostra as oito fontes no stdio e a docstring tem a nota das bases
 @pytest.mark.anyio
 async def test_fr07_d002_list_sources_docstring_e_tres_fontes() -> None:
     async with Client(server.mcp) as client:
@@ -105,6 +107,7 @@ async def test_fr07_d002_list_sources_docstring_e_tres_fontes() -> None:
             "semantic_scholar",
             "europe_pmc",
             "pubmed",
+            "bdtd",
             "scopus",
             "web_of_science",
         ]

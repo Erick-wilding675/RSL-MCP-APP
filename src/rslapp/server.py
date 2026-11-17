@@ -172,7 +172,7 @@ async def search_works(
     max_results: NonBoolInt = 100,
     include_peer_review: NonIntBool = False,
 ) -> dict[str, Any]:
-    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); o Web of Science não traz resumo nem afiliações."""
+    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. Para literatura cinzenta, teses e dissertações brasileiras, use também bdtd em sources. As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); o Web of Science não traz resumo nem afiliações."""
     # D-023: No modo HTTP, recusa scopus e web_of_science antes de chamar qualquer fonte
     if _is_http_mode() and sources is not None:
         for s in sources:
@@ -206,12 +206,13 @@ async def get_related_works(
     max_results: NonBoolInt = 1000,
 ) -> dict[str, Any]:
     """Busca referências ou citações de um artigo acadêmico nas fontes, deduplica e grava lista própria."""
-    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em get_related_works
+    # D-020, D-023, D-035: pubmed, europe_pmc, bdtd, scopus e web_of_science não são suportadas em get_related_works
     if sources is not None:
         for s in sources:
             if isinstance(s, str) and s.strip() in (
                 "pubmed",
                 "europe_pmc",
+                "bdtd",
                 "scopus",
                 "web_of_science",
             ):
@@ -241,12 +242,13 @@ async def find_work(
     max_results: NonBoolInt = 10,
 ) -> dict[str, Any]:
     """Busca um artigo específico por título ou DOI nas fontes, deduplica candidatos e grava lista própria."""
-    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em find_work
+    # D-020, D-023, D-035: pubmed, europe_pmc, bdtd, scopus e web_of_science não são suportadas em find_work
     if sources is not None:
         for s in sources:
             if isinstance(s, str) and s.strip() in (
                 "pubmed",
                 "europe_pmc",
+                "bdtd",
                 "scopus",
                 "web_of_science",
             ):

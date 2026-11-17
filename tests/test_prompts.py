@@ -78,6 +78,22 @@ def test_d020_render_plan_search_orienta_pubmed_e_europe_pmc() -> None:
     assert "biologia" in res_vazio_lower
 
 
+# FR-10, UC-01, D-035: render_plan_search orienta uso de bdtd para literatura cinzenta e teses nacionais
+def test_d035_render_plan_search_orienta_bdtd() -> None:
+    res_pedido = render_plan_search("Políticas públicas de educação no Brasil")
+    res_lower = res_pedido.lower()
+    assert "bdtd" in res_lower
+    assert "literatura cinzenta" in res_lower
+    assert "teses" in res_lower
+
+    res_vazio = render_plan_search("")
+    res_vazio_lower = res_vazio.lower()
+    assert "bdtd" in res_vazio_lower
+    assert "literatura cinzenta" in res_vazio_lower
+    assert "teses" in res_vazio_lower
+
+
+
 # D-021, FR-10: render_plan_search orienta sobre separação de assuntos e uso de merge_lists para mesmo assunto
 def test_d021_render_plan_search_orienta_merge_lists() -> None:
     res_pedido = render_plan_search("Ensino híbrido em matemática")

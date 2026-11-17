@@ -8,6 +8,7 @@ from typing_extensions import TypedDict
 
 from rslapp import config
 from rslapp.sources.base import Source
+from rslapp.sources.bdtd import BDTDSource
 from rslapp.sources.crossref import CrossrefSource
 from rslapp.sources.europe_pmc import EuropePMCSource
 from rslapp.sources.openalex import OpenAlexSource
@@ -17,6 +18,7 @@ from rslapp.sources.semantic_scholar import SemanticScholarSource
 from rslapp.sources.web_of_science import WebOfScienceSource
 
 __all__ = [
+    "BDTDSource",
     "CrossrefSource",
     "EuropePMCSource",
     "OpenAlexSource",
@@ -32,13 +34,14 @@ __all__ = [
     "list_sources_info",
 ]
 
-# D-020, D-023: Nomes válidos de fontes acadêmicas disponíveis
+# D-020, D-023, D-035: Nomes válidos de fontes acadêmicas disponíveis
 SourceName = Literal[
     "openalex",
     "crossref",
     "semantic_scholar",
     "europe_pmc",
     "pubmed",
+    "bdtd",
     "scopus",
     "web_of_science",
 ]
@@ -55,7 +58,7 @@ class SourceInfo(TypedDict):
     status: SourceStatus
 
 
-# FR-01, FR-04, FR-08, FR-16, D-002, D-020, D-023: Monta os conectores das fontes acadêmicas
+# FR-01, FR-04, FR-08, FR-16, D-002, D-020, D-023, D-035: Monta os conectores das fontes acadêmicas
 def build_sources(include_paid: bool = True) -> list[Source]:
     """Instancia os conectores das fontes abertas e, quando solicitado, das bases pagas."""
     sources: list[Source] = [
@@ -64,6 +67,7 @@ def build_sources(include_paid: bool = True) -> list[Source]:
         SemanticScholarSource(),
         EuropePMCSource(),
         PubmedSource(),
+        BDTDSource(),
     ]
     if include_paid:
         sources.extend(
@@ -75,7 +79,7 @@ def build_sources(include_paid: bool = True) -> list[Source]:
     return sources
 
 
-# D-002, FR-07, FR-16, NFR-03, D-020, D-023: Monta a lista de estado das fontes acadêmicas
+# D-002, FR-07, FR-16, NFR-03, D-020, D-023, D-035: Monta a lista de estado das fontes acadêmicas
 def list_sources_info(
     include_paid: bool = True,
     cfg: config.Config | None = None,
@@ -110,6 +114,12 @@ def list_sources_info(
         },
         {
             "name": "pubmed",
+            "configured": True,
+            "needs_key": False,
+            "status": "ok",
+        },
+        {
+            "name": "bdtd",
             "configured": True,
             "needs_key": False,
             "status": "ok",
