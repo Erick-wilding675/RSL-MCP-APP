@@ -106,6 +106,18 @@ class RISExporter(Exporter):
                 clean_doi = doi.strip()
                 records_lines.append(f"DO  - {clean_doi}")
 
+            # FR-22, D-032: Nota de aviso de artigo retratado no padrão RIS (N1)
+            if work_dict.get("is_retracted"):
+                ret_details = work_dict.get("retraction_details")
+                src_note = (
+                    f" (Fonte: {ret_details.get('source')})"
+                    if isinstance(ret_details, dict) and ret_details.get("source")
+                    else ""
+                )
+                records_lines.append(
+                    f"N1  - [AVISO] Artigo retratado ou com expressao de preocupacao oficial{src_note}"
+                )
+
             # ER: Fim de registro
             records_lines.append("ER  - ")
 

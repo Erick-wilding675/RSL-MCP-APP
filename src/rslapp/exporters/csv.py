@@ -247,8 +247,13 @@ class CSVExporter(Exporter):
             # Affiliations
             affiliations_str = _protect_formula("; ".join(affiliations_list))
 
-            # Document Type
-            doc_type_str = _protect_formula(_clean_text(w.get("type")))
+            # Document Type (FR-22: sinaliza artigos retratados no tipo documental)
+            base_type = _clean_text(w.get("type"))
+            if w.get("is_retracted"):
+                doc_type_raw = f"Retracted ({base_type})" if base_type else "Retracted"
+            else:
+                doc_type_raw = base_type
+            doc_type_str = _protect_formula(doc_type_raw)
 
             # Source (RSL.app)
             source_str = "RSL.app"
