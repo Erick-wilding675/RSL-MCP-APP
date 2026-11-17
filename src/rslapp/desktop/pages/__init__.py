@@ -8,11 +8,12 @@ from rslapp import __version__
 from rslapp.desktop.settings import get_theme, set_theme
 from rslapp.desktop.theme import apply_theme
 
-# D-031, FR-16, FR-21, FR-23, D-033: Itens de navegação lateral: Buscar, Verificar, Importar, Histórico, Conectar IA, Configurações
+# D-031, FR-16, FR-21, FR-23, D-033, D-035: Itens de navegação lateral: Buscar, Verificar, Importar, Roteiros, Histórico, Conectar IA, Configurações
 NAV_ITEMS: tuple[tuple[str, str, str], ...] = (
     ("Buscar", "search", "/"),
     ("Verificar", "fact_check", "/verificar"),
     ("Importar", "file_upload", "/importar"),
+    ("Roteiros", "menu_book", "/roteiros"),
     ("Histórico", "history", "/historico"),
     ("Conectar IA", "hub", "/conectar"),
     ("Configurações", "settings", "/configuracoes"),
