@@ -1,6 +1,6 @@
 # Importar exportações de fora: RIS, BibTeX, Scopus e Web of Science (2.2)
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** em andamento
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** integrada
 
 ## O que faz
 
@@ -67,14 +67,54 @@ Pesquisadores que possuem acesso ao Portal de Periódicos CAPES, Scopus ou Web o
 
 ## Pronto quando
 
-- [ ] Módulo `src/rslapp/core/importers/` implementado com suporte a RIS, BibTeX, Scopus CSV e Web of Science TSV/Tagged.
-- [ ] Função `auto_detect_format` identifica confiavelmente cada um dos formatos suportados.
-- [ ] Função `import_records` gera instâncias válidas de `Work` e grava a lista no `Store`.
-- [ ] Ferramenta MCP `import_works` exposta no stdio e HTTP com anotações adequadas.
-- [ ] Tela `/importar` implementada no desktop com suporte a upload de arquivo e colagem de texto.
-- [ ] Testes de unidade e integração cobrindo cada formato com exemplos reais/sintéticos fiéis.
-- [ ] Testes da interface desktop validando a navegação e o fluxo de importação.
-- [ ] Todos os gates passam (testes 3.10 e 3.14, desktop, ruff limpo).
+- [x] Módulo `src/rslapp/importers/` implementado com suporte a RIS, BibTeX, Scopus CSV e Web of Science TSV/Tagged.
+- [x] Função `auto_detect_format` identifica confiavelmente cada um dos formatos suportados.
+- [x] Função `import_to_store` gera instâncias válidas de `Work`, deduplica e grava a lista no `Store` com registro legível em `log.md`.
+- [x] Ferramenta MCP `import_works` exposta no stdio e HTTP com anotações adequadas.
+- [x] Tela `/importar` implementada no desktop com suporte a upload de arquivo e colagem de texto.
+- [x] Testes de unidade e integração cobrindo cada formato com exemplos reais/sintéticos fiéis.
+- [x] Testes da interface desktop validando a navegação e o fluxo de importação.
+- [x] Todos os gates passam (testes 3.10 e 3.14, desktop, ruff limpo).
+
+## Resultado da entrega
+
+1. **Parsers e importadores no núcleo (`src/rslapp/importers/`):**
+   - RIS (`ris.py`): extrai tipos, títulos, autores normalizados, ano, DOI limpo, resumo, periódico e retratações anotadas em notas.
+   - BibTeX (`bibtex.py`): blocos `@article`, `@inproceedings`, `@book`, etc., com limpeza de chaves LaTeX e separação de autores.
+   - Scopus CSV (`scopus_csv.py`): cabeçalhos Scopus, citações, EID, afiliações e marcação de retratação em `Document Type`.
+   - Web of Science (`wos.py`): formatos Tab-delimited (TSV) e Tagged Plain Text (`PT`, `TI`, `AU`, `SO`, `TC`, `UT`, `CR`).
+   - Detecção automática (`detector.py`): analisa assinaturas textuais e decide o formato com precisão.
+2. **Persistência no Store e log legível (`src/rslapp/store/log.py`):**
+   - Cada importação gera `l-NNNN.json`, `s-NNNN.json` com `kind: "import"` e adiciona entrada formatada em `log.md`.
+3. **Servidor MCP (`src/rslapp/server.py`):**
+   - Ferramenta `import_works(content, format="auto", request_summary="", list_name="")` disponível via stdio e Streamable HTTP.
+4. **Interface Desktop (`src/rslapp/desktop/pages/import_view.py`):**
+   - Adicionada rota `/importar` e item no menu lateral ("Importar", ícone `file_upload`).
+   - Permite upload de arquivo (`ui.upload`) ou colagem de texto (`ui.textarea`).
+   - Feedback métrico com total de artigos importados, duplicatas unificadas e formato detectado, com botão de atalho para `/lista/{list_id}`.
+
+## Como testar
+
+1. **Testes automatizados do núcleo (Python 3.10 e 3.14):**
+   ```bash
+   uv run --python 3.10 --extra dev python -m pytest tests/importers/ tests/test_server_import.py
+   uv run --python 3.14 --extra dev python -m pytest tests/importers/ tests/test_server_import.py
+   ```
+2. **Testes automatizados do app desktop (NiceGUI):**
+   ```bash
+   uv run --extra desktop --extra desktop-dev --extra dev python -m pytest tests_desktop/test_import_page.py tests_desktop/test_shell.py
+   ```
+3. **Verificação de qualidade de código (Ruff):**
+   ```bash
+   uv run --extra dev python -m ruff check .
+   ```
+4. **Teste manual na interface gráfica:**
+   - Iniciar o app com `uv run --extra desktop rslapp-desktop`.
+   - Clicar em "Importar" na barra lateral.
+   - Colar um bloco RIS ou carregar um arquivo `.bib` ou `.csv` do Scopus.
+   - Clicar em "Processar importação".
+   - Confirmar as métricas na tela e clicar em "Abrir lista importada".
+   - Na tela da lista, testar exportações (RIS, CSV, BibTeX) e conferir no Histórico.
 
 ## Vem de
 
