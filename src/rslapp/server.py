@@ -39,7 +39,14 @@ from rslapp.core.verify import run_verify_references
 from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
 from rslapp.importers import import_to_store
-from rslapp.prompts import INSTRUCTIONS, render_plan_search
+from rslapp.prompts import (
+    INSTRUCTIONS,
+    render_plan_bibliometric_study,
+    render_plan_integrative_review,
+    render_plan_scoping_review,
+    render_plan_search,
+    render_plan_systematic_review,
+)
 from rslapp.sources import (
     Source,
     SourceInfo,
@@ -172,7 +179,7 @@ async def search_works(
     max_results: NonBoolInt = 100,
     include_peer_review: NonIntBool = False,
 ) -> dict[str, Any]:
-    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); o Web of Science não traz resumo nem afiliações."""
+    """Busca artigos nas fontes acadêmicas, deduplica, grava lista e log e devolve a primeira página. Pareceres de revisão por pares ficam de fora por padrão; use include_peer_review=True apenas para quem estuda o processo de revisão por pares. Quando o tema for de saúde, medicina ou biologia, vale pedir também pubmed e europe_pmc em sources. Para literatura cinzenta, teses e dissertações brasileiras, use também bdtd em sources. As bases pagas scopus e web_of_science entram quando a pessoa pedir e tiver configurado as chaves (list_sources mostra); o Web of Science não traz resumo nem afiliações."""
     # D-023: No modo HTTP, recusa scopus e web_of_science antes de chamar qualquer fonte
     if _is_http_mode() and sources is not None:
         for s in sources:
@@ -206,12 +213,13 @@ async def get_related_works(
     max_results: NonBoolInt = 1000,
 ) -> dict[str, Any]:
     """Busca referências ou citações de um artigo acadêmico nas fontes, deduplica e grava lista própria."""
-    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em get_related_works
+    # D-020, D-023, D-035: pubmed, europe_pmc, bdtd, scopus e web_of_science não são suportadas em get_related_works
     if sources is not None:
         for s in sources:
             if isinstance(s, str) and s.strip() in (
                 "pubmed",
                 "europe_pmc",
+                "bdtd",
                 "scopus",
                 "web_of_science",
             ):
@@ -241,12 +249,13 @@ async def find_work(
     max_results: NonBoolInt = 10,
 ) -> dict[str, Any]:
     """Busca um artigo específico por título ou DOI nas fontes, deduplica candidatos e grava lista própria."""
-    # D-020, D-023: pubmed, europe_pmc, scopus e web_of_science não são suportadas em find_work
+    # D-020, D-023, D-035: pubmed, europe_pmc, bdtd, scopus e web_of_science não são suportadas em find_work
     if sources is not None:
         for s in sources:
             if isinstance(s, str) and s.strip() in (
                 "pubmed",
                 "europe_pmc",
+                "bdtd",
                 "scopus",
                 "web_of_science",
             ):
@@ -456,6 +465,52 @@ def plan_search(request: str) -> str:
     return render_plan_search(request)
 
 
+# FR-10, D-035: Prompt de planejamento para Revisão de Escopo (JBI e PRISMA-ScR com PCC)
+@mcp.prompt()
+def plan_scoping_review(
+    topic: str,
+    population: str = "",
+    concept: str = "",
+    context: str = "",
+) -> str:
+    """Orienta a estruturação de uma Revisão de Escopo segundo as diretrizes JBI e PRISMA-ScR (PCC)."""
+    return render_plan_scoping_review(topic, population=population, concept=concept, context=context)
+
+
+# FR-10, D-035: Prompt de planejamento para Revisão Integrativa (Whittemore & Knafl / Mendes, Silveira e Galvão)
+@mcp.prompt()
+def plan_integrative_review(
+    topic: str,
+    guiding_question: str = "",
+    theoretical_framework: str = "",
+) -> str:
+    """Orienta a condução de uma Revisão Integrativa em 6 fases metodológicas."""
+    return render_plan_integrative_review(topic, guiding_question=guiding_question, theoretical_framework=theoretical_framework)
+
+
+# FR-10, D-035: Prompt de planejamento para Revisão Sistemática (Cochrane e PRISMA 2020 com PICO)
+@mcp.prompt()
+def plan_systematic_review(
+    topic: str,
+    population: str = "",
+    intervention: str = "",
+    comparison: str = "",
+    outcome: str = "",
+) -> str:
+    """Orienta o protocolo de uma Revisão Sistemática com pergunta PICO e padrão PRISMA 2020 / Cochrane."""
+    return render_plan_systematic_review(topic, population=population, intervention=intervention, comparison=comparison, outcome=outcome)
+
+
+# FR-10, D-035: Prompt de planejamento para Estudo Bibliométrico (VOSviewer e Leis Bibliométricas)
+@mcp.prompt()
+def plan_bibliometric_study(
+    topic: str,
+    analysis_type: str = "all",
+) -> str:
+    """Orienta o delineamento de Estudo Bibliométrico para análise de redes no VOSviewer e leis bibliométricas."""
+    return render_plan_bibliometric_study(topic, analysis_type=analysis_type)
+
+
 # D-011, D-017: Rota /health para verificação do servidor HTTP e healthcheck do Docker
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(_request: Request) -> Response:
@@ -585,6 +640,10 @@ def _build_http_mcp_server(
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)
+    http_mcp.prompt()(plan_scoping_review)
+    http_mcp.prompt()(plan_integrative_review)
+    http_mcp.prompt()(plan_systematic_review)
+    http_mcp.prompt()(plan_bibliometric_study)
     http_mcp.custom_route("/health", methods=["GET"])(health_check)
     http_mcp.custom_route("/downloads/{token}", methods=["GET"])(download_export)
     return http_mcp

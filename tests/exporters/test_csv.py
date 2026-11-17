@@ -92,6 +92,7 @@ def test_fr06_fr12_d002_csv_cabecalho_scopus_e_bom() -> None:
         "Web of Science UID",
         "Citations Scopus",
         "Citations Web of Science",
+        "BDTD ID",
     ]
 
     data = rows[1]
@@ -408,7 +409,7 @@ def test_d020_csv_tres_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None:
     # Verifica que as colunas no CSV_COLUMNS mantêm as 19 originais idênticas e acrescentam 3 no fim
     assert CSV_COLUMNS[:19] == original_19_columns
     assert CSV_COLUMNS[19:22] == new_3_columns
-    assert len(CSV_COLUMNS) == 26
+    assert len(CSV_COLUMNS) == 27
 
     # Renderiza artigo com metadados de PubMed e Europe PMC
     work = Work(
@@ -477,12 +478,13 @@ def test_d023_csv_quatro_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None
         "Web of Science UID",
         "Citations Scopus",
         "Citations Web of Science",
+        "BDTD ID",
     )
 
-    # Verifica que as colunas anteriores permanecem idênticas e as 4 novas estão no fim
+    # Verifica que as colunas anteriores permanecem idênticas e as novas estão no fim
     assert CSV_COLUMNS[:22] == previous_22_columns
     assert CSV_COLUMNS[22:] == paid_4_columns
-    assert len(CSV_COLUMNS) == 26
+    assert len(CSV_COLUMNS) == 27
 
     # Renderiza artigo com metadados de Scopus e Web of Science
     work = Work(
@@ -519,9 +521,29 @@ def test_d023_csv_quatro_colunas_novas_no_fim_e_colunas_antigas_iguais() -> None
     assert data[13] == ""   # OpenAlex ID
     assert data[19] == ""   # PubMed ID
 
-    # Quatro colunas novas no fim (índices 22, 23, 24, 25)
+    # Cinco colunas novas no fim (índices 22 a 26)
     assert data[22] == "2-s2.0-85000000000"      # Scopus EID
     assert data[23] == "WOS:000123456700001"     # Web of Science UID
     assert data[24] == "35"                      # Citations Scopus
     assert data[25] == "28"                      # Citations Web of Science
+    assert data[26] == ""                        # BDTD ID
+
+
+def test_d035_csv_export_includes_bdtd_id() -> None:
+    work = Work(
+        title="Estudo sobre dengue no Brasil",
+        year=2023,
+        authors=[Author(name="Almeida, Carlos")],
+        source_ids={"bdtd": "PUC_RIO-1_abc123"},
+    )
+    exporter = CSVExporter()
+    content = exporter.render({"works": [work]})
+    reader = csv.reader(io.StringIO(content.lstrip("\ufeff")), delimiter=",")
+    rows = list(reader)
+    header = rows[0]
+    data = rows[1]
+
+    bdtd_idx = header.index("BDTD ID")
+    assert data[bdtd_idx] == "PUC_RIO-1_abc123"
+
 

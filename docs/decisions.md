@@ -383,3 +383,25 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
   - Usar apenas normas internacionais (APA, Vancouver): não atende às exigências de teses, dissertações e TCCs no Brasil.
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
 - **Situação:** decidida. Spec 13-07.
+
+
+## D-035 · Conector BDTD e Roteiros Metodológicos para a Academia Brasileira (v2.3)
+
+- **Decisão:** a Fase 14 (v2.3) integra a BDTD (Biblioteca Digital Brasileira de Teses e Dissertações do IBICT) como fonte oficial do RSL.app e adiciona roteiros metodológicos para os formatos de revisão mais frequentes no Brasil:
+  - **Conector BDTD:** consulta direta à API REST pública do VuFind (`https://bdtd.ibict.br/vufind/api/v1/search`), mapeando títulos, autores (com orientadores), instituições de defesa, anos, resumos e links/DOIs para a entidade `Work` com tipo de documento `thesis` ou `dissertation`.
+  - **Roteiros Metodológicos via MCP:** prompts especializados para planejamento e protocolo:
+    - `plan_scoping_review`: revisão de escopo baseada nas diretrizes do JBI (Joanna Briggs Institute) usando o mnemônico PCC (População, Conceito, Contexto);
+    - `plan_integrative_review`: revisão integrativa amplamente utilizada na enfermagem e saúde pública brasileira (método Whittemore & Knafl / Mendes, Silveira e Galvão);
+    - `plan_systematic_review`: revisão sistemática com pergunta PICO/PICo e planejamento do fluxograma PRISMA 2020;
+    - `plan_bibliometric_study`: protocolo bibliométrico para análise de redes no VOSviewer.
+  - **Interface Desktop:** seleção da BDTD entre as fontes de busca, badge de identificação de teses/dissertações e nova tela de Roteiros Metodológicos para guiar pesquisadores no desenho de seus estudos.
+- **Motivo:**
+  - A inclusão de literatura cinzenta (teses e dissertações) é critério metodológico de qualidade em revisões de escopo e sistemáticas para prevenir o viés de publicação.
+  - A API REST do VuFind na BDTD é rápida, aberta, estável e não requer cadastro de chave de API.
+  - Responde ao Fundamento do projeto: conectar a IA do pesquisador às fontes nacionais e às metodologias adotadas nas bancas de pós-graduação no Brasil.
+- **Alternativas:**
+  - Colheita via OAI-PMH: pesada, focada em espelhamento de base em lote e não em buscas interativas em tempo real.
+  - Web scraping de portais bloqueados: frágil contra mudanças de layout e suscetível a bloqueios WAF (Cloudflare 403).
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Specs 14-01 a 14-04.
+

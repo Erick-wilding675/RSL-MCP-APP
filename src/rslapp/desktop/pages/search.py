@@ -20,17 +20,19 @@ SOURCE_LABELS: dict[str, str] = {
     "openalex": "OpenAlex",
     "crossref": "Crossref",
     "semantic_scholar": "Semantic Scholar",
+    "bdtd": "BDTD (Teses e Dissertações)",
     "europe_pmc": "Europe PMC",
     "pubmed": "PubMed",
     "scopus": "Scopus",
     "web_of_science": "Web of Science",
 }
 
-# D-031, FR-16: Linhas de descrição de cada fonte acadêmica
+# D-031, D-035, FR-16: Linhas de descrição de cada fonte acadêmica
 SOURCE_DESCRIPTIONS: dict[str, str] = {
     "openalex": "ampla, todas as áreas",
     "crossref": "metadados dos DOIs",
     "semantic_scholar": "citações e áreas de computação e saúde",
+    "bdtd": "literatura cinzenta brasileira - IBICT",
     "europe_pmc": "saúde e ciências da vida",
     "pubmed": "saúde e ciências da vida",
     "scopus": "base multidisciplinar (Elsevier)",
@@ -41,8 +43,8 @@ LIFE_SCIENCES_SOURCES: frozenset[str] = frozenset({"pubmed", "europe_pmc"})
 PAID_SOURCES: frozenset[str] = frozenset({"scopus", "web_of_science"})
 
 
-# FR-16, D-022, D-023, D-024, D-025, D-031: Tela Buscar refeita com tema visual novo
-def build(service: DesktopService) -> None:
+# FR-16, D-022, D-023, D-024, D-025, D-031, D-035: Tela Buscar refeita com tema visual novo
+def build(service: DesktopService, initial_query: str = "") -> None:
     """Monta a tela de busca de artigos acadêmicos com novo layout de cartões."""
     apply_theme()
     render_shell("Buscar", "Busque artigos nas bases acadêmicas configuradas.")
@@ -55,6 +57,7 @@ def build(service: DesktopService) -> None:
                 ui.textarea(
                     label="String de busca",
                     placeholder='Ex.: ("systematic review" OR "literature review") AND bibliometrics',
+                    value=initial_query,
                 )
                 .props("rows=4 autogrow")
                 .classes("w-full")

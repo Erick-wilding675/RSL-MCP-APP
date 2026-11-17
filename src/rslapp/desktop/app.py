@@ -83,6 +83,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
 
     from rslapp.desktop.pages import (
         connect_page,
+        guidelines_view,
         history,
         import_view,
         list_view,
@@ -95,9 +96,9 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     _active_service = service if service is not None else DesktopService()
 
     @ui.page("/")
-    def index_page() -> None:
+    def index_page(q: str = "") -> None:
         assert _active_service is not None
-        search.build(_active_service)
+        search.build(_active_service, initial_query=q)
 
     @ui.page("/verificar")
     def verify_route_page() -> None:
@@ -108,6 +109,11 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     def import_route_page() -> None:
         assert _active_service is not None
         import_view.build(_active_service)
+
+    @ui.page("/roteiros")
+    def guidelines_route_page() -> None:
+        assert _active_service is not None
+        guidelines_view.build(_active_service)
 
     @ui.page("/lista/{list_id}")
     def list_detail_page(list_id: str) -> None:

@@ -364,6 +364,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     "doi_url": doi_url,
                     "sources": _format_work_sources(work),
                     "is_retracted": bool(work.get("is_retracted", False)),
+                    "type": str(work.get("type") or ""),
                 }
             )
 
@@ -442,6 +443,14 @@ def build(service: DesktopService, list_id: str = "") -> None:
                         <q-badge v-if="props.row.is_retracted" color="negative" class="text-xs px-2 py-0.5 rounded-full font-bold">
                             RETRATADO
                             <q-tooltip>Artigo formalmente retratado ou com expressão de preocupação oficial</q-tooltip>
+                        </q-badge>
+                        <q-badge v-if="props.row.type === 'thesis'" color="teal" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            TESE
+                            <q-tooltip>Tese de Doutorado defendida no Brasil (BDTD)</q-tooltip>
+                        </q-badge>
+                        <q-badge v-if="props.row.type === 'dissertation'" color="indigo" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            DISSERTAÇÃO
+                            <q-tooltip>Dissertação de Mestrado defendida no Brasil (BDTD)</q-tooltip>
                         </q-badge>
                     </div>
                     <div v-if="props.row.authors" class="text-xs rsl-muted mt-0.5">{{ props.row.authors }}</div>
