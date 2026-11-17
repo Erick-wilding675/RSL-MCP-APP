@@ -168,6 +168,7 @@ async def test_d023_list_sources_stdio_lista_sete_sem_e_com_chaves(
             "semantic_scholar",
             "europe_pmc",
             "pubmed",
+            "bdtd",
             "scopus",
             "web_of_science",
         ]
@@ -229,14 +230,14 @@ async def test_d023_modo_http_recusa_bases_pagas_e_nao_lista_em_list_sources(
         http_source_names = [s.name for s in http_sources]
         assert "scopus" not in http_source_names
         assert "web_of_science" not in http_source_names
-        assert len(http_sources) == 5
+        assert len(http_sources) == 6
 
         # 2. list_sources no modo HTTP não lista scopus nem web_of_science
         res_list = server.list_sources()
         names_listed = [s["name"] for s in res_list]
         assert "scopus" not in names_listed
         assert "web_of_science" not in names_listed
-        assert len(names_listed) == 5
+        assert len(names_listed) == 6
 
         # 3. search_works com scopus ou web_of_science responde invalid_input com a mensagem exata da D-023
         # Usa fonte rastreada para provar que nenhuma fonte é chamada (zero chamadas)

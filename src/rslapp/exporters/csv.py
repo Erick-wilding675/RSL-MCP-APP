@@ -38,6 +38,7 @@ CSV_COLUMNS: tuple[str, ...] = (
     "Web of Science UID",
     "Citations Scopus",
     "Citations Web of Science",
+    "BDTD ID",
 )
 
 
@@ -267,6 +268,7 @@ class CSVExporter(Exporter):
             europe_pmc_id_str = ""
             scopus_eid_str = ""
             wos_uid_str = ""
+            bdtd_id_str = ""
             if isinstance(source_ids, dict):
                 openalex_id_str = str(source_ids.get("openalex") or "")
                 crossref_doi_str = str(source_ids.get("crossref") or "")
@@ -275,6 +277,7 @@ class CSVExporter(Exporter):
                 europe_pmc_id_str = str(source_ids.get("europe_pmc") or "")
                 scopus_eid_str = str(source_ids.get("scopus") or "")
                 wos_uid_str = str(source_ids.get("web_of_science") or "")
+                bdtd_id_str = str(source_ids.get("bdtd") or "")
 
             # Citações por fonte
             cit_openalex_str = ""
@@ -330,6 +333,7 @@ class CSVExporter(Exporter):
                 wos_uid_str,
                 cit_scopus_str,
                 cit_wos_str,
+                bdtd_id_str,
             ]
             writer.writerow(row)
 

@@ -118,6 +118,12 @@ async def test_d002_d006_fr07_nfr02_handshake_stdio_e_list_sources_sem_chaves(
                     "status": "ok",
                 },
                 {
+                    "name": "bdtd",
+                    "configured": True,
+                    "needs_key": False,
+                    "status": "ok",
+                },
+                {
                     "name": "scopus",
                     "configured": False,
                     "needs_key": True,
@@ -192,6 +198,12 @@ async def test_fr07_nfr03_d002_stdio_com_chaves_nao_expoe_valores_e_marca_openal
                     "status": "ok",
                 },
                 {
+                    "name": "bdtd",
+                    "configured": True,
+                    "needs_key": False,
+                    "status": "ok",
+                },
+                {
                     "name": "scopus",
                     "configured": False,
                     "needs_key": True,
@@ -234,6 +246,7 @@ async def test_fr07_d002_list_sources_sem_chaves_em_memoria() -> None:
             "semantic_scholar",
             "europe_pmc",
             "pubmed",
+            "bdtd",
             "scopus",
             "web_of_science",
         }
@@ -263,6 +276,12 @@ async def test_fr07_d002_list_sources_sem_chaves_em_memoria() -> None:
         }
         assert sources["pubmed"] == {
             "name": "pubmed",
+            "configured": True,
+            "needs_key": False,
+            "status": "ok",
+        }
+        assert sources["bdtd"] == {
+            "name": "bdtd",
             "configured": True,
             "needs_key": False,
             "status": "ok",
@@ -315,7 +334,7 @@ def test_d006_nfr02_list_sources_nao_escreve_em_stdout(
     resultado = server.list_sources()
     capturado = capsys.readouterr()
     assert capturado.out == ""
-    assert len(resultado) == 7
+    assert len(resultado) == 8
 
 
 # D-002, D-006, D-029, FR-20: tools/list devolve readOnlyHint e destructiveHint certos nas nove ferramentas

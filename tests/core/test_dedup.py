@@ -576,3 +576,32 @@ def test_d023_dedup_openalex_e_scopus_mesmo_doi_mescla_com_precedencia() -> None
     }
     assert res_scopus_wos.works[0].citations == {"scopus": 30, "web_of_science": 22}
 
+
+# D-035: um artigo da BDTD e do OpenAlex com o mesmo DOI vira um só, com source_ids das duas fontes
+def test_d035_dedup_openalex_e_bdtd_mesmo_doi_mescla_com_precedencia() -> None:
+    w_oa = _make_work(
+        "openalex",
+        title="Título do Artigo Publicado",
+        doi="10.17771/pucrio.acad.61871",
+        venue="Revista Brasileira de Direito",
+        source_id="W112233",
+        citations_count=5,
+    )
+    w_bdtd = _make_work(
+        "bdtd",
+        title="Título da Tese Original",
+        doi="10.17771/pucrio.acad.61871",
+        venue="PUC_RIO",
+        source_id="PUC_RIO-1_69e0bed4d4ce05f2e6664e5d6c5677e8",
+        citations_count=0,
+    )
+    res = deduplicate_works_with_merge([w_bdtd, w_oa])
+    assert len(res.works) == 1
+    merged = res.works[0]
+    assert merged.title == "Título do Artigo Publicado"
+    assert merged.source_ids == {
+        "openalex": "W112233",
+        "bdtd": "PUC_RIO-1_69e0bed4d4ce05f2e6664e5d6c5677e8",
+    }
+
+

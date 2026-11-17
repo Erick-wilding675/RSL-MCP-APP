@@ -80,7 +80,7 @@ class FakeDesktopSource:
         )
 
 
-# FR-16, FR-07, D-023: list_sources devolve as 7 fontes no formato do stdio
+# FR-16, FR-07, D-023, D-035: list_sources devolve as 8 fontes no formato do stdio
 def test_fr16_d023_service_list_sources_sete_fontes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -92,17 +92,18 @@ def test_fr16_d023_service_list_sources_sete_fontes(
         "semantic_scholar",
         "europe_pmc",
         "pubmed",
+        "bdtd",
         "scopus",
         "web_of_science",
     ]
     assert sources_before[0]["status"] == "missing_key"
-    assert sources_before[5]["status"] == "missing_key"
+    assert sources_before[6]["status"] == "missing_key"
 
     monkeypatch.setenv("OPENALEX_API_KEY", "fake-oa")
     monkeypatch.setenv("SCOPUS_API_KEY", "fake-scopus")
     sources_after = svc.list_sources()
     assert sources_after[0]["status"] == "ok"
-    assert sources_after[5]["status"] == "ok"
+    assert sources_after[6]["status"] == "ok"
     assert "nicegui" not in sys.modules
 
 

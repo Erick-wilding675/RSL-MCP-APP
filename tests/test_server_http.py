@@ -161,16 +161,16 @@ async def test_d011_serve_lista_ferramentas_por_http(
             res_http_sem_chave = await http_client.call_tool("list_sources", {})
             res_stdio_sem_chave = await stdio_client.call_tool("list_sources", {})
             assert res_http_sem_chave.is_error is False
-            # D-023: Modo HTTP lista 5 fontes (sem as bases pagas); stdio lista as 7
-            assert len(res_http_sem_chave.structured_content["result"]) == 5
-            assert len(res_stdio_sem_chave.structured_content["result"]) == 7
-            assert res_http_sem_chave.structured_content["result"] == res_stdio_sem_chave.structured_content["result"][:5]
+            # D-023, D-035: Modo HTTP lista 6 fontes abertas (sem as bases pagas); stdio lista as 8
+            assert len(res_http_sem_chave.structured_content["result"]) == 6
+            assert len(res_stdio_sem_chave.structured_content["result"]) == 8
+            assert res_http_sem_chave.structured_content["result"] == res_stdio_sem_chave.structured_content["result"][:6]
 
             monkeypatch.setenv("OPENALEX_API_KEY", "fake-key-123")
             res_http_com_chave = await http_client.call_tool("list_sources", {})
             res_stdio_com_chave = await stdio_client.call_tool("list_sources", {})
             assert res_http_com_chave.is_error is False
-            assert res_http_com_chave.structured_content["result"] == res_stdio_com_chave.structured_content["result"][:5]
+            assert res_http_com_chave.structured_content["result"] == res_stdio_com_chave.structured_content["result"][:6]
             assert "fake-key-123" not in res_http_com_chave.model_dump_json()
 
 

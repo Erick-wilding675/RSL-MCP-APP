@@ -250,6 +250,7 @@ async def test_d020_list_sources_lista_cinco_e_nao_vaza_ncbi_key(
             "semantic_scholar",
             "europe_pmc",
             "pubmed",
+            "bdtd",
             "scopus",
             "web_of_science",
         ]
