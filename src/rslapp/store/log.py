@@ -12,6 +12,7 @@ _KIND_LABELS = {
     "work": "busca de artigo",
     "repeat": "repetição",
     "merge": "junção",
+    "import": "importação",
 }
 _DIRECTION_LABELS = {"references": "referências", "citations": "citações"}
 _LIST_STATUS_LABELS = {"complete": "completa", "incomplete": "incompleta"}
@@ -129,7 +130,7 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
     else:
         raise ValueError(f"Tipo de busca inválido: {kind!r}")
 
-    if kind != "merge":
+    if kind not in ("merge", "import"):
         sources = search_data.get("sources")
         if type(sources) is not list:
             raise ValueError("Campo 'sources' deve ser uma lista")
@@ -182,6 +183,21 @@ def format_log_entry(search_data: dict[str, Any], list_data: dict[str, Any] | No
                 lines.append(f"- {lid} · {cnt} {c_unit}")
             else:
                 lines.append(f"- {lid}")
+        return "\n".join(lines)
+
+    # FR-23, D-033: Formatação específica para entradas de importação externa no log.md
+    if kind == "import":
+        fmt = search_data.get("imported_format") or "arquivo externo"
+        dups = search_data.get("duplicates_removed", 0)
+        dup_unit = "artigo" if dups == 1 else "artigos"
+        lines = [
+            f"## {search_data['id']} · {created_str} · {kind_label}",
+            f"Pedido: {summary}" if summary else "Pedido:",
+            list_line,
+            f"Formato: {fmt}",
+        ]
+        if dups > 0:
+            lines.append(f"Duplicatas removidas: {dups} {dup_unit}")
         return "\n".join(lines)
 
     lines = [
