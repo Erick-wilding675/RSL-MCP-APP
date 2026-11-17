@@ -1,6 +1,6 @@
 # Publicação da 2.2.0 e teste real
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** em andamento
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** pronta
 
 ## O que faz
 
@@ -39,11 +39,11 @@ Publica a versão 2.2.0 do `rslapp` no PyPI e GitHub releases com executáveis p
 
 ## Pronto quando
 
-- [ ] Versão `2.2.0` atualizada no `pyproject.toml` e em `src/rslapp/__init__.py`.
-- [ ] Todos os gates passam (testes 3.10 e 3.14, testes do desktop, linter Ruff).
-- [ ] Pacote construído com `uv build --no-sources`.
-- [ ] Branch `integracao-2.2` mesclada na `main`.
-- [ ] Pacote publicado no PyPI e release `v2.2.0` criada no GitHub com executáveis.
+- [x] Versão `2.2.0` atualizada no `pyproject.toml` e em `src/rslapp/__init__.py`.
+- [x] Todos os gates passam (testes 3.10 e 3.14, testes do desktop, linter Ruff).
+- [x] Pacote construído com `uv build --no-sources`.
+- [x] Branch `integracao-2.2` mesclada na `main`.
+- [x] Pacote publicado no PyPI e release `v2.2.0` criada no GitHub com executáveis.
 
 ## Vem de
 
