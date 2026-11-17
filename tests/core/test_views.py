@@ -125,6 +125,8 @@ def test_fr12_d002_get_list_view_respeita_detail_summary_e_full(tmp_path: Path) 
         "references_count",
         "citations",
         "source_ids",
+        "is_retracted",
+        "retraction_details",
     }
     assert set(item_full.keys()) == expected_full_keys
     assert item_full["abstract"] == "Resumo detalhado do artigo 001 para testes."

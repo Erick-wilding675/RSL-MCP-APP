@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -181,7 +182,7 @@ class FakeDesktopService:
         if list_id not in self.lists:
             raise RSLError("list_not_found", f"Lista não encontrada: {list_id}")
         self.export_calls.append((list_id, export_format))
-        ext = "bib" if export_format == "bibtex" else ("txt" if export_format == "dois" else export_format)
+        ext = "bib" if export_format == "bibtex" else ("txt" if export_format in ("dois", "abnt") else export_format)
         out_path = self.export_dir / f"{list_id}.{ext}"
         return {"path": str(out_path), "format": export_format, "count": 2}
 
@@ -424,6 +425,11 @@ async def test_fr06_fr12_fr16_exportar_mostra_caminho_e_abrir_pasta(
     await user.should_see(expected_bib)
     assert fake_service.export_calls == [("l-0003", "ris"), ("l-0003", "bibtex")]
 
+    user.find(marker="export-abnt").click()
+    expected_abnt = str(tmp_path / "l-0003.txt")
+    await user.should_see(expected_abnt)
+    assert fake_service.export_calls == [("l-0003", "ris"), ("l-0003", "bibtex"), ("l-0003", "abnt")]
+
     opened_folders: list[Path] = []
     monkeypatch.setattr(
         list_view,
@@ -564,4 +570,101 @@ def test_fr06_fr16_open_folder_in_file_manager_windows_e_linux(
     assert subprocess_calls == [
         (["xdg-open", str(target)], {"check": False}),
     ]
+
+
+# D-031, FR-16: Ctrl+Enter na caixa de texto dispara a busca e mostra as novas descrições de fontes
+async def test_d031_fr16_ctrl_enter_dispara_busca(user: User) -> None:
+    fake_service = FakeDesktopService()
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/")
+    await user.should_see("Ctrl+Enter para buscar")
+    await user.should_see("ampla, todas as áreas")
+    await user.should_see("metadados dos DOIs")
+    await user.should_see("citações e áreas de computação e saúde")
+
+    user.find(marker="query-input").type("systematic review")
+    user.find(marker="query-input").trigger("keydown.ctrl.enter")
+
+    await user.should_see("Lista")
+    assert len(fake_service.search_calls) == 1
+    assert fake_service.search_calls[0]["query"] == "systematic review"
+
+
+# D-031, FR-16: Ctrl+Enter não dispara duas buscas simultâneas enquanto uma busca está em andamento
+async def test_d031_fr16_ctrl_enter_nao_dispara_duas_buscas(user: User) -> None:
+    fake_service = FakeDesktopService()
+    orig_search = fake_service.search
+
+    async def slow_search(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        await asyncio.sleep(0.05)
+        return await orig_search(*args, **kwargs)
+
+    fake_service.search = slow_search  # type: ignore[method-assign]
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/")
+    user.find(marker="query-input").type("deep learning")
+    # Dispara dois eventos Ctrl+Enter seguidos enquanto a busca ainda roda
+    user.find(marker="query-input").trigger("keydown.ctrl.enter")
+    user.find(marker="query-input").trigger("keydown.ctrl.enter")
+
+    await user.should_see("Lista")
+    assert len(fake_service.search_calls) == 1
+
+
+# D-031, FR-16: Tela Lista com faixa de resumo, cartões de Busca/Exportar e tabela estilizada
+async def test_d031_fr16_lista_faixa_resumo_e_cartoes(user: User) -> None:
+    fake_service = FakeDesktopService(
+        lists={
+            "l-0010": {
+                "id": "l-0010",
+                "search_id": "s-0010",
+                "created_at": "2026-11-16T10:00:00Z",
+                "status": "complete",
+                "total": 3,
+                "merge": {"merged": 2, "divergences": {}},
+                "works": [
+                    {
+                        "title": "Quantum Computing Review",
+                        "doi": "10.1000/quantum",
+                        "year": 2026,
+                        "venue": "Nature Reviews",
+                        "authors": [{"name": "David Deutsch"}],
+                        "source_ids": {"openalex": "W10"},
+                    }
+                ],
+            }
+        },
+        searches=[
+            {
+                "id": "s-0010",
+                "list_id": "l-0010",
+                "created_at": "2026-11-16T10:00:00Z",
+                "kind": "terms",
+                "params": {
+                    "query": "quantum computing AND algorithms",
+                    "sources": ["openalex", "crossref"],
+                },
+                "sources": [
+                    {"name": "openalex", "status": "ok", "fetched": 3},
+                ],
+            }
+        ],
+    )
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/lista/l-0010")
+    await user.should_see("Total de artigos: 3")
+    await user.should_see("Fontes consultadas")
+    await user.should_see("Repetidos unificados")
+    await user.should_see("Data: 2026-11-16T10:00:00Z")
+    await user.should_see("Identificador: l-0010")
+    await user.should_see(marker="query-copy")
+    await user.should_see(marker="export-ris")
+    await user.should_see(marker="works-table")
+    table = user.find(marker="works-table").elements.pop()
+    assert "sticky-header-table" in table._classes
+
+
 

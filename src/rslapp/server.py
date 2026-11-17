@@ -35,8 +35,10 @@ from rslapp.core.merge import run_merge
 from rslapp.core.related import run_related
 from rslapp.core.repeat import run_repeat
 from rslapp.core.search import run_search
+from rslapp.core.verify import run_verify_references
 from rslapp.core.views import get_list_view, get_search_log_view
 from rslapp.exporters import run_export
+from rslapp.importers import import_to_store
 from rslapp.prompts import INSTRUCTIONS, render_plan_search
 from rslapp.sources import (
     Source,
@@ -408,6 +410,45 @@ def get_search_log(
     return result
 
 
+# FR-21, FR-20, D-002, D-006, D-012, D-020, D-029, D-030: Verifica se referências acadêmicas existem nas bases reais contra alucinações de IA
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+async def verify_references(
+    references: list[Any] | str,
+    request_summary: str = "",
+) -> dict[str, Any]:
+    """Verifica se referências acadêmicas (texto livre com DOIs/títulos, BibTeX ou lista de objetos) existem nas bases reais (Crossref, OpenAlex, Semantic Scholar), detectando alucinações de IA, anos divergentes ou autores trocados."""
+    try:
+        return await run_verify_references(
+            _build_sources(),
+            references=references,
+            request_summary=request_summary,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
+# FR-23, FR-20, D-002, D-006, D-012, D-029, D-033: Importa arquivos e listas bibliográficas (RIS, BibTeX, Scopus CSV, WoS)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def import_works(
+    content: str,
+    format: str = "auto",
+    request_summary: str = "",
+    list_name: str = "",
+) -> dict[str, Any]:
+    """Importa listas bibliográficas a partir de arquivos ou textos em formatos externos (RIS, BibTeX, Scopus CSV, Web of Science TSV/Tagged), gerando uma nova lista deduplicada e pronta para exportação, verificação e navegação."""
+    store, _ = _build_tool_store()
+    try:
+        return import_to_store(
+            store,
+            content=content,
+            format=format,
+            request_summary=request_summary,
+            list_name=list_name,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
 def plan_search(request: str) -> str:
@@ -539,6 +580,8 @@ def _build_http_mcp_server(
         (export_list, _ADDITIVE_WRITE_ANNOTATIONS),
         (get_list, _READ_ONLY_ANNOTATIONS),
         (get_search_log, _READ_ONLY_ANNOTATIONS),
+        (verify_references, _READ_ONLY_ANNOTATIONS),
+        (import_works, _ADDITIVE_WRITE_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)

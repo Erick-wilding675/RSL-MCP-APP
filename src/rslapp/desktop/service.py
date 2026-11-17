@@ -102,3 +102,36 @@ class DesktopService:
         """Devolve o caminho do arquivo log.md na pasta de dados atual."""
         store, _ = self._build_store()
         return store.log_path
+
+    # FR-21, D-030: Verifica referências contra alucinação usando as fontes configuradas
+    async def verify_references(
+        self,
+        references: str | list[Any],
+    ) -> dict[str, Any]:
+        """Verifica uma lista de referências contra as fontes configuradas."""
+        from rslapp.core.verify import run_verify_references
+
+        return await run_verify_references(
+            build_sources(include_paid=True),
+            references=references,
+            request_summary="app desktop",
+        )
+
+    # FR-23, D-033: Importa registros bibliográficos externos e salva como nova lista no Store
+    def import_works(
+        self,
+        content: str,
+        format: str = "auto",
+        list_name: str = "",
+    ) -> dict[str, Any]:
+        """Importa registros externos (RIS, BibTeX, Scopus CSV, WoS) e grava nova lista no Store."""
+        from rslapp.importers import import_to_store
+
+        store, _ = self._build_store()
+        return import_to_store(
+            store,
+            content=content,
+            format=format,
+            request_summary="app desktop",
+            list_name=list_name,
+        )

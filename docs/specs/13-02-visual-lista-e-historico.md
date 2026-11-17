@@ -1,6 +1,6 @@
 # Visual novo: Lista e Histórico (2.2)
 
-**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** a fazer
+**Fase:** 13 · 2.2: visual novo e ganhos rápidos · **Situação:** integrada (2026-11-16)
 
 ## O que faz
 
@@ -53,10 +53,10 @@ Nada muda para quem hospeda.
 
 ## Pronto quando
 
-- [ ] Lista com resumo, cartões, tabela paginada e estados de erro e vazio, com teste
-- [ ] Histórico com tabela nova, ações com ícone e estado vazio, com teste
-- [ ] Os testes de `tests_desktop` que já existiam passam sem mudar o que conferem
-- [ ] Os gates passam
+- [x] Lista com resumo, cartões, tabela paginada e estados de erro e vazio, com teste
+- [x] Histórico com tabela nova, ações com ícone e estado vazio, com teste
+- [x] Os testes de `tests_desktop` que já existiam passam sem mudar o que conferem
+- [x] Os gates passam
 
 ## Vem de
 
@@ -70,7 +70,21 @@ D-025, D-031, FR-16, FR-17, FR-18.
 
 ## Resultado da entrega
 
-(a preencher)
+Entregue em dois commits, um por tela, preservando todos os marcadores (`mark()`), textos esperados e semântica de dados:
+1. `6f87e50` (`feat(desktop): tela Lista refeita com novo tema e componentes (D-031, FR-16)`):
+   - Faixa de resumo superior com cartões (`metric_card`) para total de artigos, fontes consultadas, repetidos unificados (quando fornecido pelo núcleo) e data da busca.
+   - Cartão "Busca" com bloco monoespaçado e cópia rápida (`copy_block`), identificador e lista de fontes com `status_badge` (ok ou warning com motivo).
+   - Cartão "Exportar" com botões lado a lado e ícones por formato, aviso com caminho e atalho para abrir pasta após exportação.
+   - Tabela QTable com paginação de 25 por página, cabeçalho fixo, linhas alternadas suaves, título em negrito e autores em cinza, DOI como link externo e fonte em badge neutro.
+   - `empty_state` para quando a lista não for encontrada, mantendo `back-to-search`.
+   - Teste `test_d031_fr16_lista_faixa_resumo_e_cartoes` em `tests_desktop/test_search_and_list.py`.
+2. `8cb6d02` (`feat(desktop): tela Historico refeita com novo tema e componentes (D-031, FR-17)`):
+   - Barra superior com contagem e botão "Abrir log" alinhado à direita com ícone `description`.
+   - Tabela de histórico com data formatada no padrão curto ("DD/MM/AAAA HH:MM") sem alterar a string ISO no registro subjacente, selos de fontes (`sources_list`), tooltip com a busca completa na coluna de termo, total e selos de status de completude.
+   - Ações "Ver lista" e "Repetir" com botões de ícone e tooltips informativos.
+   - Barra de progresso linear indeterminada durante repetição da busca (`progress_card`).
+   - `empty_state` centralizado para histórico vazio, mantendo `empty-history` e `go-to-search`.
+   - Teste `test_d031_fr17_historico_componentes_e_formato_data` em `tests_desktop/test_history_and_settings.py`.
 
 ## Como testar
 

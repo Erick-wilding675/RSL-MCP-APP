@@ -72,43 +72,64 @@ def _ensure_native_backend() -> None:
         )
 
 
+_active_service: DesktopService | None = None
+
+
 # D-024, D-025, D-028, FR-16, FR-17, FR-18, FR-19: Registra as rotas do app desktop
 def register_pages(service: DesktopService | None = None) -> DesktopService:
     """Registra as páginas /, /lista/{list_id}, /historico, /conectar e /configuracoes no NiceGUI."""
+    global _active_service
     from nicegui import app, ui
 
     from rslapp.desktop.pages import (
         connect_page,
         history,
+        import_view,
         list_view,
         search,
         settings_page,
+        verify_view,
     )
 
     app.native.window_args.setdefault("resizable", True)
-    resolved_service = service if service is not None else DesktopService()
+    _active_service = service if service is not None else DesktopService()
 
     @ui.page("/")
     def index_page() -> None:
-        search.build(resolved_service)
+        assert _active_service is not None
+        search.build(_active_service)
+
+    @ui.page("/verificar")
+    def verify_route_page() -> None:
+        assert _active_service is not None
+        verify_view.build(_active_service)
+
+    @ui.page("/importar")
+    def import_route_page() -> None:
+        assert _active_service is not None
+        import_view.build(_active_service)
 
     @ui.page("/lista/{list_id}")
     def list_detail_page(list_id: str) -> None:
-        list_view.build(resolved_service, list_id)
+        assert _active_service is not None
+        list_view.build(_active_service, list_id)
 
     @ui.page("/historico")
     def history_page() -> None:
-        history.build(resolved_service)
+        assert _active_service is not None
+        history.build(_active_service)
 
     @ui.page("/conectar")
     def connect_route_page() -> None:
-        connect_page.build(resolved_service)
+        assert _active_service is not None
+        connect_page.build(_active_service)
 
     @ui.page("/configuracoes")
     def settings_route_page() -> None:
-        settings_page.build(resolved_service)
+        assert _active_service is not None
+        settings_page.build(_active_service)
 
-    return resolved_service
+    return _active_service
 
 
 # FR-16, D-025: No Windows, valida a carga do pythonnet e das DLLs do WebView2 / WinForms

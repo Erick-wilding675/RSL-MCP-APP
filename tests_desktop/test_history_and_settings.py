@@ -285,6 +285,56 @@ async def test_fr17_historico_vazio_mostra_mensagem_e_link_buscar(
     await user.should_see("A string vai como está para cada base")
 
 
+# D-031, FR-17: Histórico com data curta, paginação de 25, selos de fontes e novo cabeçalho
+async def test_d031_fr17_historico_componentes_e_formato_data(
+    user: User,
+) -> None:
+    fake_service = FakeHistoryService(
+        searches=[
+            {
+                "id": "s-0100",
+                "list_id": "l-0100",
+                "created_at": "2026-11-16T14:25:00Z",
+                "kind": "terms",
+                "request_summary": "app desktop",
+                "params": {
+                    "query": "machine learning AND bibliometrics",
+                    "max_results": 20,
+                    "sources": ["openalex", "europe_pmc"],
+                    "include_peer_review": False,
+                },
+                "sources": [
+                    {
+                        "name": "openalex",
+                        "status": "ok",
+                        "reason": None,
+                        "found": 15,
+                        "fetched": 15,
+                    },
+                    {
+                        "name": "europe_pmc",
+                        "status": "ok",
+                        "reason": None,
+                        "found": 5,
+                        "fetched": 5,
+                    },
+                ],
+            }
+        ]
+    )
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open("/historico")
+    await user.should_see("1 buscas registradas")
+    table = user.find(marker="history-table").elements.pop()
+    assert table.props.get("pagination", {}).get("rowsPerPage") == 25
+    assert len(table.rows) == 1
+    row = table.rows[0]
+    assert row["date_short"] == "16/11/2026 14:25"
+    assert row["created_at"] == "2026-11-16T14:25:00Z"
+    assert row["sources_list"] == ["OpenAlex", "Europe PMC"]
+
+
 # FR-17, FR-13: Botão "Abrir log" avisa quando log.md não existe e abre sem shell=True quando existe
 async def test_fr17_fr13_abrir_log_avisa_ausente_e_abre_sem_shell_true(
     user: User,
@@ -492,3 +542,63 @@ async def test_fr18_d026_nfr03_configuracoes_variavel_do_sistema_nao_sobrescrita
     user.find(marker="remove-OPENALEX_API_KEY").click()
     assert os.environ.get("OPENALEX_API_KEY") == sys_secret
     assert oa_status.text == "definida no sistema; o valor do sistema vale"
+
+
+# D-031, FR-18: Configurações com três section_card, badges semânticos e open_folder
+async def test_d031_fr18_configuracoes_novos_componentes_e_abrir_pasta(
+    user: User,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    _clear_desktop_env(monkeypatch)
+    cfg_file = tmp_path / "desktop.json"
+    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
+    capture_system_env_vars()
+
+    from rslapp.desktop.pages import settings_page
+
+    # 1. Testa open_folder em pasta existente e inexistente
+    folder_existing = tmp_path / "export_teste"
+    folder_existing.mkdir()
+
+    startfile_calls: list[Path] = []
+    monkeypatch.setattr(settings_page.sys, "platform", "win32")
+    monkeypatch.setattr(
+        settings_page.os,
+        "startfile",
+        lambda p: startfile_calls.append(Path(p)),
+        raising=False,
+    )
+    settings_page.open_folder(str(folder_existing))
+    assert startfile_calls == [folder_existing]
+
+    # 2. Testa _key_status_kind
+    assert settings_page._key_status_kind("OPENALEX_API_KEY", {}, frozenset()) == "neutral"
+    assert (
+        settings_page._key_status_kind("SCOPUS_API_KEY", {}, frozenset()) == "warning"
+    )
+    assert (
+        settings_page._key_status_kind(
+            "OPENALEX_API_KEY", {"OPENALEX_API_KEY": "val"}, frozenset()
+        )
+        == "ok"
+    )
+    assert (
+        settings_page._key_status_kind(
+            "OPENALEX_API_KEY", {}, frozenset(["OPENALEX_API_KEY"])
+        )
+        == "info"
+    )
+
+    # 3. Testa renderização dos 3 section_cards na tela
+    register_pages(service=FakeHistoryService())  # type: ignore[arg-type]
+
+    await user.open("/configuracoes")
+    await user.should_see("Chaves de API")
+    await user.should_see("E-mail de contato")
+    await user.should_see("Pastas")
+    await user.should_see("Salvar")
+
+    scopus_status = user.find(marker="status-SCOPUS_API_KEY").elements.pop()
+    assert scopus_status.text == "não configurada"
+

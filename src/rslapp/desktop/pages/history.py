@@ -1,4 +1,4 @@
-"""Tela Histórico do app desktop (FR-17, FR-11, FR-13, D-024, D-025)."""
+"""Tela Histórico do app desktop (FR-17, FR-11, FR-13, D-024, D-025, D-031)."""
 
 from __future__ import annotations
 
@@ -6,15 +6,21 @@ import contextlib
 import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from nicegui import events, ui
 
 from rslapp.core.errors import RSLError
-from rslapp.desktop.pages import render_header
+from rslapp.desktop.components import (
+    empty_state,
+    section_card,
+)
+from rslapp.desktop.pages import render_shell
 from rslapp.desktop.pages.search import SOURCE_LABELS
 from rslapp.desktop.service import DesktopService
+from rslapp.desktop.theme import apply_theme
 
 MAX_QUERY_CHARS = 80
 
@@ -45,6 +51,14 @@ def _truncate_query(full_query: str) -> str:
     if len(full_query) <= MAX_QUERY_CHARS:
         return full_query
     return f"{full_query[:MAX_QUERY_CHARS]}…"
+
+
+def _format_short_date(raw_date: str) -> str:
+    """Converte ISO timestamp (ex: '2026-11-16T14:25:00Z') para formato curto '16/11/2026 14:25'."""
+    with contextlib.suppress(ValueError, TypeError):
+        dt = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+        return dt.strftime("%d/%m/%Y %H:%M")
+    return raw_date
 
 
 def _format_search_sources(search: dict[str, Any]) -> str:
@@ -137,10 +151,14 @@ def open_log_in_default_app(log_file: Path) -> None:
         subprocess.run(["xdg-open", str(log_file)], check=False)
 
 
-# FR-17, FR-11, FR-13, D-024, D-025: Tela Histórico (/historico)
+# FR-17, FR-11, FR-13, D-024, D-025, D-031: Tela Histórico (/historico)
 def build(service: DesktopService) -> None:
     """Monta a tela de histórico de buscas e acesso ao log metodológico."""
-    render_header()
+    apply_theme()
+    render_shell(
+        "Histórico",
+        "Consulte as buscas já feitas, repita uma busca ou abra o log.",
+    )
     raw_searches = service.list_searches()
     ordered_searches = [
         s
@@ -152,13 +170,12 @@ def build(service: DesktopService) -> None:
         if isinstance(s, dict)
     ]
 
-    with ui.column().classes("w-full max-w-6xl mx-auto p-4 gap-4"):
-        with ui.row().classes("w-full items-center justify-between"):
-            with ui.column().classes("gap-1"):
-                ui.label("Histórico").classes("text-h5 font-bold")
-                ui.label(
-                    "Consulte as buscas já feitas, repita uma busca ou abra o log."
-                )
+    with ui.column().classes("w-full gap-5"):
+        # Barra superior de ações: contagem e botão Abrir log à direita (D-031, FR-17)
+        with ui.row().classes("w-full items-center justify-between mb-1"):
+            ui.label(f"{len(ordered_searches)} buscas registradas").classes(
+                "text-sm rsl-muted font-medium"
+            )
 
             def on_open_log() -> None:
                 log_file = service.log_path()
@@ -170,21 +187,40 @@ def build(service: DesktopService) -> None:
                 except OSError as err:
                     ui.notify(f"Não foi possível abrir o log: {err}", type="negative")
 
-            ui.button("Abrir log", on_click=on_open_log).props("outline").mark(
-                "open-log"
-            )
+            ui.button("Abrir log", icon="description", on_click=on_open_log).props(
+                "outline"
+            ).classes("rsl-surface-2").mark("open-log")
 
+        # Estado vazio se não houver buscas ainda (D-031, FR-17)
         if not ordered_searches:
-            ui.label("Histórico vazio: nenhuma busca ainda.").mark("empty-history")
-            ui.link("Ir para Buscar", "/").mark("go-to-search")
+            with ui.column().classes(
+                "w-full items-center justify-center p-8 gap-3 text-center"
+            ):
+                empty_state(
+                    icon="history",
+                    title="Histórico vazio",
+                    text="Histórico vazio: nenhuma busca ainda.",
+                )
+                ui.label("Histórico vazio: nenhuma busca ainda.").classes("hidden").mark(
+                    "empty-history"
+                )
+                ui.button(
+                    "Ir para Buscar", on_click=lambda: ui.navigate.to("/")
+                ).props("outline").classes("mt-2").mark("go-to-search")
             return
 
-        progress_row = ui.row().classes("items-center gap-2")
-        with progress_row:
-            ui.spinner(size="sm")
-            ui.label("Repetindo a busca selecionada...")
-        progress_row.set_visibility(False)
+        # Cartão de progresso durante a repetição de busca (D-031, FR-17, FR-11)
+        progress_card = ui.card().classes("w-full p-4 gap-2 progress-card")
+        with progress_card:
+            with ui.row().classes("items-center gap-2"):
+                ui.spinner(size="sm")
+                ui.label("Repetindo a busca selecionada...").classes(
+                    "text-sm font-medium rsl-title"
+                )
+            ui.linear_progress(show_value=False).props("indeterminate stripe")
+        progress_card.set_visibility(False)
 
+        # Montagem das linhas da tabela
         rows: list[dict[str, Any]] = []
         for search in ordered_searches:
             search_id = str(search.get("id") or "")
@@ -194,14 +230,17 @@ def build(service: DesktopService) -> None:
             short_query = _truncate_query(full_query)
             sources_str = _format_search_sources(search)
             total, is_incomplete = _resolve_list_summary(service, search)
+            sources_list = [s.strip() for s in sources_str.split(",") if s.strip()]
             rows.append(
                 {
                     "id": search_id,
                     "list_id": list_id,
                     "created_at": created_at,
+                    "date_short": _format_short_date(created_at),
                     "query": short_query,
                     "query_full": full_query,
                     "sources": sources_str,
+                    "sources_list": sources_list,
                     "total": total,
                     "incomplete": "Sim" if is_incomplete else "Não",
                     "is_incomplete": is_incomplete,
@@ -218,7 +257,7 @@ def build(service: DesktopService) -> None:
             },
             {
                 "name": "query",
-                "label": "String",
+                "label": "String de busca",
                 "field": "query",
                 "sortable": False,
                 "align": "left",
@@ -253,75 +292,133 @@ def build(service: DesktopService) -> None:
             },
         ]
 
-        table = (
-            ui.table(
-                columns=columns,
-                rows=rows,
-                row_key="id",
-            )
-            .classes("w-full")
-            .mark("history-table")
-        )
-        table.add_slot(
-            "body-cell-query",
-            r"""
-            <q-td :props="props">
-                <span>
-                    {{ props.value }}
-                    <q-tooltip v-if="props.row.query_full">{{ props.row.query_full }}</q-tooltip>
-                </span>
-            </q-td>
-            """,
-        )
-
-        def on_view_list(e: events.GenericEventArguments) -> None:
-            arg = e.args
-            target_list_id = (
-                str(arg.get("list_id") or "")
-                if isinstance(arg, dict)
-                else str(arg or "")
-            )
-            if target_list_id:
-                ui.navigate.to(f"/lista/{target_list_id}")
-
-        # FR-17, FR-11: Repete a busca selecionada com indicador de progresso e navega para a lista nova
-        async def on_repeat(e: events.GenericEventArguments) -> None:
-            arg = e.args
-            target_search_id = (
-                str(arg.get("id") or "")
-                if isinstance(arg, dict)
-                else str(arg or "")
-            )
-            if not target_search_id:
-                return
-            repeat_btn.disable()
-            progress_row.set_visibility(True)
-            try:
-                result = await service.repeat(target_search_id)
-            except RSLError as err:
-                ui.notify(err.message, type="negative")
-                return
-            finally:
-                progress_row.set_visibility(False)
-                repeat_btn.enable()
-
-            new_list_id = str(result.get("list_id") or "")
-            if new_list_id:
-                ui.navigate.to(f"/lista/{new_list_id}")
-
-        with table.add_slot("body-cell-actions"), table.cell("actions"):
-            ui.button("Ver lista").props("flat dense").mark("view-list-button").on(
-                "click",
-                js_handler="() => emit(props.row.list_id)",
-                handler=on_view_list,
-            )
-            repeat_btn = (
-                ui.button("Repetir")
-                .props("flat dense")
-                .mark("repeat-button")
-                .on(
-                    "click",
-                    js_handler="() => emit(props.row.id)",
-                    handler=on_repeat,
+        with section_card("Buscas realizadas", icon="history"):
+            table = (
+                ui.table(
+                    columns=columns,
+                    rows=rows,
+                    row_key="id",
+                    pagination={"rowsPerPage": 25},
                 )
+                .classes("w-full rsl-table sticky-header-table")
+                .props("flat")
+                .mark("history-table")
             )
+
+            # Slot data em formato curto visual (mantendo created_at ISO nas rows)
+            table.add_slot(
+                "body-cell-created_at",
+                r"""
+                <q-td :props="props">
+                    <span class="text-sm font-medium rsl-title">{{ props.row.date_short || props.value }}</span>
+                </q-td>
+                """,
+            )
+
+            # Slot query com tooltip completo
+            table.add_slot(
+                "body-cell-query",
+                r"""
+                <q-td :props="props">
+                    <span class="font-mono text-xs cursor-pointer">
+                        {{ props.value }}
+                        <q-tooltip v-if="props.row.query_full">{{ props.row.query_full }}</q-tooltip>
+                    </span>
+                </q-td>
+                """,
+            )
+
+            # Slot fontes como selos
+            table.add_slot(
+                "body-cell-sources",
+                r"""
+                <q-td :props="props">
+                    <div class="row items-center q-gutter-xs">
+                        <span v-for="src in (props.row.sources_list || [props.value])" :key="src" class="text-xs px-2 py-0.5 rounded-full font-medium rsl-surface-2 rsl-muted">
+                            {{ src }}
+                        </span>
+                    </div>
+                </q-td>
+                """,
+            )
+
+            # Slot status incompleta
+            table.add_slot(
+                "body-cell-incomplete",
+                r"""
+                <q-td :props="props">
+                    <span v-if="props.row.is_incomplete" class="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-900 border border-amber-300">
+                        Sim
+                    </span>
+                    <span v-else class="text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-900 border border-green-300">
+                        Não
+                    </span>
+                </q-td>
+                """,
+            )
+
+            def on_view_list(e: events.GenericEventArguments) -> None:
+                arg = e.args
+                target_list_id = (
+                    str(arg.get("list_id") or "")
+                    if isinstance(arg, dict)
+                    else str(arg or "")
+                )
+                if target_list_id:
+                    ui.navigate.to(f"/lista/{target_list_id}")
+
+            # FR-17, FR-11: Repete a busca com indicador de progresso e navega para a lista nova
+            async def on_repeat(e: events.GenericEventArguments) -> None:
+                arg = e.args
+                target_search_id = (
+                    str(arg.get("id") or "")
+                    if isinstance(arg, dict)
+                    else str(arg or "")
+                )
+                if not target_search_id:
+                    return
+                repeat_btn.disable()
+                progress_card.set_visibility(True)
+                try:
+                    result = await service.repeat(target_search_id)
+                except RSLError as err:
+                    ui.notify(err.message, type="negative")
+                    return
+                finally:
+                    progress_card.set_visibility(False)
+                    repeat_btn.enable()
+
+                new_list_id = str(result.get("list_id") or "")
+                if new_list_id:
+                    ui.navigate.to(f"/lista/{new_list_id}")
+
+            with (
+                table.add_slot("body-cell-actions"),
+                table.cell("actions"),
+                ui.row().classes("items-center gap-1 no-wrap"),
+            ):
+                view_btn = (
+                    ui.button("Ver lista", icon="visibility")
+                    .props("flat dense size=sm")
+                    .mark("view-list-button")
+                    .on(
+                        "click",
+                        js_handler="() => emit(props.row.list_id)",
+                        handler=on_view_list,
+                    )
+                )
+                with view_btn:
+                    ui.tooltip("Abrir a lista de resultados desta busca")
+
+                repeat_btn = (
+                    ui.button("Repetir", icon="replay")
+                    .props("flat dense size=sm")
+                    .mark("repeat-button")
+                    .on(
+                        "click",
+                        js_handler="() => emit(props.row.id)",
+                        handler=on_repeat,
+                    )
+                )
+                with repeat_btn:
+                    ui.tooltip("Repetir esta busca nas mesmas fontes")

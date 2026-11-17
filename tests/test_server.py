@@ -321,7 +321,7 @@ def test_d006_nfr02_list_sources_nao_escreve_em_stdout(
 # D-002, D-006, D-029, FR-20: tools/list devolve readOnlyHint e destructiveHint certos nas nove ferramentas
 @pytest.mark.anyio
 async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_nas_nove_ferramentas() -> None:
-    read_only_tools = {"list_sources", "get_list", "get_search_log"}
+    read_only_tools = {"list_sources", "get_list", "get_search_log", "verify_references"}
     additive_write_tools = {
         "search_works",
         "find_work",
@@ -329,6 +329,7 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "repeat_search",
         "merge_lists",
         "export_list",
+        "import_works",
     }
 
     async with Client(server.mcp) as client:

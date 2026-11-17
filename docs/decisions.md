@@ -334,3 +334,52 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
   - só trocar as cores: não resolve a navegação nem os estados vazios.
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
 - **Situação:** decidida. Specs 13-01 a 13-03.
+
+## D-032 · Retratações nas listas: identificação automática via Retraction Watch (Crossref) e OpenAlex, com avisos nas listas, fichas e exportações
+
+- **Decisão:** o sistema identifica automaticamente artigos formalmente retratados ou com expressão de preocupação oficial:
+  - **Identificação:** via atributo nativo `is_retracted` no OpenAlex (alimentado pela base Retraction Watch) e via `updated-by` na API da Crossref (comprovando procedência do Retraction Watch / Crossmark), além de Europe PMC (`isRetracted`) e PubMed (`PublicationType`).
+  - **Comportamento metodológico:** não exclui os artigos retratados da lista (preserva a integridade do fluxograma PRISMA e o registro das buscas).
+  - **Sinalização visual:** badge vermelho `RETRATADO` com tooltip na tabela de artigos e cartão de alerta na faixa superior da tela de Lista quando houver estudos retratados.
+  - **Exportações:** notas explícitas em RIS (`N1`), BibTeX (`note`) e marcação em `Document Type` no CSV compatível com Scopus/VOSviewer.
+- **Motivo:**
+  - Evitar que revisores sistemáticos incluam acidentalmente estudos fraudulentos, com dados forjados ou erros metodológicos graves em sínteses de evidências.
+  - Alinhado ao Fundamento do projeto: rigor, rastreabilidade e reprodutibilidade na pesquisa científica.
+- **Alternativas:**
+  - Excluir automaticamente artigos retratados: violaria a metodologia de revisões sistemáticas (PRISMA), que exige reportar todas as obras recuperadas pelas strings.
+  - Consultar base privada: a base do Retraction Watch tornou-se aberta e integrada pela Crossref em 2023, permitindo consulta gratuita e sem custo adicional de infraestrutura.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Spec 13-05.
+
+
+## D-033 · Importar exportações de fora: suporte a RIS, BibTeX, Scopus CSV e Web of Science TSV/Tagged
+
+- **Decisão:** o RSL.app oferece recurso de importação de arquivos e listas bibliográficas exportados externamente por pesquisadores:
+  - **Formatos suportados:** RIS (`.ris`), BibTeX (`.bib`), CSV do Scopus e Web of Science Tab-delimited / Tagged (`.txt`, `.tsv`).
+  - **Detecção automática:** identificação do formato por análise de assinaturas de texto (`TY  - `, `@\w+\{`, cabeçalhos CSV Scopus, tags WoS).
+  - **Persistência no Store:** cada importação gera uma nova lista independente no `Store` com metadados de procedência (`source: "import"`), pronta para navegação, verificação contra alucinação, auditoria de retratações e exportação para o VOSviewer.
+  - **Canais:** ferramenta MCP `import_works` e tela desktop `/importar` com upload de arquivo e colagem direta de texto.
+- **Motivo:**
+  - Muitos pesquisadores possuem acesso a bases pagas (Scopus, Web of Science, Portal de Periódicos CAPES) apenas via navegador web institucional ou login federado CAFe/VPN, sem ter chaves de API disponíveis.
+  - Permite unir os resultados dessas buscas manuais ao fluxo automatizado do RSL.app (deduplicação unificada, checagem de retratação, auditoria de referências e mapas bibliométricos).
+- **Alternativas:**
+  - Exigir API keys para tudo: impossibilitaria o uso por pesquisadores cujas universidades não contratam planos de API institucionais.
+  - Web scraping: frágil, viola os termos de serviço das bases proprietárias e quebra frequentemente.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Spec 13-06.
+
+
+## D-034 · Referências na ABNT NBR 6023:2018 para listas e citações individuais
+
+- **Decisão:** o sistema gera e exporta referências formatadas segundo a norma técnica brasileira ABNT NBR 6023:2018:
+  - **Regras:** sobrenome principal em caixa alta (`SOBRENOME, Prenomes`), todos os autores preservados ou indicação do primeiro com *et al.* quando superior a três, destaque no periódico para artigos ou no título para livros/monografias, endereço eletrônico e DOI quando disponível, além de nota explícita para estudos retratados.
+  - **Exportador:** novo formato de exportação `abnt` com extensão `.txt`, ordenado alfabeticamente pelo primeiro autor e ano, gerando a lista de referências pronta para o corpo do trabalho científico.
+  - **Interface Desktop:** botão de exportação rápida `ABNT` na tela da Lista (`list_view.py`) e visualização/cópia de referências no padrão nacional.
+- **Motivo:**
+  - A ABNT NBR 6023 é a norma obrigatória na ampla maioria das universidades, periódicos e programas de pós-graduação brasileiros.
+  - Responde diretamente ao Fundamento do projeto (Fundamento, `system-description.md`): aproximar o RSL.app da realidade dos pesquisadores brasileiros, valorizando a produção científica nacional e diminuindo barreiras burocráticas.
+- **Alternativas:**
+  - Deixar a formatação apenas para ferramentas externas (Zotero/Mendeley): obriga o pesquisador a instalar e configurar softwares adicionais apenas para obter a bibliografia em ABNT.
+  - Usar apenas normas internacionais (APA, Vancouver): não atende às exigências de teses, dissertações e TCCs no Brasil.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Spec 13-07.
