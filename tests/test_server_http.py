@@ -153,7 +153,13 @@ async def test_d011_serve_lista_ferramentas_por_http(
 
             http_prompts = await http_client.list_prompts()
             stdio_prompts = await stdio_client.list_prompts()
-            assert [p.name for p in http_prompts.prompts] == ["plan_search"]
+            assert {p.name for p in http_prompts.prompts} == {
+                "plan_search",
+                "plan_scoping_review",
+                "plan_integrative_review",
+                "plan_systematic_review",
+                "plan_bibliometric_study",
+            }
             assert [p.name for p in http_prompts.prompts] == [
                 p.name for p in stdio_prompts.prompts
             ]
