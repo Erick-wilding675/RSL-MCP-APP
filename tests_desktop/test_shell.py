@@ -24,9 +24,17 @@ async def test_d031_fr16_casca_itens_drawer_e_versao(user: User) -> None:
     await user.should_see("RSL.app")
     await user.should_see("Revisão sistemática com IA rastreável")
 
-    # Os 6 itens na ordem: Buscar, Verificar, Importar, Histórico, Conectar IA, Configurações
+    # Os 7 itens na ordem: Buscar, Verificar, Importar, Roteiros, Histórico, Conectar IA, Configurações
     labels = [item[0] for item in NAV_ITEMS]
-    assert labels == ["Buscar", "Verificar", "Importar", "Histórico", "Conectar IA", "Configurações"]
+    assert labels == [
+        "Buscar",
+        "Verificar",
+        "Importar",
+        "Roteiros",
+        "Histórico",
+        "Conectar IA",
+        "Configurações",
+    ]
     for label in labels:
         await user.should_see(label)
 
@@ -111,6 +119,12 @@ async def test_d031_fr16_todas_as_telas_abrem_com_casca(user: User) -> None:
     await user.should_see("RSL.app")
     await user.should_see("Verificar")
     await user.should_see("Verifique se referências citadas existem nas bases reais contra alucinações de IA.")
+
+    # 4. Roteiros (/roteiros)
+    await user.open("/roteiros")
+    await user.should_see("RSL.app")
+    await user.should_see("Roteiros")
+    await user.should_see("Roteiros e protocolos metodológicos para planejamento de revisões e estudos bibliométricos.")
 
     # 4. Histórico (/historico)
     await user.open("/historico")

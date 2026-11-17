@@ -667,4 +667,56 @@ async def test_d031_fr16_lista_faixa_resumo_e_cartoes(user: User) -> None:
     assert "sticky-header-table" in table._classes
 
 
+# FR-16, D-035: Trabalhos do tipo tese e dissertação exibem selos visuais na tabela
+async def test_fr16_d035_lista_mostra_selos_tese_e_dissertacao(user: User) -> None:
+    fake_service = FakeDesktopService()
+    list_id = "l-teses"
+    fake_service.lists[list_id] = {
+        "id": list_id,
+        "search_id": "s-teses",
+        "created_at": "2026-11-16T12:00:00Z",
+        "status": "complete",
+        "total": 2,
+        "works": [
+            {
+                "title": "Modelos Neurais em Revisões Sistemáticas",
+                "doi": "10.11606/T.2024.123",
+                "year": 2024,
+                "venue": "Universidade de São Paulo",
+                "type": "thesis",
+                "authors": [{"name": "Pesquisador Silva"}],
+                "source_ids": {"bdtd": "oai:usp:123"},
+            },
+            {
+                "title": "Bibliometria Aplicada à Saúde Pública",
+                "doi": None,
+                "year": 2023,
+                "venue": "Fiocruz",
+                "type": "dissertation",
+                "authors": [{"name": "Pesquisadora Santos"}],
+                "source_ids": {"bdtd": "oai:fiocruz:456"},
+            },
+        ],
+    }
+    fake_service.searches.append(
+        {
+            "id": "s-teses",
+            "list_id": list_id,
+            "created_at": "2026-11-16T12:00:00Z",
+            "sources": [{"name": "bdtd", "status": "ok", "found": 2, "fetched": 2}],
+            "params": {"query": "revisões sistemáticas", "sources": ["bdtd"]},
+        }
+    )
+    register_pages(service=fake_service)  # type: ignore[arg-type]
+
+    await user.open(f"/lista/{list_id}")
+    await user.should_see(ui.table)
+    table = user.find(ui.table).elements.pop()
+    assert table.rows[0]["title"] == "Modelos Neurais em Revisões Sistemáticas"
+    assert table.rows[0]["type"] == "thesis"
+    assert table.rows[1]["title"] == "Bibliometria Aplicada à Saúde Pública"
+    assert table.rows[1]["type"] == "dissertation"
+
+
+
 
