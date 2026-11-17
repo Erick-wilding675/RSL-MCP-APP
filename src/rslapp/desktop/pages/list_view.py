@@ -30,6 +30,7 @@ EXPORT_FORMATS: tuple[tuple[str, str], ...] = (
     ("RIS", "ris"),
     ("CSV", "csv"),
     ("BibTeX", "bibtex"),
+    ("ABNT", "abnt"),
     ("JSON", "json"),
     ("DOIs", "dois"),
 )
@@ -38,6 +39,7 @@ EXPORT_ICONS: dict[str, str] = {
     "ris": "description",
     "csv": "table_view",
     "bibtex": "menu_book",
+    "abnt": "format_quote",
     "json": "data_object",
     "dois": "link",
 }

@@ -394,7 +394,7 @@ async def test_d002_fr06_export_list_pasta_sem_permissao_volta_export_folder_not
 
 # FR-06, D-002: export_list numa lista com works vazio devolve empty_list nos formatos suportados e não cria arquivo
 @pytest.mark.anyio
-@pytest.mark.parametrize("fmt", ["ris", "csv", "json", "dois", "openalex_url", "bibtex"])
+@pytest.mark.parametrize("fmt", ["ris", "csv", "json", "dois", "openalex_url", "bibtex", "abnt"])
 async def test_fr06_d002_export_list_lista_vazia_volta_empty_list_sem_arquivo(
     isolated_env: tuple[Path, Path],
     fmt: str,

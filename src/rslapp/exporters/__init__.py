@@ -9,6 +9,7 @@ from typing import Any
 
 from rslapp.core.errors import RSLError
 from rslapp.core.models import Work
+from rslapp.exporters.abnt import ABNTExporter
 from rslapp.exporters.base import Exporter, save_export_file
 from rslapp.exporters.bibtex import BibTeXExporter
 from rslapp.exporters.csv import CSVExporter
@@ -19,6 +20,7 @@ from rslapp.exporters.ris import RISExporter
 from rslapp.store import Store
 
 __all__ = [
+    "ABNTExporter",
     "BibTeXExporter",
     "CSVExporter",
     "DOIsExporter",
@@ -31,7 +33,7 @@ __all__ = [
     "save_export_file",
 ]
 
-# FR-06, D-002, D-014: Tabela de exportadores registrados para formatos suportados
+# FR-06, D-002, D-014, FR-24, D-034: Tabela de exportadores registrados para formatos suportados
 _EXPORTERS: dict[str, type[Exporter]] = {
     "ris": RISExporter,
     "csv": CSVExporter,
@@ -39,6 +41,7 @@ _EXPORTERS: dict[str, type[Exporter]] = {
     "dois": DOIsExporter,
     "openalex_url": OpenAlexURLExporter,
     "bibtex": BibTeXExporter,
+    "abnt": ABNTExporter,
 }
 
 
@@ -79,7 +82,7 @@ def get_exporter(format_name: str) -> Exporter:
         raise RSLError(
             "invalid_input",
             f"Formato inválido ou não suportado: {format_name!r}. "
-            f"Suportados: 'ris', 'csv', 'json', 'dois', 'openalex_url', 'bibtex'",
+            f"Suportados: 'ris', 'csv', 'json', 'dois', 'openalex_url', 'bibtex', 'abnt'",
         )
     return exporter_cls()
 

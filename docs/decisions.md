@@ -367,3 +367,19 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
   - Web scraping: frágil, viola os termos de serviço das bases proprietárias e quebra frequentemente.
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
 - **Situação:** decidida. Spec 13-06.
+
+
+## D-034 · Referências na ABNT NBR 6023:2018 para listas e citações individuais
+
+- **Decisão:** o sistema gera e exporta referências formatadas segundo a norma técnica brasileira ABNT NBR 6023:2018:
+  - **Regras:** sobrenome principal em caixa alta (`SOBRENOME, Prenomes`), todos os autores preservados ou indicação do primeiro com *et al.* quando superior a três, destaque no periódico para artigos ou no título para livros/monografias, endereço eletrônico e DOI quando disponível, além de nota explícita para estudos retratados.
+  - **Exportador:** novo formato de exportação `abnt` com extensão `.txt`, ordenado alfabeticamente pelo primeiro autor e ano, gerando a lista de referências pronta para o corpo do trabalho científico.
+  - **Interface Desktop:** botão de exportação rápida `ABNT` na tela da Lista (`list_view.py`) e visualização/cópia de referências no padrão nacional.
+- **Motivo:**
+  - A ABNT NBR 6023 é a norma obrigatória na ampla maioria das universidades, periódicos e programas de pós-graduação brasileiros.
+  - Responde diretamente ao Fundamento do projeto (Fundamento, `system-description.md`): aproximar o RSL.app da realidade dos pesquisadores brasileiros, valorizando a produção científica nacional e diminuindo barreiras burocráticas.
+- **Alternativas:**
+  - Deixar a formatação apenas para ferramentas externas (Zotero/Mendeley): obriga o pesquisador a instalar e configurar softwares adicionais apenas para obter a bibliografia em ABNT.
+  - Usar apenas normas internacionais (APA, Vancouver): não atende às exigências de teses, dissertações e TCCs no Brasil.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Spec 13-07.
