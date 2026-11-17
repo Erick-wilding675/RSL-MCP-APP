@@ -237,6 +237,12 @@ def _parse_work(raw_work: Any) -> Work | None:
     raw_type = raw_work.get("type")
     work_type = raw_type.strip() if isinstance(raw_type, str) and raw_type.strip() else None
 
+    # FR-22, D-032: Extrai sinalização nativa de retratação do OpenAlex (Retraction Watch)
+    is_retracted = bool(raw_work.get("is_retracted", False))
+    retraction_details = (
+        {"source": "openalex", "label": "Retracted"} if is_retracted else None
+    )
+
     return Work(
         title=raw_title.strip(),
         doi=_normalize_doi(raw_work.get("doi")),
@@ -250,6 +256,8 @@ def _parse_work(raw_work: Any) -> Work | None:
         references_count=references_count,
         citations=citations,
         source_ids=source_ids,
+        is_retracted=is_retracted,
+        retraction_details=retraction_details,
     )
 
 

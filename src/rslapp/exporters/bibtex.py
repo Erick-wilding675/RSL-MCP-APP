@@ -309,8 +309,19 @@ class BibTeXExporter(Exporter):
                 fields.append(("keywords", ", ".join(clean_kws)))
 
             source_names = _extract_source_names(w)
+            notes: list[str] = []
+            if w.get("is_retracted"):
+                ret_details = w.get("retraction_details")
+                src_note = (
+                    f" (Fonte: {ret_details.get('source')})"
+                    if isinstance(ret_details, dict) and ret_details.get("source")
+                    else ""
+                )
+                notes.append(f"AVISO: Artigo retratado ou com expressao de preocupacao oficial{src_note}")
             if source_names:
-                fields.append(("note", escape_latex(f"Fontes: {', '.join(source_names)}")))
+                notes.append(f"Fontes: {', '.join(source_names)}")
+            if notes:
+                fields.append(("note", escape_latex(" | ".join(notes))))
 
             body = "\n".join(f"  {k} = {{{v}}}," for k, v in fields)
             entries.append(f"@{entry_type}{{{cite_key},\n{body}\n}}")

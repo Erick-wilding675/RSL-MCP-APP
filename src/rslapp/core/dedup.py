@@ -135,6 +135,12 @@ def _merge_cluster_works(cluster: _WorkCluster) -> Work:
                 seen_refs.add(ref)
                 references.append(ref)
 
+    # FR-22, D-032: Se qualquer uma das fontes indicar que o artigo foi retratado, preserva is_retracted = True
+    is_retracted = any(w.is_retracted for w in ordered)
+    retraction_details = next(
+        (w.retraction_details for w in ordered if w.retraction_details), None
+    )
+
     return Work(
         title=title,
         doi=doi,
@@ -148,6 +154,8 @@ def _merge_cluster_works(cluster: _WorkCluster) -> Work:
         references_count=references_count,
         citations=citations,
         source_ids=source_ids,
+        is_retracted=is_retracted,
+        retraction_details=retraction_details,
     )
 
 
