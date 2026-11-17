@@ -24,9 +24,9 @@ async def test_d031_fr16_casca_itens_drawer_e_versao(user: User) -> None:
     await user.should_see("RSL.app")
     await user.should_see("Revisão sistemática com IA rastreável")
 
-    # Os 5 itens na ordem: Buscar, Verificar, Histórico, Conectar IA, Configurações
+    # Os 6 itens na ordem: Buscar, Verificar, Importar, Histórico, Conectar IA, Configurações
     labels = [item[0] for item in NAV_ITEMS]
-    assert labels == ["Buscar", "Verificar", "Histórico", "Conectar IA", "Configurações"]
+    assert labels == ["Buscar", "Verificar", "Importar", "Histórico", "Conectar IA", "Configurações"]
     for label in labels:
         await user.should_see(label)
 

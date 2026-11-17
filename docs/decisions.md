@@ -350,3 +350,20 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
   - Consultar base privada: a base do Retraction Watch tornou-se aberta e integrada pela Crossref em 2023, permitindo consulta gratuita e sem custo adicional de infraestrutura.
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
 - **Situação:** decidida. Spec 13-05.
+
+
+## D-033 · Importar exportações de fora: suporte a RIS, BibTeX, Scopus CSV e Web of Science TSV/Tagged
+
+- **Decisão:** o RSL.app oferece recurso de importação de arquivos e listas bibliográficas exportados externamente por pesquisadores:
+  - **Formatos suportados:** RIS (`.ris`), BibTeX (`.bib`), CSV do Scopus e Web of Science Tab-delimited / Tagged (`.txt`, `.tsv`).
+  - **Detecção automática:** identificação do formato por análise de assinaturas de texto (`TY  - `, `@\w+\{`, cabeçalhos CSV Scopus, tags WoS).
+  - **Persistência no Store:** cada importação gera uma nova lista independente no `Store` com metadados de procedência (`source: "import"`), pronta para navegação, verificação contra alucinação, auditoria de retratações e exportação para o VOSviewer.
+  - **Canais:** ferramenta MCP `import_works` e tela desktop `/importar` com upload de arquivo e colagem direta de texto.
+- **Motivo:**
+  - Muitos pesquisadores possuem acesso a bases pagas (Scopus, Web of Science, Portal de Periódicos CAPES) apenas via navegador web institucional ou login federado CAFe/VPN, sem ter chaves de API disponíveis.
+  - Permite unir os resultados dessas buscas manuais ao fluxo automatizado do RSL.app (deduplicação unificada, checagem de retratação, auditoria de referências e mapas bibliométricos).
+- **Alternativas:**
+  - Exigir API keys para tudo: impossibilitaria o uso por pesquisadores cujas universidades não contratam planos de API institucionais.
+  - Web scraping: frágil, viola os termos de serviço das bases proprietárias e quebra frequentemente.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
+- **Situação:** decidida. Spec 13-06.
