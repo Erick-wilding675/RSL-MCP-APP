@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from rslapp.core.screening import calculate_screening_summary
 from rslapp.store._atomic import (
     atomic_write_exclusive,
     atomic_write_replace,
@@ -61,6 +62,7 @@ class Store:
         self.cache_days: int = cache_days
         self.lists_dir: Path = self.data_dir / "lists"
         self.searches_dir: Path = self.data_dir / "searches"
+        self.screening_dir: Path = self.data_dir / "screening"
         # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
         self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
@@ -160,3 +162,63 @@ class Store:
         self, source: str, query: dict[str, Any], *, now: datetime | str | None = None
     ) -> dict[str, Any] | None:
         return read_cache_entry(self.cache_dir, source, query, now=now)
+
+    # FR-25, D-036: Gravação atômica de decisão de triagem associada à lista
+    def save_screening_decision(
+        self, list_id: str, decision: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Salva ou atualiza a decisão de triagem de um trabalho em screening/{list_id}.json."""
+        self.get_list(list_id)  # Valida se a lista existe
+        work_id = str(decision.get("work_id", "")).strip()
+        if not work_id:
+            raise ValueError("decision deve conter 'work_id'")
+
+        now_iso = format_utc_iso(parse_utc_timestamp(None))
+        screening_path = self.screening_dir / f"{list_id}.json"
+
+        with file_lock(self.lock_path):
+            if screening_path.exists():
+                data = json.loads(screening_path.read_text(encoding="utf-8"))
+            else:
+                data = {
+                    "list_id": list_id,
+                    "updated_at": now_iso,
+                    "decisions": {},
+                }
+
+            if "decisions" not in data or not isinstance(data["decisions"], dict):
+                data["decisions"] = {}
+
+            data["decisions"][work_id] = copy.deepcopy(decision)
+            data["updated_at"] = now_iso
+
+            content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+            atomic_write_replace(screening_path, content)
+
+        return copy.deepcopy(data)
+
+    # FR-25, D-036: Leitura das decisões de triagem de uma lista
+    def get_screening(self, list_id: str) -> dict[str, Any]:
+        """Recupera todas as decisões de triagem registradas para a lista."""
+        self.get_list(list_id)  # Valida existência da lista
+        screening_path = self.screening_dir / f"{list_id}.json"
+        if not screening_path.exists():
+            return {
+                "list_id": list_id,
+                "updated_at": None,
+                "decisions": {},
+            }
+        return json.loads(screening_path.read_text(encoding="utf-8"))
+
+    # FR-25, D-036, D-037: Resumo estatístico das decisões de triagem
+    def get_screening_summary(self, list_id: str) -> dict[str, Any]:
+        """Calcula totais, percentual e discriminação por motivo da triagem da lista."""
+        list_data = self.get_list(list_id)
+        screening_data = self.get_screening(list_id)
+        total_works = list_data.get("total")
+        if total_works is None or not isinstance(total_works, int):
+            total_works = len(list_data.get("works", []))
+        return calculate_screening_summary(
+            total_works=total_works,
+            decisions=screening_data.get("decisions", {}),
+        )
