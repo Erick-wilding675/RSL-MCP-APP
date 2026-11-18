@@ -29,36 +29,46 @@ body, .nicegui-content {
   padding: 24px !important;
 }
 
-/* D-031: Fundo da página e variáveis de cores no tema claro (estilo papel de pesquisa com detalhes verdes discretos) */
-body:not(.body--dark) {
+/* D-031: Fundo da página e variáveis de cores no tema acadêmico sóbrio (estilo papel de pesquisa com detalhes verdes discretos) */
+body, body:not(.body--dark) {
   background-color: #F8FAF9 !important;
+  color: #111827 !important;
+  --q-primary: #1B4D3E !important;
+  --q-secondary: #4B5563 !important;
+  --q-accent: #2D6A4F !important;
+  --q-positive: #15803D !important;
+  --q-negative: #991B1B !important;
+  --q-warning: #92400E !important;
+  --q-info: #155E75 !important;
 }
 
-/* D-031: Fundo da página e variáveis de cores Quasar no tema escuro acadêmico */
+/* D-031: Fallback sóbrio em modo escuro sem cores chamativas (#1E293B) */
 body.body--dark {
-  background-color: #0F172A !important;
-  --q-primary: #34D399 !important;
-  --q-secondary: #94A3B8 !important;
-  --q-accent: #10B981 !important;
-  --q-positive: #22C55E !important;
-  --q-negative: #EF4444 !important;
-  --q-warning: #F59E0B !important;
-  --q-info: #38BDF8 !important;
+  background-color: #F8FAF9 !important;
+  color: #111827 !important;
+  --q-primary: #1B4D3E !important;
+  --q-secondary: #4B5563 !important;
+  --q-accent: #2D6A4F !important;
+  --q-positive: #15803D !important;
+  --q-negative: #991B1B !important;
+  --q-warning: #92400E !important;
+  --q-info: #155E75 !important;
+  --rsl-dark-bg: #1E293B !important;
 }
 
-/* D-031: Cartões com cantos de 6px (sóbrio/estruturado), borda nítida e sombra muito leve */
+/* D-031: Cartões com cantos de 6px (sóbrio/estruturado), borda nítida e sombra quase imperceptível */
 .q-card {
   border-radius: 6px !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
-}
-body:not(.body--dark) .q-card {
   background-color: #FFFFFF !important;
   border: 1px solid #E5E7EB !important;
+  color: #111827 !important;
 }
-body.body--dark .q-card {
-  background-color: #1E293B !important;
-  border: 1px solid #334155 !important;
+body:not(.body--dark) .q-card, body.body--dark .q-card {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
+  color: #111827 !important;
 }
 
 /* D-031: Foco visível (contorno de 2px na cor primary) em todo elemento que recebe teclado */
@@ -73,39 +83,27 @@ button, a, input, textarea, select, .q-btn, .q-field {
 }
 
 /* D-031: Estilos da barra lateral drawer */
-body:not(.body--dark) .q-drawer {
+body .q-drawer, body:not(.body--dark) .q-drawer, body.body--dark .q-drawer {
   background-color: #FFFFFF !important;
   border-right: 1px solid #E5E7EB !important;
 }
-body.body--dark .q-drawer {
-  background-color: #1E293B !important;
-  border-right: 1px solid #334155 !important;
-}
 
 /* Estilos de itens de navegação ativo e inativo com acento verde discreto */
-.nav-item-active {
+.nav-item-active, body.body--dark .nav-item-active {
   background-color: rgba(27, 77, 62, 0.08) !important;
   color: #1B4D3E !important;
   font-weight: 600 !important;
   border-radius: 4px !important;
   border-left: 3px solid #1B4D3E !important;
 }
-body.body--dark .nav-item-active {
-  background-color: rgba(52, 211, 153, 0.12) !important;
-  color: #34D399 !important;
-  border-left: 3px solid #34D399 !important;
-}
-.nav-item-inactive {
+.nav-item-inactive, body.body--dark .nav-item-inactive {
   border-radius: 4px !important;
   border-left: 3px solid transparent !important;
   color: #374151 !important;
   transition: background-color 150ms ease !important;
 }
-.nav-item-inactive:hover {
+.nav-item-inactive:hover, body.body--dark .nav-item-inactive:hover {
   background-color: rgba(27, 77, 62, 0.04) !important;
-}
-body.body--dark .nav-item-inactive:hover {
-  background-color: rgba(255, 255, 255, 0.04) !important;
 }
 
 /* Oculta subtítulo e versão quando o drawer recolhe em modo mini */
@@ -116,12 +114,9 @@ body.body--dark .nav-item-inactive:hover {
   justify-content: center !important;
 }
 
-/* D-031: Classes semânticas próprias para suporte confiável ao tema claro e escuro */
-.rsl-title {
+/* D-031: Classes semânticas próprias para suporte sóbrio acadêmico */
+.rsl-title, body.body--dark .rsl-title {
   color: #111827 !important;
-}
-body.body--dark .rsl-title {
-  color: #F8FAFC !important;
 }
 
 /* Herança da cor rsl-title para checkboxes dentro de cartões de fonte */
@@ -130,56 +125,34 @@ body.body--dark .rsl-title {
   color: inherit !important;
 }
 
-.rsl-muted {
+.rsl-muted, body.body--dark .rsl-muted {
   color: #4B5563 !important;
 }
-body.body--dark .rsl-muted {
-  color: #94A3B8 !important;
-}
 
-.rsl-surface-2 {
+.rsl-surface-2, body.body--dark .rsl-surface-2 {
   background-color: #FFFFFF !important;
   border: 1px solid #E5E7EB !important;
   color: #111827 !important;
 }
-body.body--dark .rsl-surface-2 {
-  background-color: #1E293B !important;
-  border: 1px solid #334155 !important;
-  color: #F8FAFC !important;
-}
 
-.rsl-surface-disabled {
+.rsl-surface-disabled, body.body--dark .rsl-surface-disabled {
   background-color: #F3F4F6 !important;
   border: 1px solid #E5E7EB !important;
   opacity: 0.65 !important;
 }
-body.body--dark .rsl-surface-disabled {
-  background-color: #0F172A !important;
-  border: 1px solid #334155 !important;
-  opacity: 0.65 !important;
-}
 
-.rsl-code {
+.rsl-code, body.body--dark .rsl-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   background-color: #F9FAFB !important;
   color: #111827 !important;
   border: 1px solid #E5E7EB !important;
 }
-body.body--dark .rsl-code {
-  background-color: #0F172A !important;
-  color: #E2E8F0 !important;
-  border: 1px solid #334155 !important;
-}
 
 /* D-031: Cartão de progresso e divisor do rodapé do drawer */
-.progress-card {
+.progress-card, body.body--dark .progress-card {
   background-color: rgba(27, 77, 62, 0.04) !important;
   border: 1px solid rgba(27, 77, 62, 0.2) !important;
   border-radius: 6px !important;
-}
-body.body--dark .progress-card {
-  background-color: rgba(52, 211, 153, 0.1) !important;
-  border: 1px solid rgba(52, 211, 153, 0.2) !important;
 }
 
 /* D-031: Tabela com cabeçalho fixo e linhas alternadas suaves */
@@ -188,53 +161,34 @@ body.body--dark .progress-card {
   z-index: 1 !important;
   top: 0 !important;
 }
-body:not(.body--dark) .sticky-header-table thead tr th {
+body:not(.body--dark) .sticky-header-table thead tr th,
+body.body--dark .sticky-header-table thead tr th {
   background-color: #F9FAFB !important;
   border-bottom: 2px solid #E5E7EB !important;
 }
-body.body--dark .sticky-header-table thead tr th {
-  background-color: #1E293B !important;
-  border-bottom: 2px solid #334155 !important;
-}
 
-body:not(.body--dark) .q-table tbody tr:nth-child(even) {
+.q-table tbody tr:nth-child(even) {
   background-color: rgba(0, 0, 0, 0.015) !important;
 }
-body.body--dark .q-table tbody tr:nth-child(even) {
-  background-color: rgba(255, 255, 255, 0.015) !important;
-}
 
-.drawer-footer {
+.drawer-footer, body.body--dark .drawer-footer {
   border-top: 1px solid #E5E7EB !important;
 }
-body.body--dark .drawer-footer {
-  border-top: 1px solid #334155 !important;
-}
 
-/* D-031: Caixa de informação info compatível com tema claro e escuro */
-.rsl-info-box {
+/* D-031: Caixa de informação info sóbria com verde institucional */
+.rsl-info-box, body.body--dark .rsl-info-box {
   background-color: #F0FDF4 !important;
   border: 1px solid #BBF7D0 !important;
   color: #166534 !important;
   border-radius: 6px !important;
 }
-body.body--dark .rsl-info-box {
-  background-color: #0F172A !important;
-  border: 1px solid #1D4ED8 !important;
-  color: #93C5FD !important;
-}
 
-/* D-031: Caixa de aviso warning compatível com tema claro e escuro */
-.rsl-warning-box {
+/* D-031: Caixa de aviso warning sóbria */
+.rsl-warning-box, body.body--dark .rsl-warning-box {
   background-color: #FFFBEB !important;
   border: 1px solid #FCD34D !important;
   color: #78350F !important;
   border-radius: 6px !important;
-}
-body.body--dark .rsl-warning-box {
-  background-color: #2D2005 !important;
-  border: 1px solid #78350F !important;
-  color: #FDE68A !important;
 }
 
 /* D-031: Barra de salvar fixa no pé da página */
@@ -246,23 +200,14 @@ body.body--dark .rsl-warning-box {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
 }
-.save-bar-clean {
+.save-bar-clean, body.body--dark .save-bar-clean {
   background-color: #FFFFFF !important;
   border: 1px solid #E5E7EB !important;
 }
-body.body--dark .save-bar-clean {
-  background-color: #1E293B !important;
-  border: 1px solid #334155 !important;
-}
-.save-bar-dirty {
+.save-bar-dirty, body.body--dark .save-bar-dirty {
   background-color: #F0FDF4 !important;
   border: 1px solid #86EFAC !important;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15) !important;
-}
-body.body--dark .save-bar-dirty {
-  background-color: #062817 !important;
-  border: 1px solid #15803D !important;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(27, 77, 62, 0.15) !important;
 }
 """
 
