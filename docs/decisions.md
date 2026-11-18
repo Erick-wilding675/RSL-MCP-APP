@@ -405,3 +405,44 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-16
 - **Situação:** decidida. Specs 14-01 a 14-04.
 
+
+## D-036 · Triagem com rastro de autoria e justificativa (v2.4)
+
+- **Decisão:** o RSL.app oferece suporte nativo à etapa de triagem de artigos (título/resumo e texto completo):
+  - **Decisões:** cada artigo pode receber a classificação `included`, `excluded` ou `maybe`, com motivo categorizado (ex.: critérios de elegibilidade, idioma, tipo de publicação) e notas livres.
+  - **Rastro de autoria:** cada decisão registra expressamente quem a tomou (`human` ou `ai`, com nome do modelo ou usuário), data/hora ISO 8601 e se uma sugestão de IA foi confirmada, rejeitada ou ajustada pela pessoa.
+  - **Armazenamento:** as decisões ficam salvas junto à lista (`screening` no Store local), preservando a soberania e a auditoria metodológica.
+- **Motivo:**
+  - Responde diretamente ao Fundamento do projeto: tirar o tabu do uso de IA na pesquisa acadêmica. O pesquisador não esconde que a IA ajudou a triar, mas comprova com rastro transparente quem decidiu e qual foi a taxa de concordância.
+  - Exigência metodológica internacional (Cochrane, JBI, PRISMA 2020) para transparência no processo de seleção.
+- **Alternativas:**
+  - Deixar a triagem para planilhas avulsas: perde o rastro automático e exige redigitação manual de centenas de registros.
+  - Triagem 100% autônoma pela IA sem revisão: inaceitável para publicações de alto impacto e comitês científicos.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida.
+
+
+## D-037 · Fluxograma PRISMA 2020 e Checklist PRISMA-S automáticos (v2.4)
+
+- **Decisão:** o RSL.app calcula e renderiza automaticamente o fluxograma oficial PRISMA 2020 com números exatos extraídos diretamente da busca e da triagem:
+  - **Fluxo:** registros identificados por base -> duplicatas unificadas -> registros triados -> excluídos com motivos -> avaliados em texto completo -> incluídos na síntese qualitativa e quantitativa.
+  - **Formatos:** visualização interativa no app desktop, download em SVG vetorial limpo e formato Markdown estruturado.
+  - **Checklist PRISMA-S:** relatório dos parâmetros de busca detalhando datas, strings exatas, bases consultadas e filtros aplicados.
+- **Motivo:**
+  - O fluxograma PRISMA é a peça mais cobrada e que mais sofre erros de arredondamento ou inconsistência quando montada à mão em editores de imagem. Extraí-lo diretamente do log garante 100% de precisão e reprodutibilidade.
+- **Alternativas:**
+  - O usuário preencher geradores online manuais: propenso a inconsistências numéricas entre o texto do método e o diagrama.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida.
+
+
+## D-038 · Declaração metodológica de uso de IA (v2.4)
+
+- **Decisão:** o sistema gera uma declaração padronizada de transparência no uso de inteligência artificial pronta para a seção de Métodos do trabalho acadêmico (em português e inglês):
+  - **Conteúdo:** lista exata das ferramentas e modelos utilizados, etapas em que atuaram (planejamento da string, triagem de resumos, checagem de integridade), declaração expressa de que todas as decisões finais foram tomadas e revisadas por humanos, identificador da busca e versão do RSL.app.
+  - **Normas atendidas:** orientações do COPE (Committee on Publication Ethics), ICMJE e SciELO Brasil sobre integridade científica e IA generativa.
+- **Motivo:**
+  - Tira a IA da clandestinidade acadêmica, transformando seu uso em metodologia declarada, auditável e defensável perante bancas examinadoras e pareceristas de revistas.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida.
+

@@ -165,7 +165,19 @@ Decidido em 2026-11-16 (D-030, D-035): integração da BDTD para literatura cinz
 
 A 14-01 e a 14-03 são independentes e podem andar em paralelo. A 14-02 espera a 14-01. A 14-04 espera a 14-02 e a 14-03. A 14-05 fecha a fase e espera o ok do Erick.
 
-**Fase 14 pronta em 2026-11-17:** tarefas 14-01 a 14-05 concluídas, 761 testes do núcleo e 60 testes do desktop passando, pacote 2.3.0 preparado para publicação no PyPI e release GitHub.
+**Fase 14 pronta em 2026-11-17:** tarefas 14-01 a 14-05 concluídas, 761 testes do núcleo e 60 testes do desktop passando, pacote 2.3.0 publicado no PyPI e release GitHub `v2.3.0`.
+
+### 15 · Versão 2.4: Triagem com Rastro e Fluxograma PRISMA 2020
+
+Decidido em 2026-11-18 (D-030, D-036 a D-038): suporte à etapa de seleção e triagem de artigos (título/resumo e texto completo) com registro de autoria da decisão (humano vs. IA), cálculo automático do fluxograma PRISMA 2020 e checklist PRISMA-S com números reais, e gerador de declaração de uso ético e metodológico de IA (padrão COPE/ICMJE/SciELO).
+
+1. Triagem no Núcleo e Store: modelo de dados de decisão (`included`, `excluded`, `maybe`), motivos de exclusão, autoria (`human` ou `ai`, com modelo/pessoa), carimbo de data/hora e métodos no `Store` para persistência junto à lista. Spec: `specs/15-01-triagem-no-nucleo-e-store.md`
+2. Módulo PRISMA 2020 e Declaração de Uso de IA: cálculo exato das caixas do fluxograma oficial a partir dos números reais de identificação, deduplicação e triagem; gerador de SVG vetorial do fluxograma e gerador da declaração metodológica de IA em português e inglês. Spec: `specs/15-02-modulo-prisma-e-declaracao-ia.md`
+3. Ferramentas MCP de Triagem e PRISMA: novas ferramentas MCP `screen_work` (registro de decisão e justificativa com rastro), `get_screening_status` (resumo quantitativo e motivos), `get_prisma_flow` (dados estruturados do PRISMA) e `get_ai_disclosure` (declaração pronta). Spec: `specs/15-03-ferramentas-mcp-triagem-e-prisma.md`
+4. Interface Desktop: Telas de Triagem e Fluxograma PRISMA: botões de ação na tela Lista (`/lista/{list_id}`), tela de triagem rápida focada (`/triagem/{list_id}`) com atalhos de teclado e seleção de motivos, e tela do fluxograma PRISMA (`/prisma/{list_id}`) com diagrama visual e exportação em SVG. Spec: `specs/15-04-desktop-triagem-e-prisma.md`
+5. Publicação da 2.4.0 e teste real. Spec: `specs/15-05-publicacao-2-4-e-teste-real.md`
+
+A 15-01 é o alicerce das outras. A 15-02 e a 15-03 dependem da 15-01 e podem andar em paralelo. A 15-04 integra tudo na interface desktop. A 15-05 fecha a fase e espera o ok do Erick.
 
 ### Depois da 1.2: a versão maior (2.0)
 
