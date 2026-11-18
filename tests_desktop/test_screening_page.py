@@ -183,7 +183,7 @@ async def test_fr26_d037_prisma_view_render(user: User) -> None:
     await user.should_see("Baixar Diagrama SVG")
 
 
-# FR-27, D-038: Tela PRISMA 2020 exibe declaração ética de IA com conformidade COPE/SciELO
+# FR-27, D-038: Tela PRISMA 2020 exibe declaração ética de IA com conformidade COPE/SciELO e reatividade de idioma
 async def test_fr27_d038_prisma_view_disclosure(user: User) -> None:
     service = FakeScreeningDesktopService()
 
@@ -195,6 +195,14 @@ async def test_fr27_d038_prisma_view_disclosure(user: User) -> None:
     await user.should_see("Declaração de Uso de IA")
     await user.should_see("Transparência Metodológica e Ética de IA")
     await user.should_see("COPE")
+    await user.should_see("Declaração de Uso de Inteligência Artificial")
+
+    # Testa alternância de idioma de pt para en
+    sel_element: ui.select = user.find(marker="lang-select").elements.pop()  # type: ignore[assignment]
+    sel_element.value = "en"
+
+    # Confere que o texto em inglês agora está visível no componente markdown
+    await user.should_see("Statement on Artificial Intelligence")
 
 
 # FR-25, FR-26, D-036, D-037: Tela Lista exibe botões de atalho para Triagem e PRISMA 2020

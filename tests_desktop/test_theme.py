@@ -102,15 +102,15 @@ def test_d031_theme_nao_apaga_chaves(
     assert after.values["OPENALEX_API_KEY"] == "oa-segredo"
 
 
-# D-031: CSS comum contém fontes do sistema, cantos de 12px, transição de 150ms e foco visível
+# D-031: CSS comum contém fontes do sistema, cantos de 6px sóbrios, transição de 150ms e foco visível
 def test_d031_common_css_regras_visuais() -> None:
     assert '"Segoe UI Variable"' in COMMON_CSS
-    assert "border-radius: 12px" in COMMON_CSS
+    assert "border-radius: 6px" in COMMON_CSS
     assert "150ms" in COMMON_CSS
     assert ":focus-visible" in COMMON_CSS
     assert "--q-primary" in COMMON_CSS
-    assert "#F6F7FB" in COMMON_CSS
-    assert "#121933" in COMMON_CSS
+    assert "#F8FAFC" in COMMON_CSS
+    assert "#1E293B" in COMMON_CSS
 
 
 # D-031: apply_theme() inicializa ui.dark_mode de acordo com o tema configurado

@@ -101,43 +101,39 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     ui.markdown(markdown_report).classes("w-full select-text text-sm leading-relaxed")
 
             # ABA 3: Declaração de Uso de IA
-            with ui.tab_panel(tab_disclosure):
-                state_lang: dict[str, str] = {"lang": "pt"}
+            with ui.tab_panel(tab_disclosure), ui.column().classes("w-full gap-4"):
+                current_text = {"text": service.get_ai_disclosure(list_id, lang="pt")}
 
-                disclosure_container = ui.column().classes("w-full gap-4")
+                with ui.row().classes("w-full items-center justify-between gap-3"):
+                    with ui.column().classes("gap-0.5"):
+                        ui.label("Transparência Metodológica e Ética de IA").classes("text-lg font-bold rsl-title")
+                        ui.label("Texto pronto para a seção de Metodologia segundo as diretrizes COPE, ICMJE e SciELO").classes("text-xs rsl-muted")
 
-                def _render_disclosure() -> None:
-                    disclosure_container.clear()
-                    current_lang = state_lang["lang"]
-                    text = service.get_ai_disclosure(list_id, lang=current_lang)
+                    with ui.row().classes("items-center gap-2"):
+                        lang_select = ui.select(
+                            {"pt": "Português (SciELO / ABNT)", "en": "Inglês (COPE / ICMJE)"},
+                            value="pt",
+                        ).props("dense outlined options-dense").classes("text-xs w-60").mark("lang-select")
 
-                    with disclosure_container:
-                        with ui.row().classes("w-full items-center justify-between gap-3"):
-                            with ui.column().classes("gap-0.5"):
-                                ui.label("Transparência Metodológica e Ética de IA").classes("text-lg font-bold rsl-title")
-                                ui.label("Texto pronto para a seção de Metodologia segundo as diretrizes COPE, ICMJE e SciELO").classes("text-xs rsl-muted")
+                        def _copy_action() -> None:
+                            _copy_text(current_text["text"], "Declaração copiada com sucesso!")
 
-                            with ui.row().classes("items-center gap-2"):
-                                lang_select = ui.select(
-                                    {"pt": "Português (SciELO / ABNT)", "en": "Inglês (COPE / ICMJE)"},
-                                    value=current_lang,
-                                ).props("dense outlined options-dense").classes("text-xs")
+                        ui.button(
+                            "Copiar Declaração",
+                            icon="content_copy",
+                            on_click=_copy_action,
+                        ).props("unelevated color=primary size=sm").mark("copy-disclosure-btn")
 
-                                def _on_lang_change(ev: Any) -> None:
-                                    state_lang["lang"] = ev.value
-                                    _render_disclosure()
-                                lang_select.on("update:model-value", _on_lang_change)
+                with ui.card().classes("w-full p-5 rsl-surface-2 rounded border"):
+                    disclosure_md = ui.markdown(current_text["text"]).classes("w-full select-text text-sm leading-relaxed").mark("disclosure-markdown")
 
-                                ui.button(
-                                    "Copiar Declaração",
-                                    icon="content_copy",
-                                    on_click=lambda t=text: _copy_text(t, "Declaração copiada com sucesso!"),
-                                ).props("unelevated color=primary size=sm").mark("copy-disclosure-btn")
+                def _on_lang_change(ev: Any) -> None:
+                    selected_val = ev.value if hasattr(ev, "value") else str(ev)
+                    new_text = service.get_ai_disclosure(list_id, lang=selected_val)
+                    current_text["text"] = new_text
+                    disclosure_md.set_content(new_text)
 
-                        with ui.card().classes("w-full p-5 rsl-surface-2 rounded-lg border"):
-                            ui.markdown(text).classes("w-full select-text text-sm leading-relaxed")
-
-                _render_disclosure()
+                lang_select.on_value_change(_on_lang_change)
 
     def _copy_text(content: str, message: str) -> None:
         ui.run_javascript(f"navigator.clipboard.writeText({content!r});")
