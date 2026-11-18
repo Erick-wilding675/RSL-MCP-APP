@@ -28,6 +28,10 @@ EXPECTED_TOOLS = {
     "list_sources",
     "verify_references",
     "import_works",
+    "screen_work",
+    "get_screening_status",
+    "get_prisma_flow",
+    "get_ai_disclosure",
 }
 
 
