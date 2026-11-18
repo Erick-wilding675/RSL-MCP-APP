@@ -223,7 +223,7 @@ def test_reproducibility_package_includes_notes(tmp_path: Path) -> None:
     export_dir = tmp_path / "exports"
     result = build_reproducibility_package("l-0001", store, export_dir=export_dir)
 
-    assert result["file_count"] == 14  # 11 originais + notes.md + notes.json + checksums.sha256
+    assert result["file_count"] == 17  # 11 originais + 3 rede + notes.md + notes.json + checksums.sha256
     zip_path = Path(result["path"])
     assert zip_path.exists()
 

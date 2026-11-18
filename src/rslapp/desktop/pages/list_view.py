@@ -421,6 +421,36 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 export_feedback_row.set_visibility(True)
                 ui.notify(f"Fichamento exportado: {res_path.name}", type="positive")
 
+            def _handle_vosviewer_export() -> None:
+                try:
+                    res = service.export_network(list_id, fmt="vosviewer")
+                except (RSLError, AttributeError) as err:
+                    msg = getattr(err, "message", str(err))
+                    ui.notify(msg, type="negative")
+                    return
+                last_export_dir[0] = res["map_path"].parent
+                export_feedback_label.text = f"{res['map_file']} / {res['network_file']}"
+                export_feedback_row.set_visibility(True)
+                ui.notify(
+                    f"Rede VOSviewer exportada ({res['total_nodes']} autores, {res['total_edges']} colaborações).",
+                    type="positive",
+                )
+
+            def _handle_gephi_export() -> None:
+                try:
+                    res = service.export_network(list_id, fmt="gephi")
+                except (RSLError, AttributeError) as err:
+                    msg = getattr(err, "message", str(err))
+                    ui.notify(msg, type="negative")
+                    return
+                last_export_dir[0] = res["gexf_path"].parent
+                export_feedback_label.text = str(res["gexf_path"])
+                export_feedback_row.set_visibility(True)
+                ui.notify(
+                    f"Rede Gephi exportada: {res['gexf_file']} ({res['total_nodes']} nós, {res['total_edges']} arestas).",
+                    type="positive",
+                )
+
             with ui.row().classes("items-center gap-3 flex-wrap"):
                 for label, fmt in EXPORT_FORMATS:
                     ui.button(
@@ -436,6 +466,20 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     on_click=_handle_notes_export,
                 ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
                     "export-notes-md"
+                )
+                ui.button(
+                    "VOSviewer (.map/.net)",
+                    icon="hub",
+                    on_click=_handle_vosviewer_export,
+                ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
+                    "export-vosviewer-network"
+                )
+                ui.button(
+                    "Gephi (.gexf)",
+                    icon="grain",
+                    on_click=_handle_gephi_export,
+                ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
+                    "export-gephi-network"
                 )
                 ui.button(
                     "Pacote de Reprodutibilidade (.zip)",

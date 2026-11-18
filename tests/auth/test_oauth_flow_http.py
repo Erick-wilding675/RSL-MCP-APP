@@ -41,6 +41,7 @@ EXPECTED_TOOLS = {
     "get_protocol",
     "list_protocols",
     "export_protocol_markdown",
+    "export_network",
 }
 
 

@@ -488,4 +488,24 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Situação:** decidida. Spec 18-01.
 
 
+## D-042 · Redes Bibliométricas Nativas: VOSviewer (.map e .network) e Gephi (.gexf) (v2.8)
+
+- **Decisão:** o RSL.app implementa a extração e renderização direta de redes de grafos bibliométricos a partir dos artigos das listas de busca:
+  - **Modalidades de rede suportadas:**
+    1. `coauthorship` (coautoria): nós são autores com peso de publicações, arestas representam colaborações em coautoria com pesos de trabalhos conjuntos;
+    2. `source_coupling` (acoplamento de veículos/fontes): nós são periódicos/revistas com peso de artigos, arestas representam compartilhamento de corpus;
+    3. `keyword_cooccurrence` (coocorrência de palavras-chave): nós são termos/palavras-chave com peso de frequência, arestas representam aparição conjunta no mesmo artigo.
+  - **Formatos de exportação nativos:**
+    - Arquivos de mapa (`.map`) e rede (`.network`) do **VOSviewer** compatíveis com as versões 1.6.x (Van Eck & Waltman), prontos para abertura imediata no VOSviewer via menu *Create -> Read VOSviewer map and network files*;
+    - Formato padrão internacional **Gephi GEXF** (`.gexf` XML v1.2) para análise avançada de modularidade, centralidade de betweenness e visualização com layout ForceAtlas2.
+  - **Integração no servidor MCP e Desktop:**
+    - Ferramenta MCP `export_network` permitindo exportar para arquivos ou retornar JSON estruturado da rede (nós e arestas);
+    - Botões dedicados na tela Lista do app desktop para download dos arquivos de rede em 1 clique.
+- **Motivo:**
+  - O VOSviewer é o software central para a comunidade de bibliometria brasileira e internacional. A exportação tradicional em RIS obriga o usuário a configurar manualmente o assistente de importação do VOSviewer e lidar com ambiguidades. Gerando os arquivos nativos `.map`, `.network` e `.gexf` calculados a partir dos dados limpos e deduplicados do RSL.app, a rede abre instantaneamente e com precisão científica absoluta.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida. Spec 19-01.
+
+
+
 

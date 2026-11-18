@@ -168,6 +168,26 @@ def build_reproducibility_package(
         files_to_pack["protocol.md"] = protocol_md.encode("utf-8")
         files_to_pack["protocol.json"] = protocol_json.encode("utf-8")
 
+    # FR-31, D-042: Inclui arquivos de rede bibliométrica (VOSviewer e Gephi)
+    from rslapp.core.network import (
+        extract_bibliometric_network,
+        format_gephi_gexf,
+        format_vosviewer_map,
+        format_vosviewer_network,
+    )
+
+    coauth_net = extract_bibliometric_network(works, "coauthorship")
+    if coauth_net["nodes"]:
+        files_to_pack["vosviewer_coauthorship.map"] = format_vosviewer_map(
+            coauth_net["nodes"]
+        ).encode("utf-8")
+        files_to_pack["vosviewer_coauthorship.network"] = format_vosviewer_network(
+            coauth_net["edges"]
+        ).encode("utf-8")
+        files_to_pack["gephi_coauthorship.gexf"] = format_gephi_gexf(
+            coauth_net["nodes"], coauth_net["edges"], title=f"Coauthorship - {query_str}"
+        ).encode("utf-8")
+
     # 5. Cálculo dos hashes SHA-256 e manifesto
     checksum_lines: list[str] = []
     for fname, data in files_to_pack.items():

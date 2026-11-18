@@ -89,7 +89,7 @@ def test_fr28_d039_build_reproducibility_package_success(
 
     assert res["list_id"] == list_id
     assert res["filename"] == f"reproducibility_{list_id}.zip"
-    assert res["file_count"] == 12
+    assert res["file_count"] == 15
     assert res["size_bytes"] > 0
     assert len(res["sha256"]) == 64
     assert res["path"] is not None
@@ -101,7 +101,7 @@ def test_fr28_d039_build_reproducibility_package_success(
     disk_hash = hashlib.sha256(zip_file.read_bytes()).hexdigest()
     assert disk_hash == res["sha256"]
 
-    # Abre o zip e valida os 12 arquivos
+    # Abre o zip e valida os 15 arquivos
     with zipfile.ZipFile(zip_file, "r") as zf:
         namelist = zf.namelist()
         expected_files = [
@@ -116,6 +116,9 @@ def test_fr28_d039_build_reproducibility_package_success(
             "prisma_s_checklist.md",
             "ai_disclosure_pt.md",
             "ai_disclosure_en.md",
+            "vosviewer_coauthorship.map",
+            "vosviewer_coauthorship.network",
+            "gephi_coauthorship.gexf",
             "checksums.sha256",
         ]
         for expected in expected_files:
@@ -130,7 +133,7 @@ def test_fr28_d039_build_reproducibility_package_success(
         # Valida manifesto checksums.sha256
         checksum_text = zf.read("checksums.sha256").decode("utf-8")
         lines = [line.strip() for line in checksum_text.splitlines() if line.strip()]
-        assert len(lines) == 11  # 11 arquivos auditados
+        assert len(lines) == 14  # 14 arquivos auditados (exclui checksums.sha256)
 
         for line in lines:
             fhash, fname = line.split("  ", 1)

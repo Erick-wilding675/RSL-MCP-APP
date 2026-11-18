@@ -209,6 +209,17 @@ Decidido em 2026-11-18 (D-030, D-041): elaboração, versionamento e exportaçã
 
 **Fase 18 pronta em 2026-11-18:** tarefas 18-01 a 18-03 concluídas, 801 testes do núcleo e 71 testes do desktop passando, pacote 2.7.0 publicado no PyPI e release GitHub `v2.7.0` publicada com executáveis.
 
+### 19 · Versão 2.8: Redes Bibliométricas Nativas (VOSviewer .map/.network e Gephi .gexf)
+
+Decidido em 2026-11-18 (D-030, D-042): geração e exportação nativa de grafos bibliométricos de coautoria, acoplamento de veículos/fontes e coocorrência de termos em formatos nativos do VOSviewer (.map e .network) e Gephi (.gexf) (FR-31).
+
+1. Extração de Grafos e Geradores de Rede no Núcleo: módulo `rslapp.core.network` com extração de nós e arestas com pesos para coautoria, periódicos e termos; formatadores VOSviewer (`.map` e `.network`) e Gephi GEXF (`.gexf`). Spec: `specs/19-01-redes-bibliometricas-nucleo.md`
+2. Ferramenta MCP e Interface Desktop para Redes: ferramenta MCP `export_network` (25 ferramentas), botões de download e visualização de resumo de rede na tela Lista (`/lista/{list_id}`). Spec: `specs/19-02-redes-desktop-e-mcp.md`
+3. Publicação da 2.8.0 e teste real. Spec: `specs/19-03-publicacao-2-8-e-teste-real.md`
+
+**Fase 19 pronta em 2026-11-18:** tarefas 19-01 a 19-03 concluídas, 809 testes do núcleo e 71 testes do desktop passando, pacote 2.8.0 publicado no PyPI e release GitHub `v2.8.0` preparada.
+
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):

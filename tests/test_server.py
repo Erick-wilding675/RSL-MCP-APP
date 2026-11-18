@@ -350,6 +350,8 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "get_ai_disclosure",
         "get_work_note",
         "list_work_notes",
+        "get_protocol",
+        "list_protocols",
     }
     additive_write_tools = {
         "search_works",
@@ -363,6 +365,9 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "export_reproducibility_package",
         "save_work_note",
         "export_notes_markdown",
+        "save_protocol",
+        "export_protocol_markdown",
+        "export_network",
     }
 
     async with Client(server.mcp) as client:

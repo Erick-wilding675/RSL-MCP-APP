@@ -69,7 +69,7 @@ async def test_fr28_d039_export_reproducibility_package_stdio(isolated_env: Path
 
         assert data["list_id"] == list_id
         assert data["filename"] == f"reproducibility_{list_id}.zip"
-        assert data["file_count"] == 12
+        assert data["file_count"] == 15
         assert "sha256" in data
         assert len(data["sha256"]) == 64
         assert data["path"] is not None

@@ -328,3 +328,71 @@ class DesktopService:
         atomic_write_replace(dest_path, md_content)
         return dest_path
 
+    # FR-31, D-042: Exporta redes bibliométricas nativas (VOSviewer e Gephi)
+    def export_network(
+        self,
+        list_id: str,
+        network_type: str = "coauthorship",
+        fmt: str = "vosviewer",
+        *,
+        min_node_weight: int = 1,
+        min_edge_weight: int = 1,
+        max_nodes: int = 500,
+    ) -> dict[str, Any]:
+        """Extrai e exporta a rede bibliométrica da lista para a pasta de exportações."""
+        from rslapp.core.network import (
+            extract_bibliometric_network,
+            format_gephi_gexf,
+            format_vosviewer_map,
+            format_vosviewer_network,
+        )
+        from rslapp.store._atomic import atomic_write_replace
+
+        _store, export_dir = self._build_store()
+        list_data = self.get_list(list_id)
+        works = list_data.get("works", [])
+        if not works:
+            raise RSLError("empty_list", f"A lista {list_id} está vazia.")
+
+        net = extract_bibliometric_network(
+            works,
+            network_type,
+            min_node_weight=min_node_weight,
+            min_edge_weight=min_edge_weight,
+            max_nodes=max_nodes,
+        )
+
+        res: dict[str, Any] = {
+            "network_type": network_type,
+            "format": fmt,
+            "total_nodes": net["total_nodes"],
+            "total_edges": net["total_edges"],
+        }
+
+        if fmt == "vosviewer":
+            map_name = f"network_{list_id}_{network_type}.map"
+            net_name = f"network_{list_id}_{network_type}.network"
+            map_path = export_dir / map_name
+            net_path = export_dir / net_name
+            atomic_write_replace(map_path, format_vosviewer_map(net["nodes"]))
+            atomic_write_replace(net_path, format_vosviewer_network(net["edges"]))
+            res["map_file"] = map_name
+            res["network_file"] = net_name
+            res["map_path"] = map_path
+            res["network_path"] = net_path
+        elif fmt == "gephi":
+            gexf_name = f"network_{list_id}_{network_type}.gexf"
+            gexf_path = export_dir / gexf_name
+            atomic_write_replace(
+                gexf_path,
+                format_gephi_gexf(
+                    net["nodes"],
+                    net["edges"],
+                    title=f"RSL.app {network_type} - {list_id}",
+                ),
+            )
+            res["gexf_file"] = gexf_name
+            res["gexf_path"] = gexf_path
+
+        return res
+

@@ -950,6 +950,94 @@ def export_protocol_markdown(
         raise ToolError(f"{code}: {e}") from e
 
 
+# FR-31, FR-20, D-002, D-006, D-012, D-029, D-042: Exporta redes bibliométricas nativas para VOSviewer (.map/.network) e Gephi (.gexf)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def export_network(
+    list_id: str,
+    network_type: str = "coauthorship",
+    format: str = "vosviewer",
+    min_node_weight: int = 1,
+    min_edge_weight: int = 1,
+    max_nodes: int = 500,
+    output_path: str | None = None,
+) -> dict[str, Any]:
+    """Extrai e exporta rede bibliométrica da lista de artigos (coautoria, periódicos ou termos) nos formatos nativos do VOSviewer (.map e .network), Gephi (.gexf) ou JSON estruturado."""
+    store, export_dir = _build_tool_store()
+    try:
+        list_data = store.get_list(list_id)
+        works = list_data.get("works", [])
+        if not works:
+            raise ToolError(
+                f"empty_list: A lista '{list_id}' está vazia; impossível gerar rede bibliométrica."
+            )
+
+        from rslapp.core.network import (
+            extract_bibliometric_network,
+            format_gephi_gexf,
+            format_vosviewer_map,
+            format_vosviewer_network,
+        )
+
+        clean_type = str(network_type).strip().lower()
+        clean_fmt = str(format).strip().lower()
+        if clean_fmt not in ("vosviewer", "gephi", "json"):
+            raise ToolError(
+                f"invalid_input: Formato de rede inválido: '{format}'. Esperado: 'vosviewer', 'gephi' ou 'json'."
+            )
+
+        net = extract_bibliometric_network(
+            works,
+            clean_type,
+            min_node_weight=min_node_weight,
+            min_edge_weight=min_edge_weight,
+            max_nodes=max_nodes,
+        )
+
+        resp: dict[str, Any] = {
+            "list_id": list_id,
+            "network_type": clean_type,
+            "format": clean_fmt,
+            "total_nodes": net["total_nodes"],
+            "total_edges": net["total_edges"],
+        }
+
+        if clean_fmt == "json":
+            resp["network"] = net
+            return resp
+
+        target_base = Path(output_path) if output_path else Path(export_dir)
+        target_base.mkdir(parents=True, exist_ok=True)
+
+        if clean_fmt == "vosviewer":
+            map_name = f"network_{list_id}_{clean_type}.map"
+            net_name = f"network_{list_id}_{clean_type}.network"
+            map_path = target_base / map_name
+            net_path = target_base / net_name
+            atomic_write_replace(map_path, format_vosviewer_map(net["nodes"]))
+            atomic_write_replace(net_path, format_vosviewer_network(net["edges"]))
+            resp["map_path"] = str(map_path.resolve())
+            resp["network_path"] = str(net_path.resolve())
+            resp["map_filename"] = map_name
+            resp["network_filename"] = net_name
+        elif clean_fmt == "gephi":
+            gexf_name = f"network_{list_id}_{clean_type}.gexf"
+            gexf_path = target_base / gexf_name
+            atomic_write_replace(
+                gexf_path,
+                format_gephi_gexf(
+                    net["nodes"],
+                    net["edges"],
+                    title=f"RSL.app Network - {list_id} ({clean_type})",
+                ),
+            )
+            resp["path"] = str(gexf_path.resolve())
+            resp["filename"] = gexf_name
+
+        return resp
+    except (RSLError, ValueError, TypeError, OSError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
 
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
@@ -1143,6 +1231,7 @@ def _build_http_mcp_server(
         (get_protocol, _READ_ONLY_ANNOTATIONS),
         (list_protocols, _READ_ONLY_ANNOTATIONS),
         (export_protocol_markdown, _ADDITIVE_WRITE_ANNOTATIONS),
+        (export_network, _ADDITIVE_WRITE_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)
