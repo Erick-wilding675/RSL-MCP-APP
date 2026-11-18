@@ -135,3 +135,36 @@ class DesktopService:
             request_summary="app desktop",
             list_name=list_name,
         )
+
+    # FR-25, D-036: Grava ou atualiza a decisão de triagem de um trabalho
+    def save_screening_decision(
+        self,
+        list_id: str,
+        decision_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Salva a decisão de triagem no Store para a lista informada."""
+        store, _ = self._build_store()
+        try:
+            return store.save_screening_decision(list_id.strip(), decision_data)
+        except FileNotFoundError as err:
+            raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
+        except ValueError as err:
+            raise RSLError("invalid_input", str(err)) from err
+
+    # FR-25, D-036: Recupera todas as decisões de triagem de uma lista
+    def get_screening(self, list_id: str) -> dict[str, Any]:
+        """Recupera as decisões de triagem salvas para a lista informada."""
+        store, _ = self._build_store()
+        try:
+            return store.get_screening(list_id.strip())
+        except FileNotFoundError as err:
+            raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
+
+    # FR-25, D-036, D-037: Recupera o resumo quantitativo da triagem de uma lista
+    def get_screening_summary(self, list_id: str) -> dict[str, Any]:
+        """Recupera totais, percentual e motivos da triagem da lista informada."""
+        store, _ = self._build_store()
+        try:
+            return store.get_screening_summary(list_id.strip())
+        except FileNotFoundError as err:
+            raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
