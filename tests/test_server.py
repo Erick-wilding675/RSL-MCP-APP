@@ -358,6 +358,7 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "export_list",
         "import_works",
         "screen_work",
+        "export_reproducibility_package",
     }
 
     async with Client(server.mcp) as client:

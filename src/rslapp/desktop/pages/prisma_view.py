@@ -51,6 +51,22 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 ui.label(f"Lista: {list_id}").classes("text-sm font-semibold rsl-muted")
 
             with ui.row().classes("items-center gap-2"):
+                def _handle_download_pkg() -> None:
+                    try:
+                        res = service.export_reproducibility_package(list_id)
+                        zip_bytes = res.get("zip_bytes")
+                        if zip_bytes:
+                            ui.download(zip_bytes, res.get("filename", f"reproducibility_{list_id}.zip"))
+                        ui.notify("Pacote de Reprodutibilidade gerado com sucesso!", type="positive")
+                    except (RSLError, OSError, ValueError) as err:
+                        ui.notify(f"Erro ao gerar pacote: {err}", type="negative")
+
+                ui.button(
+                    "Pacote Completo (.zip)",
+                    icon="archive",
+                    on_click=_handle_download_pkg,
+                ).props("outline size=sm").mark("btn-reproducibility-zip")
+
                 ui.button(
                     "Ir para Triagem",
                     icon="filter_alt",

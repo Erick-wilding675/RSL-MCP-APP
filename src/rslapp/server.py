@@ -40,6 +40,7 @@ from rslapp.core.prisma import (
 )
 from rslapp.core.related import run_related
 from rslapp.core.repeat import run_repeat
+from rslapp.core.reproducibility import build_reproducibility_package
 from rslapp.core.screening import validate_decision_data
 from rslapp.core.search import run_search
 from rslapp.core.verify import run_verify_references
@@ -590,6 +591,41 @@ def get_ai_disclosure(
         raise ToolError(f"{code}: {e}") from e
 
 
+# FR-28, FR-20, D-002, D-006, D-012, D-029, D-039: Exporta o Pacote de Reprodutibilidade Científica (.zip)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def export_reproducibility_package(list_id: str) -> dict[str, Any]:
+    """Gera o Pacote de Reprodutibilidade Científica completo em arquivo .zip com manifesto criptográfico SHA-256 (metadata, log, exportações CSV/RIS/BibTeX/ABNT, triagem, fluxograma PRISMA 2020 e declarações de IA)."""
+    cfg = config.load()
+    person_id = _resolve_person_id()
+    store, export_dir = _build_tool_store(cfg)
+
+    if person_id is not None:
+        downloads.clean_expired_exports(export_dir)
+
+    try:
+        result = build_reproducibility_package(
+            list_id=list_id,
+            store=store,
+            export_dir=export_dir,
+        )
+    except RSLError as e:
+        raise ToolError(f"{e.code}: {e.message}") from e
+
+    result.pop("zip_bytes", None)
+
+    if person_id is not None and result.get("path"):
+        exported_path = Path(str(result.pop("path")))
+        download_url, expires_at = downloads.create_download_link(
+            person_id,
+            exported_path.name,
+            public_url=_resolve_public_url(),
+            data_dir=cfg.data_dir,
+        )
+        result["download_url"] = download_url
+        result["expires_at"] = expires_at
+    return result
+
+
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
 def plan_search(request: str) -> str:
@@ -773,6 +809,7 @@ def _build_http_mcp_server(
         (get_screening_status, _READ_ONLY_ANNOTATIONS),
         (get_prisma_flow, _READ_ONLY_ANNOTATIONS),
         (get_ai_disclosure, _READ_ONLY_ANNOTATIONS),
+        (export_reproducibility_package, _ADDITIVE_WRITE_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)

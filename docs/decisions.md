@@ -446,3 +446,17 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
 - **Situação:** decidida.
 
+
+## D-039 · Pacote de Reprodutibilidade Científica com Manifesto SHA-256 (v2.5)
+
+- **Decisão:** o RSL.app oferece exportação do pacote de reprodutibilidade em arquivo `.zip` autocontido (`reproducibility_{list_id}.zip`), gerado com um clique ou via ferramenta MCP `export_reproducibility_package`:
+  - **Conteúdo:** `metadata.json`, `search_log.md`, exportações tabulares e bibliográficas (`works.csv`, `works.ris`, `works.bib`, `references_abnt.txt`), `screening.json` com todas as decisões e justificativas, `prisma_2020.svg`, relatório `prisma_s_checklist.md`, declarações éticas de IA `ai_disclosure_pt.md` e `ai_disclosure_en.md`, e manifesto criptográfico `checksums.sha256`.
+  - **Manifesto SHA-256:** arquivo de hashes individuais no padrão Unix de verificação (`<hash>  <filename>`), garantindo inviolabilidade e conformidade com os princípios FAIR (Findable, Accessible, Interoperable, Reusable) para depósito em repositórios abertos (Zenodo, OSF, DSpace).
+- **Motivo:**
+  - Responde diretamente ao Fundamento do projeto (`system-description.md`): tornar a revisão sistemática com IA reprodutível e publicável. Qualquer avaliador, banca ou leitor pode baixar o arquivo zip e atestar a integridade de todas as etapas.
+  - Elimina a perda de dados entre a busca inicial e a publicação final.
+- **Alternativas:**
+  - O pesquisador compactar os arquivos manualmente: propenso ao esquecimento de artefatos cruciais (como as decisões de triagem ou o checklist PRISMA-S) e sem assinatura criptográfica padronizada.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida. Spec 16-01.
+

@@ -123,6 +123,34 @@ def atomic_write_replace(dest: Path, content: str, retries: int = 10, delay: flo
                 tmp_path.unlink()
 
 
+# D-007, FR-28: Publicação atômica de arquivos binários com os.replace
+def atomic_write_bytes(dest: Path, data: bytes, retries: int = 10, delay: float = 0.022) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=dest.parent,
+            prefix=f".{dest.name}.", suffix=".tmp", delete=False,
+        ) as f:
+            tmp_path = Path(f.name)
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        for attempt in range(retries):
+            try:
+                os.replace(tmp_path, dest)
+                return
+            except PermissionError:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(delay * (attempt + 1))
+    finally:
+        if tmp_path is not None:
+            with contextlib.suppress(OSError):
+                if tmp_path.exists():
+                    tmp_path.unlink()
+
+
 # D-007: Trava em arquivo entre processos e threads via O_CREAT | O_EXCL
 @contextlib.contextmanager
 def file_lock(

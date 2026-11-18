@@ -179,6 +179,15 @@ Decidido em 2026-11-18 (D-030, D-036 a D-038): suporte à etapa de seleção e t
 
 A 15-01 é o alicerce das outras. A 15-02 e a 15-03 dependem da 15-01 e podem andar em paralelo. A 15-04 integra tudo na interface desktop. A 15-05 fecha a fase e espera o ok do Erick.
 
+**Fase 15 pronta em 2026-11-18:** tarefas 15-01 a 15-05 concluídas, 780 testes do núcleo e 65 testes do desktop passando, pacote 2.4.0 construído e interface refinada.
+
+### 16 · Versão 2.5: Pacote de Reprodutibilidade Científica com Manifesto SHA-256
+
+Decidido em 2026-11-18 (D-030, D-039): exportação em `.zip` autocontido com os 11 arquivos da revisão (metadados brutos, busca, triagem, fluxograma PRISMA, declaração de IA e exportações) e manifesto de integridade criptográfica `checksums.sha256` para depósito no Zenodo, OSF e repositórios institucionais (FR-28).
+
+1. Pacote de Reprodutibilidade no Núcleo, MCP e Desktop: módulo `rslapp.core.reproducibility`, ferramenta MCP `export_reproducibility_package` e botões de download na interface desktop. Spec: `specs/16-01-pacote-reprodutibilidade.md`
+2. Publicação da 2.5.0 e teste real. Spec: `specs/16-02-publicacao-2-5-e-teste-real.md`
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):

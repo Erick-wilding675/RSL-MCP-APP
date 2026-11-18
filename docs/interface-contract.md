@@ -26,6 +26,13 @@
 | `merge_lists` | Junta listas salvas numa lista nova, sem duplicatas (D-021, desde a 1.2) | `list_ids` | Uma lista nova, com `merged_from` e `duplicates_removed` |
 | `export_list` | Grava a lista num arquivo (FR-06, FR-12) | `list_id` e `format` | O caminho do arquivo gravado |
 | `list_sources` | Diz quais fontes estão configuradas e prontas (FR-07) | Nada | Uma linha por fonte |
+| `verify_references` | Confere referências contra alucinação no Crossref e OpenAlex (FR-21, D-030) | `references`, `doi`, `bibtex` | Classificação de cada item (verified, divergent, not_found) |
+| `import_works` | Importa arquivos externos RIS, BibTeX, Scopus e WoS (FR-23, D-033) | `content`, `format`, `list_name` | Lista nova com registros deduplicados e log |
+| `screen_work` | Registra decisão de triagem com rastro de autoria humano vs IA (FR-25, D-036) | `list_id`, `work_id`, `decision` | Decisão gravada e resumo estatístico atualizado |
+| `get_screening_status` | Resumo quantitativo e motivos da triagem de uma lista (FR-25, D-036) | `list_id` | Totais de incluídos, excluídos, pendentes e motivos |
+| `get_prisma_flow` | Quantitativos PRISMA 2020 e checklist PRISMA-S (FR-26, D-037) | `list_id`, `include_svg` | Dados das 4 fases, checklist PRISMA-S e SVG opcional |
+| `get_ai_disclosure` | Declaração metodológica de uso de IA COPE/ICMJE/SciELO (FR-27, D-038) | `list_id`, `language` | Texto formal pronto para a metodologia em PT ou EN |
+| `export_reproducibility_package` | Pacote de reprodutibilidade em .zip com manifesto SHA-256 (FR-28, D-039) | `list_id` | Caminho do arquivo zip, tamanho e hash SHA-256 |
 | `plan_search` (prompt) | Orienta a IA a planejar antes de buscar (FR-10) | `request` | O texto de orientação |
 
 O servidor também entrega, na conexão, instruções curtas com a mesma orientação do `plan_search` (FR-10).

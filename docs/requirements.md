@@ -37,6 +37,14 @@ O que o pesquisador, por meio da IA dele, precisa conseguir fazer.
 | FR-18 | No app, a pessoa configura as chaves de API, o e-mail de contato e as pastas, sem editar arquivos nem variáveis de ambiente | 2.0 | FR-07 levado ao app; D-026 |
 | FR-19 | No app, a pessoa liga a própria IA (Claude Desktop, Claude Code, Cursor, VS Code) ao RSL.app do computador dela, sem instalar Python e sem editar arquivos; a IA usa a mesma pasta de dados e as mesmas chaves do app | 2.1 | Erick, 2026-11-15; D-027, D-028 |
 | FR-20 | Uma instituição que hospeda o RSL.app oferece aos seus pesquisadores cada recurso, incluindo o uso pelo ChatGPT, seguindo o guia de hospedagem | 2.1 | Erick, 2026-11-15; D-029 |
+| FR-21 | O servidor e o app verificam referências bibliográficas contra alucinação no Crossref e OpenAlex, apontando se existem ou divergem | 2.2 | D-030, D-031; ideias 5.1 |
+| FR-22 | Artigos com retratação ou expressão de preocupação oficial são sinalizados nas listas e exportações | 2.2 | D-032; ideias 5.2 |
+| FR-23 | O servidor e o app importam arquivos externos (RIS, BibTeX, Scopus CSV, WoS) unificando na deduplicação e no log | 2.2 | D-033; ideias 7 |
+| FR-24 | O servidor e o app exportam referências formatadas segundo a norma brasileira ABNT NBR 6023:2018 | 2.2 | D-034; ideias 4.3 |
+| FR-25 | O pesquisador e a IA registram decisões de triagem (inclusão, exclusão com motivos e talvez) com trilha de autoria e justificativas | 2.4 | D-036; ideias 1.3 |
+| FR-26 | O sistema gera automaticamente o fluxograma oficial PRISMA 2020 em SVG vetorial e o checklist PRISMA-S a partir dos números reais da busca e triagem | 2.4 | D-037; ideias 1.2 |
+| FR-27 | O sistema gera declaração metodológica formal de uso de IA (padrão COPE, ICMJE e SciELO) em português e inglês | 2.4 | D-038; ideias 1.4 |
+| FR-28 | O sistema gera pacote de reprodutibilidade científica completo em formato .zip com manifesto de integridade criptográfica SHA-256 | 2.5 | D-039; ideias 1.5 |
 
 ## Requisitos não funcionais
 

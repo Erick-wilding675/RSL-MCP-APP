@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-18T11:55:00Z
+updated: 2026-11-18T16:15:00Z
 updated_by: Antigravity (Gemini)
 ---
 
@@ -156,6 +156,10 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - D-024 · Interface do app desktop: NiceGUI em janela própria · decided (2026-11-14)
 - D-025 · App desktop na 2.0: quatro telas, extra do pacote e executáveis · decided (2026-11-14)
 - D-026 · Chaves no app desktop: arquivo de configuração do app · decided (2026-11-14)
+- D-036 · Triagem desacoplada em screening/{list_id}.json com rastro de decisão e critérios · decided (2026-11-18)
+- D-037 · Fluxograma PRISMA 2020 vetorial SVG e checklist PRISMA-S integrado · decided (2026-11-18)
+- D-038 · Declaração de transparência de IA no padrão COPE/ICMJE/SciELO · decided (2026-11-18)
+- D-039 · Pacote de reprodutibilidade científica com manifesto SHA-256 (.zip) · decided (2026-11-18)
 
 ## Open points
 
@@ -223,6 +227,11 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - **15-04 integrada:** interface desktop com tela de triagem focada (`/triagem/{list_id}`) com atalhos de teclado (I, E, M), tela visual do PRISMA 2020 (`/prisma/{list_id}`) com download do SVG vetorial e cópia de declaração, cartões e badges de triagem na tela Lista (`/lista/{list_id}`).
   - **15-05 pronta:** versão 2.4.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, contrato e documentação atualizados, gates 100% limpos (780 testes do núcleo, 65 do desktop, ruff limpo).
   - **Refinamento UI/UX acadêmica e reatividade de idioma (2026-11-18):** tema visual atualizado para identidade acadêmica conservadora e elegante (Oxford Blue `#1E3A8A`, Ardósia `#334155`, cartões e bordas estruturadas com cantos de 6px, fundo papel de pesquisa `#F8FAFC`, badges discretos) e reatividade de idioma corrigida na tela do PRISMA (`/prisma/{list_id}`). Todos os 65 testes do desktop e 780 do núcleo passando.
+- **Fase 16 (2.5 · Pacote de Reprodutibilidade com Auditoria e Hashes SHA-256) concluída em 2026-11-18:**
+  - **Tema light conservador com detalhes verdes:** paleta calibrada para Deep Pine (`#1B4D3E`), Ardósia Neutro (`#4B5563`), papel de pesquisa suave (`#F8FAF9`), cantos de `6px`, borda fina `1px solid #E5E7EB`.
+  - **16-01 integrada:** gerador `build_reproducibility_package` (`rslapp.core.reproducibility`) consolidando os 11 arquivos da revisão e o manifesto `checksums.sha256` em arquivo `.zip` autocontido para Zenodo, OSF e repositórios institucionais (FR-28, D-039).
+  - **Exposição MCP e Desktop:** ferramenta `export_reproducibility_package` (16 ferramentas no servidor MCP), download de `.zip` nas telas Lista e PRISMA do app desktop.
+  - **16-02 pronta:** versão 2.5.0 definida, gates 100% limpos (785 testes do núcleo, 65 do desktop, ruff limpo).
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.

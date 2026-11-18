@@ -383,6 +383,20 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 except OSError as err:
                     ui.notify(f"Não foi possível abrir a pasta: {err}", type="negative")
 
+            def _handle_reproducibility() -> None:
+                try:
+                    res = service.export_reproducibility_package(list_id)
+                except (RSLError, AttributeError) as err:
+                    msg = getattr(err, "message", str(err))
+                    ui.notify(msg, type="negative")
+                    return
+                exported_path = str(res.get("path", ""))
+                if exported_path:
+                    last_export_dir[0] = Path(exported_path).parent
+                    export_feedback_label.text = exported_path
+                    export_feedback_row.set_visibility(True)
+                ui.notify(f"Pacote de reprodutibilidade gerado: {res.get('filename')}", type="positive")
+
             with ui.row().classes("items-center gap-3 flex-wrap"):
                 for label, fmt in EXPORT_FORMATS:
                     ui.button(
@@ -392,6 +406,13 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
                         f"export-{fmt}"
                     )
+                ui.button(
+                    "Pacote de Reprodutibilidade (.zip)",
+                    icon="archive",
+                    on_click=_handle_reproducibility,
+                ).props("unelevated color=primary").classes("font-medium").mark(
+                    "export-reproducibility"
+                )
                 ui.button(
                     "Abrir pasta",
                     icon="folder_open",

@@ -54,6 +54,7 @@ EXPECTED_TOOLS = {
     "get_screening_status",
     "get_prisma_flow",
     "get_ai_disclosure",
+    "export_reproducibility_package",
 }
 
 

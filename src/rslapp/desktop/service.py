@@ -220,3 +220,11 @@ class DesktopService:
             screening_summary=summary,
             lang=lang,
         )
+
+    # FR-28, D-039: Gera o pacote de reprodutibilidade científica em .zip
+    def export_reproducibility_package(self, list_id: str) -> dict[str, Any]:
+        """Gera o arquivo zip com todos os artefatos da revisão e o manifesto SHA-256."""
+        from rslapp.core.reproducibility import build_reproducibility_package
+
+        store, export_dir = self._build_store()
+        return build_reproducibility_package(list_id=list_id, store=store, export_dir=export_dir)
