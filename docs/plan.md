@@ -227,6 +227,16 @@ Decidido em 2026-11-18 (D-030, D-043): suporte a Revisões Sistemáticas Vivas (
 2. Ferramentas MCP e Interface Desktop para Revisão Viva: ferramentas MCP `update_search_differential` e `compare_search_versions`, botão "Revisão Viva (Atualizar)" nas telas de Lista e Histórico, filtros visuais para "Apenas novos artigos" e badges `NOVO NA BUSCA`. Spec: `specs/20-02-revisao-viva-desktop-e-mcp.md`
 3. Publicação da 2.9.0 e teste real. Spec: `specs/20-03-publicacao-2-9-e-teste-real.md`
 
+**Fase 20 pronta em 2026-11-18:** tarefas 20-01 a 20-03 concluídas, 816 testes do núcleo e 71 testes do desktop passando, pacote 2.9.0 publicado no PyPI e release GitHub `v2.9.0` preparada.
+
+### 21 · Versão 2.10: Descritores DeCS/MeSH Trilíngues e Construtor de Strings Multilíngues
+
+Decidido em 2026-11-18 (D-030, D-044): catálogo e assistente de vocabulário controlado DeCS (BIREME/OPAS/OMS) e MeSH (NLM) com tradução oficial trilíngue (Português, Inglês, Espanhol), sinônimos e construtor automático de strings booleanas para bases internacionais e latino-americanas (FR-33).
+
+1. Catálogo e Motor de Descritores no Núcleo: módulo `rslapp.core.decs` com catálogo de termos estruturados DeCS/MeSH, busca fonética/substring e gerador booleano (`build_multilingual_query`). Spec: `specs/21-01-decs-mesh-trilingue-nucleo.md`
+2. Ferramentas MCP e Assistente Desktop: ferramentas MCP `lookup_descriptors` e `build_multilingual_search_query` (29 ferramentas no total), e assistente modal com inserção de strings na tela Buscar e nos Protocolos. Spec: `specs/21-02-decs-mcp-e-desktop.md`
+3. Publicação da 2.10.0 e teste real. Spec: `specs/21-03-publicacao-2-10-e-teste-real.md`
+
 
 ### Depois da 1.2: a versão maior (2.0)
 

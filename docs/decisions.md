@@ -521,5 +521,18 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Situação:** decidida. Spec 20-01.
 
 
+## D-044 · Descritores DeCS/MeSH Trilíngues e Construtor de Strings Multilíngues (v2.10)
+
+- **Decisão:** o RSL.app oferece integração nativa com o vocabulário controlado de Descritores em Ciências da Saúde (DeCS/MeSH da BIREME/OPAS/OMS e NLM):
+  - **Vocabulário Trilíngue Estruturado:** mapeamento direto entre termos autorizados em Português, Inglês e Espanhol, cobrindo saúde coletiva, biologia, ciências médicas, neurociências, computação em saúde e educação médica.
+  - **Sinônimos e Termos Alternativos Autorizados:** extração dos sinônimos oficiais para expansão de busca (ex.: "Atenção Primária à Saúde", "Atenção Básica", "Cuidados Primários" em PT; "Primary Health Care", "Primary Care" em EN).
+  - **Construtor Booleano Multilíngue:** geração automática de blocos de termos `(Termo_Principal OR Sinônimo_1 OR Sinônimo_2)` para cada idioma.
+  - **Ferramentas MCP e Assistente Desktop:** ferramentas MCP `lookup_descriptors` e `build_multilingual_search_query` (totalizando 29 ferramentas no servidor), e modal na tela Buscar (`/`) e editor de Protocolos (`/protocolo/...`).
+- **Motivo:**
+  - A divergência de vocabulário e a tradução direta inadequada para o inglês é a principal fonte de omissão de literatura em revisões sistemáticas na América Latina. Integrar o padrão DeCS/MeSH confere rigor metodológico instantâneo e economiza horas de consulta manual.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida. Spec 21-01.
+
+
 
 
