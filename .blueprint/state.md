@@ -163,6 +163,7 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - D-040 · Fichamento científico estruturado com marcação de autoria e exportação Markdown · decided (2026-11-18)
 - D-041 · Protocolo metodológico pré-busca versionado para PROSPERO e OSF · decided (2026-11-18)
 - D-042 · Redes bibliométricas nativas VOSviewer (.map/.network) e Gephi (.gexf) · decided (2026-11-18)
+- D-043 · Revisão Viva: atualização de busca com comparação diferencial e rastreabilidade · decided (2026-11-18)
 
 ## Open points
 
@@ -247,7 +248,11 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - **Fase 19 (2.8 · Redes Bibliométricas Nativas VOSviewer e Gephi) concluída em 2026-11-18:**
   - **19-01 integrada:** motor `extract_bibliometric_network` (`rslapp.core.network`) com extração de grafos de coautoria, periódicos/fontes e coocorrência de termos com filtros de corte; geradores nativos de mapa (`.map`) e rede (`.network`) para VOSviewer e XML GEXF v1.2 (`.gexf`) para Gephi, integrados ao Pacote de Reprodutibilidade (FR-31, D-042).
   - **19-02 integrada:** ferramenta MCP `export_network` registrada no stdio e HTTP (totalizando 25 ferramentas no servidor MCP); botões de exportação de rede VOSviewer e Gephi na tela Lista (`/lista/{list_id}`) do app desktop.
-  - **19-03 pronta:** versão 2.8.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, pacote `rslapp` 2.8.0 publicado no PyPI, tag `v2.8.0` preparada, gates 100% limpos (809 testes do núcleo, 71 do desktop, ruff limpo).
+  - **19-03 pronta:** versão 2.8.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, pacote `rslapp` 2.8.0 publicado no PyPI, tag e release `v2.8.0` no GitHub com executáveis, gates 100% limpos.
+- **Fase 20 (2.9 · Revisão Viva e Comparação Diferencial de Buscas) concluída em 2026-11-18:**
+  - **20-01 integrada:** módulo `rslapp.core.differential` com identificação rigorosa de novos artigos (`added_works`) vs. artigos preservados (`retained_works`), geração de relatório metodológico em Markdown para bancas/defesas e persistência atômica no Store (`differential/{base_id}_{new_id}_{ts}.json`) (FR-32, D-043).
+  - **20-02 integrada:** 2 novas ferramentas MCP (`compare_search_versions` e `update_search_differential`, totalizando 27 ferramentas no servidor MCP stdio e HTTP multiusuário); botão "Revisão Viva" na tela Lista (`/lista/{list_id}`) com modal de atualização automática e selo visual distintivo `NOVO NA BUSCA` na tabela de artigos.
+  - **20-03 pronta:** versão 2.9.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, pacote `rslapp` 2.9.0 publicado no PyPI, tag `v2.9.0` preparada, gates 100% limpos (816 testes do núcleo, 71 do desktop, ruff limpo).
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
