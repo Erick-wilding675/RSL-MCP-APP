@@ -287,3 +287,44 @@ class DesktopService:
         atomic_write_replace(dest_path, md_content)
         return dest_path
 
+    # FR-30, D-041: Gestão de Protocolos Metodológicos Pré-Busca
+    def save_protocol(self, protocol_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva ou atualiza um protocolo de pesquisa estruturado com versionamento automático."""
+        store, _ = self._build_store()
+        try:
+            return store.save_protocol(protocol_data)
+        except (ValueError, TypeError) as err:
+            raise RSLError("invalid_input", str(err)) from err
+
+    def get_protocol(self, protocol_id: str, version: int | None = None) -> dict[str, Any] | None:
+        """Recupera um protocolo metodológico atual ou versão específica."""
+        store, _ = self._build_store()
+        return store.get_protocol(protocol_id, version=version)
+
+    def list_protocols(self) -> list[dict[str, Any]]:
+        """Lista todos os protocolos cadastrados ordenados por atualização."""
+        store, _ = self._build_store()
+        return store.list_protocols()
+
+    def delete_protocol(self, protocol_id: str) -> bool:
+        """Remove um protocolo e seu histórico de versões."""
+        store, _ = self._build_store()
+        return store.delete_protocol(protocol_id)
+
+    def export_protocol_markdown(self, protocol_id: str, version: int | None = None) -> Path:
+        """Exporta o protocolo metodológico completo em Markdown para a pasta de exportações."""
+        from rslapp.core.protocols import format_protocol_markdown
+        from rslapp.store._atomic import atomic_write_replace
+
+        store, export_dir = self._build_store()
+        protocol = store.get_protocol(protocol_id, version=version)
+        if not protocol:
+            raise RSLError("invalid_input", f"Protocolo {protocol_id} não encontrado.")
+
+        md_content = format_protocol_markdown(protocol)
+        v = protocol.get("version", 1)
+        filename = f"protocol_{protocol_id}_v{v}.md"
+        dest_path = export_dir / filename
+        atomic_write_replace(dest_path, md_content)
+        return dest_path
+

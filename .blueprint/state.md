@@ -161,6 +161,7 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - D-038 · Declaração de transparência de IA no padrão COPE/ICMJE/SciELO · decided (2026-11-18)
 - D-039 · Pacote de reprodutibilidade científica com manifesto SHA-256 (.zip) · decided (2026-11-18)
 - D-040 · Fichamento científico estruturado com marcação de autoria e exportação Markdown · decided (2026-11-18)
+- D-041 · Protocolo metodológico pré-busca versionado para PROSPERO e OSF · decided (2026-11-18)
 
 ## Open points
 
@@ -238,6 +239,10 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - **Exposição MCP e Reprodutibilidade:** 4 novas ferramentas (`save_work_note`, `get_work_note`, `list_work_notes`, `export_notes_markdown`, somando 20 ferramentas no servidor MCP stdio e HTTP); inclusão automática de `notes.md` e `notes.json` no pacote `.zip` de reprodutibilidade com hashes SHA-256 no manifesto.
   - **Interface Desktop:** páginas `/ficha/{list_id}` (índice com busca e métricas) e `/ficha/{list_id}/{work_id}` (formulário completo, validação humana em 1 clique e cópia de markdown), badges visuais na tela Lista ("FICHA OK", "FICHA IA", "FICHA") e exportação Markdown consolidada.
   - **17-02 e 17-03 prontas:** versão 2.6.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, gates 100% limpos (794 testes do núcleo, 68 do desktop, ruff limpo), build de wheel/tarball bem-sucedido.
+- **Fase 18 (2.7 · Protocolo Metodológico Pré-Busca Versionado) concluída em 2026-11-18:**
+  - **18-01 integrada:** modelo `validate_protocol_data` e exportador `format_protocol_markdown` (`rslapp.core.protocols`) com 5 frameworks metodológicos (PICO, PCC, PICo, SPIDER, Narrativo), persistência atômica e versionamento com histórico arquivado em `protocols/history/` (`save_protocol`, `get_protocol`, `list_protocols`, `delete_protocol`), e integração ao Pacote de Reprodutibilidade (FR-30, D-041).
+  - **18-02 integrada:** 4 ferramentas MCP registradas no stdio e HTTP (`save_protocol`, `get_protocol`, `list_protocols`, `export_protocol_markdown`, totalizando 24 ferramentas no servidor); rotas desktop `/protocolos`, `/protocolo/novo` e `/protocolo/{protocol_id}` com editor dinâmico de frameworks, critérios de inclusão/exclusão, rastro ético de IA e cópia/exportação de Markdown pronto para PROSPERO/OSF.
+  - **18-03 pronta:** pacote `rslapp` 2.7.0 publicado no PyPI, tag `v2.7.0` preparada, gates 100% limpos (801 testes do núcleo, 71 do desktop, ruff limpo).
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.

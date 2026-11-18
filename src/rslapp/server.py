@@ -797,6 +797,159 @@ def export_notes_markdown(list_id: str) -> dict[str, Any]:
         raise ToolError(f"{code}: {e}") from e
 
 
+# FR-30, FR-20, D-002, D-006, D-012, D-029, D-041: Registra ou atualiza protocolo metodológico com versionamento
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def save_protocol(
+    title: str,
+    question: str,
+    framework: str = "pico",
+    subquestions: list[str] | None = None,
+    components: dict[str, str] | None = None,
+    inclusion_criteria: list[str] | None = None,
+    exclusion_criteria: list[str] | None = None,
+    planned_sources: list[str] | None = None,
+    search_strategy: str | None = None,
+    languages: list[str] | None = None,
+    date_range: dict[str, Any] | None = None,
+    authors: list[str] | None = None,
+    status: str = "draft",
+    registration_platform: str | None = None,
+    registration_number: str | None = None,
+    ai_assisted: bool = False,
+    ai_model: str | None = None,
+    protocol_id: str | None = None,
+) -> dict[str, Any]:
+    """Salva ou atualiza um protocolo de pesquisa metodológico (PICO, PCC, PICo, SPIDER, Narrativo) compatível com PROSPERO e OSF, arquivando versões anteriores no histórico."""
+    store, _ = _build_tool_store()
+    try:
+        data: dict[str, Any] = {
+            "title": title,
+            "question": question,
+            "framework": framework,
+            "subquestions": subquestions,
+            "components": components,
+            "inclusion_criteria": inclusion_criteria,
+            "exclusion_criteria": exclusion_criteria,
+            "planned_sources": planned_sources,
+            "search_strategy": search_strategy,
+            "languages": languages,
+            "date_range": date_range,
+            "authors": authors,
+            "status": status,
+            "registration_platform": registration_platform,
+            "registration_number": registration_number,
+            "ai_assisted": ai_assisted,
+            "ai_model": ai_model,
+        }
+        if protocol_id:
+            data["id"] = protocol_id
+
+        saved = store.save_protocol(data)
+        return {
+            "protocol_id": saved["id"],
+            "version": saved["version"],
+            "status": "saved",
+            "protocol": saved,
+        }
+    except (RSLError, ValueError, TypeError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-30, FR-20, D-002, D-006, D-012, D-029, D-041: Consulta protocolo metodológico
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_protocol(
+    protocol_id: str,
+    version: int | None = None,
+) -> dict[str, Any]:
+    """Recupera os dados estruturados de um protocolo metodológico pré-busca (versão atual ou versão histórica pontual)."""
+    store, _ = _build_tool_store()
+    try:
+        protocol = store.get_protocol(protocol_id, version=version)
+        if not protocol:
+            raise ToolError(
+                f"protocol_not_found: Protocolo '{protocol_id}' (versão {version or 'atual'}) não encontrado."
+            )
+        return {
+            "protocol_id": protocol_id,
+            "version": protocol.get("version"),
+            "protocol": protocol,
+        }
+    except (RSLError, ValueError, TypeError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-30, FR-20, D-002, D-006, D-012, D-029, D-041: Lista protocolos metodológicos
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def list_protocols() -> dict[str, Any]:
+    """Lista todos os protocolos metodológicos cadastrados no servidor, ordenados pela data de atualização."""
+    store, _ = _build_tool_store()
+    try:
+        protocols = store.list_protocols()
+        return {
+            "count": len(protocols),
+            "protocols": [
+                {
+                    "id": p.get("id"),
+                    "title": p.get("title"),
+                    "framework": p.get("framework"),
+                    "version": p.get("version"),
+                    "status": p.get("status"),
+                    "question": p.get("question"),
+                    "updated_at": p.get("updated_at"),
+                }
+                for p in protocols
+            ],
+        }
+    except (RSLError, ValueError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-30, FR-20, D-002, D-006, D-012, D-029, D-041: Exporta protocolo em Markdown
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def export_protocol_markdown(
+    protocol_id: str,
+    version: int | None = None,
+    output_path: str | None = None,
+) -> dict[str, Any]:
+    """Exporta o protocolo metodológico completo formatado em Markdown para submissão no PROSPERO/OSF ou anexo de tese."""
+    store, export_dir = _build_tool_store()
+    try:
+        protocol = store.get_protocol(protocol_id, version=version)
+        if not protocol:
+            raise ToolError(
+                f"protocol_not_found: Protocolo '{protocol_id}' não encontrado."
+            )
+        from rslapp.core.protocols import format_protocol_markdown
+
+        md_content = format_protocol_markdown(protocol)
+        v = protocol.get("version", 1)
+        filename = f"protocol_{protocol_id}_v{v}.md"
+
+        target_file: Path | None = None
+        if output_path:
+            target_file = Path(output_path)
+        elif export_dir:
+            target_file = Path(export_dir) / filename
+
+        if target_file:
+            target_file.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_replace(target_file, md_content)
+
+        return {
+            "protocol_id": protocol_id,
+            "version": v,
+            "filename": filename,
+            "path": str(target_file.resolve()) if target_file else None,
+            "content": md_content,
+        }
+    except (RSLError, ValueError, OSError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
 
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
@@ -986,6 +1139,10 @@ def _build_http_mcp_server(
         (get_work_note, _READ_ONLY_ANNOTATIONS),
         (list_work_notes, _READ_ONLY_ANNOTATIONS),
         (export_notes_markdown, _ADDITIVE_WRITE_ANNOTATIONS),
+        (save_protocol, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_protocol, _READ_ONLY_ANNOTATIONS),
+        (list_protocols, _READ_ONLY_ANNOTATIONS),
+        (export_protocol_markdown, _ADDITIVE_WRITE_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)

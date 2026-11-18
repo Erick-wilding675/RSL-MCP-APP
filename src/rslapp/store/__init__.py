@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from rslapp.core.notes import sanitize_filename_id, validate_note_data
+from rslapp.core.protocols import sanitize_protocol_id, validate_protocol_data
 from rslapp.core.screening import calculate_screening_summary
 from rslapp.store._atomic import (
     atomic_write_exclusive,
@@ -65,6 +66,7 @@ class Store:
         self.searches_dir: Path = self.data_dir / "searches"
         self.screening_dir: Path = self.data_dir / "screening"
         self.notes_dir: Path = self.data_dir / "notes"
+        self.protocols_dir: Path = self.data_dir / "protocols"
         # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
         self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
@@ -282,4 +284,121 @@ class Store:
                 note_path.unlink()
                 return True
         return False
+
+    # FR-30, D-041: Gestão de Protocolos Metodológicos Pré-Busca com Versionamento
+    def save_protocol(self, protocol_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva ou atualiza um protocolo de pesquisa, arquivando versões anteriores no histórico."""
+        if not isinstance(protocol_data, dict):
+            raise TypeError("protocol_data deve ser um dict")
+
+        pid = protocol_data.get("id")
+        existing: dict[str, Any] | None = None
+        if pid:
+            clean_pid = sanitize_protocol_id(pid)
+            main_path = self.protocols_dir / f"{clean_pid}.json"
+            if main_path.exists():
+                try:
+                    existing = json.loads(main_path.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    existing = None
+
+        new_data = copy.deepcopy(protocol_data)
+        history = list(new_data.get("history") or [])
+
+        if existing:
+            old_version = int(existing.get("version", 1))
+            new_version = old_version + 1
+            new_data["version"] = new_version
+            # Arquiva a versão anterior no histórico se ainda não estiver arquivada
+            history_dir = self.protocols_dir / "history"
+            history_dir.mkdir(parents=True, exist_ok=True)
+            hist_file = history_dir / f"{existing['id']}_v{old_version}.json"
+            if not hist_file.exists():
+                hist_content = json.dumps(existing, ensure_ascii=False, indent=2) + "\n"
+                atomic_write_replace(hist_file, hist_content)
+
+            history.append({
+                "version": old_version,
+                "timestamp": existing.get("updated_at") or existing.get("created_at"),
+                "summary": f"Versão v{old_version} arquivada antes da atualização para v{new_version}",
+            })
+            new_data["history"] = history
+            # Mantém data de criação original
+            if existing.get("created_at"):
+                new_data["created_at"] = existing["created_at"]
+
+        # Chama a validação do modelo
+        valid_protocol = validate_protocol_data(**new_data)
+
+        self.protocols_dir.mkdir(parents=True, exist_ok=True)
+        protocol_file = self.protocols_dir / f"{valid_protocol['id']}.json"
+
+        with file_lock(self.lock_path):
+            content = json.dumps(valid_protocol, ensure_ascii=False, indent=2) + "\n"
+            atomic_write_replace(protocol_file, content)
+
+        return copy.deepcopy(valid_protocol)
+
+    def get_protocol(
+        self, protocol_id: str, version: int | None = None
+    ) -> dict[str, Any] | None:
+        """Recupera um protocolo metodológico atual ou uma versão arquivada específica."""
+        clean_pid = sanitize_protocol_id(protocol_id)
+        main_path = self.protocols_dir / f"{clean_pid}.json"
+
+        if not main_path.exists():
+            return None
+
+        try:
+            current_data = json.loads(main_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+        if version is None or int(current_data.get("version", 1)) == int(version):
+            return current_data
+
+        # Busca versão histórica
+        hist_path = self.protocols_dir / "history" / f"{clean_pid}_v{int(version)}.json"
+        if hist_path.exists():
+            try:
+                return json.loads(hist_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                return None
+
+        return None
+
+    def list_protocols(self) -> list[dict[str, Any]]:
+        """Lista todos os protocolos metodológicos ativos ordenados por data de atualização."""
+        if not self.protocols_dir.exists():
+            return []
+
+        protocols: list[dict[str, Any]] = []
+        for file in self.protocols_dir.glob("*.json"):
+            try:
+                data = json.loads(file.read_text(encoding="utf-8"))
+                protocols.append(data)
+            except (json.JSONDecodeError, OSError):
+                continue
+
+        protocols.sort(key=lambda p: p.get("updated_at", ""), reverse=True)
+        return protocols
+
+    def delete_protocol(self, protocol_id: str) -> bool:
+        """Remove o protocolo principal e todas as suas versões arquivadas."""
+        clean_pid = sanitize_protocol_id(protocol_id)
+        main_path = self.protocols_dir / f"{clean_pid}.json"
+
+        with file_lock(self.lock_path):
+            existed = False
+            if main_path.exists():
+                main_path.unlink()
+                existed = True
+
+            history_dir = self.protocols_dir / "history"
+            if history_dir.exists():
+                for hist_file in history_dir.glob(f"{clean_pid}_v*.json"):
+                    hist_file.unlink()
+
+            return existed
+
 

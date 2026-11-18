@@ -195,8 +195,19 @@ Decidido em 2026-11-18 (D-030, D-039): exportação em `.zip` autocontido com os
 Decidido em 2026-11-18 (D-030, D-040): suporte a fichamento científico analítico com campos padronizados (objetivo, método, amostra, resultados, limitações, citações diretas com página, palavras-chave e síntese crítica), distinção explícita de autoria (`ai_suggested` vs. `human_reviewed`), exportação Markdown para Obsidian e ferramentas MCP dedicadas (FR-29).
 
 1. Fichamento no Núcleo, Armazenamento e Exportação Markdown: modelo `WorkNote`, persistência em `notes/{list_id}/{work_id}.json`, exportador Markdown com frontmatter e integração ao Pacote de Reprodutibilidade. Spec: `specs/17-01-fichamento-cientifico.md`
-2. Interface Desktop e Ferramentas MCP: ferramentas `save_work_note`, `get_work_note`, `list_work_notes`, `export_notes_markdown`, tela/diálogo de fichamento no app desktop e badges informativos na tela Lista. Spec: `specs/17-02-desktop-fichamento-e-mcp.md`
-3. Publicação da 2.6.0 e teste real. Spec: `specs/17-03-publicacao-2-6-e-teste-real.md`
+2. Publicação da 2.6.0 e teste real. Spec: `specs/17-02-publicacao-2-6-e-teste-real.md`
+
+**Fase 17 pronta em 2026-11-18:** tarefas 17-01 e 17-02 concluídas, 794 testes do núcleo e 68 testes do desktop passando, pacote 2.6.0 publicado no PyPI e release GitHub `v2.6.0` publicada com executáveis.
+
+### 18 · Versão 2.7: Protocolo Metodológico Pré-Busca Versionado
+
+Decidido em 2026-11-18 (D-030, D-041): elaboração, versionamento e exportação de protocolos de revisão pré-busca nos frameworks PICO, PCC, PICo, SPIDER e Narrativo, critérios de elegibilidade e estratégia de busca planejada compatíveis com PROSPERO e OSF (FR-30).
+
+1. Protocolo no Núcleo, Armazenamento e Exportação Markdown: modelo `Protocol`, persistência em `protocols/{protocol_id}.json`, versionamento temporal e exportador Markdown para PROSPERO/OSF. Spec: `specs/18-01-protocolo-metodologico.md`
+2. Interface Desktop e Ferramentas MCP: ferramentas `save_protocol`, `get_protocol`, `list_protocols`, `export_protocol_markdown`, tela/editor interativo `/protocolos` e `/protocolo/{protocol_id}` no app desktop. Spec: `specs/18-02-desktop-protocolos-e-mcp.md`
+3. Publicação da 2.7.0 e teste real. Spec: `specs/18-03-publicacao-2-7-e-teste-real.md`
+
+**Fase 18 pronta em 2026-11-18:** tarefas 18-01 a 18-03 concluídas, 801 testes do núcleo e 71 testes do desktop passando, pacote 2.7.0 publicado no PyPI e release GitHub `v2.7.0` publicada com executáveis.
 
 ### Depois da 1.2: a versão maior (2.0)
 

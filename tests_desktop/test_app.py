@@ -53,6 +53,10 @@ async def test_d024_d025_fr16_rotas_e_cabecalho_no_user_fixture(user: User) -> N
     await user.should_see("RSL.app")
     await user.should_see("Fichamento")
 
+    await user.open("/protocolos")
+    await user.should_see("RSL.app")
+    await user.should_see("Protocolos")
+
 
 # D-024, D-025, D-026: main() aplica desktop.json, escuta em 127.0.0.1 e faz fallback para navegador
 def test_d024_d025_d026_main_escuta_em_loopback_e_fallback_navegador(

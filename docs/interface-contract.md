@@ -146,6 +146,10 @@ O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos n
 | `get_work_note` | `list_id`, `work_id` (obrigatórios, desde a 2.6, D-040) | Ficha científica detalhada com rastro de autoria |
 | `list_work_notes` | `list_id` (obrigatório, desde a 2.6, D-040) | Lista de todas as fichas científicas registradas para a lista |
 | `export_notes_markdown` | `list_id` (obrigatório); `export_dir` (opcional, desde a 2.6, D-040) | Arquivo Markdown compilado pronto para Obsidian/Logseq |
+| `save_protocol` | `title`, `question` (obrigatórios); `framework` (PICO, PCC, PICo, SPIDER, Narrativo), componentes, critérios, fontes, estratégia (desde a 2.7, D-041) | Protocolo salvo com ID único, versão incrementada e versão anterior arquivada |
+| `get_protocol` | `protocol_id` (obrigatório); `version` (opcional, desde a 2.7, D-041) | Protocolo metodológico detalhado (versão atual ou histórica) |
+| `list_protocols` | Nada (desde a 2.7, D-041) | Lista de protocolos ativos com contagem, status e datas de atualização |
+| `export_protocol_markdown` | `protocol_id` (obrigatório); `version`, `output_path` (opcionais, desde a 2.7, D-041) | Documento Markdown formatado para submissão no PROSPERO/OSF ou anexo de tese |
 | `plan_search` | `request` (obrigatório) | Orientação em texto: separar o que é melhor buscado à parte, montar a string de cada fonte, chamar `search_works` uma vez por assunto e entregar cada lista separada |
 | `plan_scoping_review` | `topic`, `population`, `concept`, `context` (desde a 2.3, D-035) | Roteiro metodológico JBI / PRISMA-ScR pelo framework PCC e literatura cinzenta |
 | `plan_integrative_review` | `topic`, `guiding_question`, `theoretical_framework` (desde a 2.3, D-035) | Roteiro metodológico em 6 fases (Whittemore & Knafl / Mendes, Silveira e Galvão) |

@@ -87,6 +87,24 @@ def build_reproducibility_package(
 
     # 4. Metadados e Log metodológico
     now_utc = datetime.now(timezone.utc).isoformat()
+
+    # FR-30, D-041: Protocolo metodológico pré-busca associado ou único
+    protocol_id = list_data.get("protocol_id") or (
+        search_rec.get("protocol_id") if search_rec else None
+    )
+    protocol: dict[str, Any] | None = None
+    if protocol_id:
+        protocol = store.get_protocol(str(protocol_id))
+    if not protocol:
+        protocols = store.list_protocols()
+        if len(protocols) == 1:
+            protocol = protocols[0]
+        elif protocols:
+            for p in protocols:
+                if p.get("title", "").strip().lower() == query_str.strip().lower():
+                    protocol = p
+                    break
+
     metadata = {
         "rslapp_version": __version__,
         "package_type": "reproducibility_bundle",
@@ -104,6 +122,10 @@ def build_reproducibility_package(
             "excluded": screening_summary.get("excluded", 0),
         },
     }
+    if protocol:
+        metadata["protocol_id"] = protocol.get("id")
+        metadata["protocol_version"] = protocol.get("version")
+
     metadata_json = json.dumps(metadata, ensure_ascii=False, indent=2) + "\n"
     screening_json = json.dumps(screening_data, ensure_ascii=False, indent=2) + "\n"
 
@@ -136,6 +158,15 @@ def build_reproducibility_package(
         notes_json = json.dumps(notes, ensure_ascii=False, indent=2) + "\n"
         files_to_pack["notes.md"] = notes_md.encode("utf-8")
         files_to_pack["notes.json"] = notes_json.encode("utf-8")
+
+    # FR-30, D-041: Inclui protocolo metodológico se disponível
+    if protocol:
+        from rslapp.core.protocols import format_protocol_markdown
+
+        protocol_md = format_protocol_markdown(protocol)
+        protocol_json = json.dumps(protocol, ensure_ascii=False, indent=2) + "\n"
+        files_to_pack["protocol.md"] = protocol_md.encode("utf-8")
+        files_to_pack["protocol.json"] = protocol_json.encode("utf-8")
 
     # 5. Cálculo dos hashes SHA-256 e manifesto
     checksum_lines: list[str] = []

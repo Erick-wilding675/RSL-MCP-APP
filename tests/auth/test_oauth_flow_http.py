@@ -37,6 +37,10 @@ EXPECTED_TOOLS = {
     "get_work_note",
     "list_work_notes",
     "export_notes_markdown",
+    "save_protocol",
+    "get_protocol",
+    "list_protocols",
+    "export_protocol_markdown",
 }
 
 

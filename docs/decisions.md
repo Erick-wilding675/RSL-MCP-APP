@@ -474,3 +474,18 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Situação:** decidida. Spec 17-01.
 
 
+## D-041 · Protocolo Metodológico Pré-Busca Versionado para PROSPERO e OSF (v2.7)
+
+- **Decisão:** o RSL.app oferece suporte formal a protocolos de revisão pré-busca versionados (`protocols/{protocol_id}.json`), estruturados para atender aos padrões internacionais de registro prévio (PROSPERO, Open Science Framework - OSF, JBI e Cochrane):
+  - **Frameworks metodológicos suportados:** `PICO` (População, Intervenção, Comparação, Desfecho), `PCC` (População, Conceito, Contexto), `PICo` (Qualitativa), `SPIDER` (Pesquisa Mista/Qualitativa) e `Narrativo`.
+  - **Campos estruturados:** título da revisão, pergunta principal e secundárias, critérios formais de inclusão (`inclusion_criteria`), critérios formais de exclusão (`exclusion_criteria`), estratégia de busca planejada (`planned_sources`, `search_strategy`), e rastro de autoria / auxílio de IA.
+  - **Versionamento e integridade:** cada revisão de protocolo incrementa um número de versão com carimbo de data/hora (`version`, `created_at`, `updated_at`). As buscas podem vincular formalmente o `protocol_id`.
+  - **Exportação:** documento padronizado em Markdown (`protocol_{protocol_id}.md`) pronto para submissão no PROSPERO/OSF ou inclusão como apêndice da tese, integrado ao Pacote de Reprodutibilidade (.zip).
+  - **Ferramentas MCP:** `save_protocol`, `get_protocol`, `list_protocols`, `export_protocol_markdown`.
+- **Motivo:**
+  - O protocolo pré-busca é a regra de ouro das revisões sistemáticas para evitar viés de publicação e cherry-picking. Registrar o protocolo antes da execução garante a conformidade com as diretrizes PRISMA 2020 e PRISMA-P.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida. Spec 18-01.
+
+
+

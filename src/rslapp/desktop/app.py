@@ -89,6 +89,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
         list_view,
         note_view,
         prisma_view,
+        protocol_view,
         screening_view,
         search,
         settings_page,
@@ -142,6 +143,21 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     def note_detail_page(list_id: str, work_id: str) -> None:
         assert _active_service is not None
         note_view.build(_active_service, list_id, work_id)
+
+    @ui.page("/protocolos")
+    def protocols_list_page() -> None:
+        assert _active_service is not None
+        protocol_view.build_list(_active_service)
+
+    @ui.page("/protocolo/novo")
+    def protocol_new_page() -> None:
+        assert _active_service is not None
+        protocol_view.build_editor(_active_service, protocol_id=None)
+
+    @ui.page("/protocolo/{protocol_id}")
+    def protocol_detail_page(protocol_id: str) -> None:
+        assert _active_service is not None
+        protocol_view.build_editor(_active_service, protocol_id=protocol_id)
 
     @ui.page("/historico")
     def history_page() -> None:

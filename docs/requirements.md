@@ -46,6 +46,7 @@ O que o pesquisador, por meio da IA dele, precisa conseguir fazer.
 | FR-27 | O sistema gera declaração metodológica formal de uso de IA (padrão COPE, ICMJE e SciELO) em português e inglês | 2.4 | D-038; ideias 1.4 |
 | FR-28 | O sistema gera pacote de reprodutibilidade científica completo em formato .zip com manifesto de integridade criptográfica SHA-256 | 2.5 | D-039; ideias 1.5 |
 | FR-29 | O pesquisador e a IA elaboram e exportam fichamento científico estruturado (objetivo, método, amostra, resultados, limitações, citações diretas) com distinção explícita de autoria (sugestão de IA vs. revisão humana) | 2.6 | D-040; ideias 2.1 |
+| FR-30 | O pesquisador e a IA elaboram, versionam e exportam protocolos metodológicos pré-busca estruturados (frameworks PICO, PCC, PICo, SPIDER, critérios e estratégias) compatíveis com PROSPERO e OSF | 2.7 | D-041; ideias 1.1 |
 
 ## Requisitos não funcionais
 
