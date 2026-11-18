@@ -174,6 +174,24 @@ def build(service: DesktopService, list_id: str = "") -> None:
             service, list_data
         )
 
+        screening_summary = {
+            "total_works": total,
+            "screened": 0,
+            "pending": total,
+            "included": 0,
+            "excluded": 0,
+            "maybe": 0,
+            "progress_percent": 0.0,
+        }
+        decisions_map: dict[str, Any] = {}
+        if hasattr(service, "get_screening_summary"):
+            with contextlib.suppress(RSLError, Exception):
+                screening_summary = service.get_screening_summary(list_id)
+        if hasattr(service, "get_screening"):
+            with contextlib.suppress(RSLError, Exception):
+                screening_data = service.get_screening(list_id)
+                decisions_map = screening_data.get("decisions", {})
+
         # 1. Aviso de lista incompleta no topo (FR-08, FR-16, D-031)
         failed_sources = [
             src
@@ -241,6 +259,18 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 ui.label(short_date).classes("text-lg font-bold rsl-title")
                 ui.label(f"Data: {created_at}").classes("text-xs rsl-muted")
 
+            # FR-25, D-036: Cartão de métricas e acesso à triagem
+            with (
+                ui.card()
+                .classes("p-4 flex-1 min-w-[140px] items-center text-center gap-1 cursor-pointer rsl-surface-2")
+                .on("click", lambda: ui.navigate.to(f"/triagem/{list_id}"))
+                .mark("card-screening")
+            ):
+                pct = screening_summary.get("progress_percent", 0.0)
+                screened_cnt = screening_summary.get("screened", 0)
+                ui.label(f"{pct}%").classes("text-2xl font-bold text-primary")
+                ui.label(f"Triados ({screened_cnt}/{total})").classes("text-xs rsl-muted")
+
             # FR-22, D-032: Cartão de alerta de retratação caso a lista contenha artigos retratados
             retracted_count = sum(
                 1 for w in works if isinstance(w, dict) and w.get("is_retracted")
@@ -255,6 +285,25 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     ui.label(
                         f"Artigo{'s' if retracted_count > 1 else ''} retratado{'s' if retracted_count > 1 else ''}"
                     ).classes("text-xs text-negative font-medium")
+
+        # FR-25, FR-26, D-036, D-037: Barra de ações para Triagem Rápida e Fluxograma PRISMA 2020
+        with ui.row().classes("w-full items-center justify-between gap-3 p-4 rounded-lg rsl-surface-2 border border-slate-200"):
+            with ui.row().classes("items-center gap-3"):
+                ui.icon("fact_check").classes("text-2xl text-primary")
+                with ui.column().classes("gap-0.5"):
+                    ui.label("Seleção Metodológica e PRISMA 2020").classes("font-bold text-sm rsl-title")
+                    ui.label("Triagem título/resumo com rastro, fluxograma vetorial e declaração ética de IA").classes("text-xs rsl-muted")
+            with ui.row().classes("items-center gap-2"):
+                ui.button(
+                    "Iniciar Triagem",
+                    icon="filter_alt",
+                    on_click=lambda: ui.navigate.to(f"/triagem/{list_id}"),
+                ).props("unelevated color=primary").mark("btn-open-screening")
+                ui.button(
+                    "PRISMA 2020",
+                    icon="schema",
+                    on_click=lambda: ui.navigate.to(f"/prisma/{list_id}"),
+                ).props("outline color=primary").mark("btn-open-prisma")
 
         # 3. Cartão "Busca": string em monoespaçado com copy_block, ID e fontes (D-031, FR-16)
         with section_card("Busca", icon="search"):
@@ -353,6 +402,8 @@ def build(service: DesktopService, list_id: str = "") -> None:
         rows: list[dict[str, Any]] = []
         for idx, work in enumerate(works, start=1):
             doi_text, doi_url = _format_doi(work.get("doi"))
+            work_key = str(work.get("doi") or idx)
+            dec_obj = decisions_map.get(work_key) or decisions_map.get(str(idx)) or {}
             rows.append(
                 {
                     "id": idx,
@@ -365,6 +416,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     "sources": _format_work_sources(work),
                     "is_retracted": bool(work.get("is_retracted", False)),
                     "type": str(work.get("type") or ""),
+                    "screening_decision": dec_obj.get("decision", ""),
                 }
             )
 
@@ -451,6 +503,18 @@ def build(service: DesktopService, list_id: str = "") -> None:
                         <q-badge v-if="props.row.type === 'dissertation'" color="indigo" class="text-xs px-2 py-0.5 rounded-full font-bold">
                             DISSERTAÇÃO
                             <q-tooltip>Dissertação de Mestrado defendida no Brasil (BDTD)</q-tooltip>
+                        </q-badge>
+                        <q-badge v-if="props.row.screening_decision === 'included'" color="positive" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            INCLUÍDO
+                            <q-tooltip>Artigo incluído na triagem</q-tooltip>
+                        </q-badge>
+                        <q-badge v-if="props.row.screening_decision === 'excluded'" color="negative" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            EXCLUÍDO
+                            <q-tooltip>Artigo excluído na triagem</q-tooltip>
+                        </q-badge>
+                        <q-badge v-if="props.row.screening_decision === 'maybe'" color="warning" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            DÚVIDA
+                            <q-tooltip>Artigo em dúvida na triagem</q-tooltip>
                         </q-badge>
                     </div>
                     <div v-if="props.row.authors" class="text-xs rsl-muted mt-0.5">{{ props.row.authors }}</div>

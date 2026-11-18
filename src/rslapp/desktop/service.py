@@ -168,3 +168,55 @@ class DesktopService:
             return store.get_screening_summary(list_id.strip())
         except FileNotFoundError as err:
             raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
+
+    # FR-26, D-037: Calcula o fluxo PRISMA 2020 e gera SVG e relatório
+    def get_prisma_flow(self, list_id: str) -> dict[str, Any]:
+        """Calcula dados quantitativos do PRISMA 2020, diagrama SVG e checklist PRISMA-S."""
+        from rslapp.core.prisma import (
+            calculate_prisma_flow,
+            render_prisma_markdown,
+            render_prisma_svg,
+        )
+
+        store, _ = self._build_store()
+        list_data = self.get_list(list_id)
+        search_id = list_data.get("search_id")
+        search_record = None
+        if search_id:
+            try:
+                search_record = store.get_search(search_id)
+            except (RSLError, FileNotFoundError, ValueError):
+                search_record = None
+        summary = store.get_screening_summary(list_id)
+        flow_data = calculate_prisma_flow(list_data, summary, search_record=search_record)
+        return {
+            "list_id": list_id,
+            "flow": flow_data,
+            "svg": render_prisma_svg(flow_data),
+            "report_markdown": render_prisma_markdown(flow_data),
+        }
+
+    # FR-27, D-038: Gera declaração metodológica formal de uso de IA
+    def get_ai_disclosure(self, list_id: str, lang: str = "pt") -> str:
+        """Gera a declaração metodológica de uso de IA (padrão COPE/ICMJE/SciELO)."""
+        from rslapp.core.ai_disclosure import render_ai_disclosure
+
+        store, _ = self._build_store()
+        list_data = self.get_list(list_id)
+        search_id = list_data.get("search_id")
+        query = ""
+        if search_id:
+            try:
+                s = store.get_search(search_id)
+                query = str(s.get("request_summary", ""))
+            except (RSLError, FileNotFoundError, ValueError):
+                query = ""
+        summary = store.get_screening_summary(list_id)
+        total_works = int(list_data.get("total", len(list_data.get("works", []))))
+        return render_ai_disclosure(
+            list_id=list_id,
+            search_query=query,
+            total_works=total_works,
+            screening_summary=summary,
+            lang=lang,
+        )
