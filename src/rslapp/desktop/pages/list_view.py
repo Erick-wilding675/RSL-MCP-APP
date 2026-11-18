@@ -199,6 +199,14 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 notes_list = service.list_work_notes(list_id)
                 notes_map = {str(n.get("work_id")): n for n in notes_list}
 
+        # FR-32, D-043: Identifica se esta lista é fruto de uma atualização da Revisão Viva
+        diff_added_ids: set[str] = set()
+        if hasattr(service, "get_latest_differential"):
+            with contextlib.suppress(Exception):
+                diff_obj = service.get_latest_differential(list_id)
+                if diff_obj and diff_obj.get("new_list_id") == list_id:
+                    diff_added_ids = {str(aid) for aid in diff_obj.get("added_ids", [])}
+
         # 1. Aviso de lista incompleta no topo (FR-08, FR-16, D-031)
         failed_sources = [
             src
@@ -316,6 +324,47 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     icon="edit_note",
                     on_click=lambda: ui.navigate.to(f"/ficha/{list_id}"),
                 ).props("outline color=primary").mark("btn-open-notes")
+
+                # FR-32, D-043: Botão e diálogo da Revisão Sistemática Viva
+                def _handle_living_review() -> None:
+                    with ui.dialog() as dialog, ui.card().classes("p-6 gap-4 max-w-lg w-full"):
+                        ui.label("Revisão Sistemática Viva (LSR)").classes("text-lg font-bold rsl-title")
+                        ui.label(
+                            "Reexecuta a busca nas fontes mantendo intactas todas as decisões de triagem e fichamentos dos artigos já catalogados, identificando apenas os novos artigos indexados nas bases."
+                        ).classes("text-sm rsl-muted")
+
+                        status_label = ui.label("Pronto para verificar atualizações.").classes("text-xs font-mono rsl-muted")
+                        spinner = ui.spinner(size="md").classes("self-center")
+                        spinner.set_visibility(False)
+
+                        async def _run_update() -> None:
+                            spinner.set_visibility(True)
+                            status_label.text = "Consultando fontes configuradas e comparando dados..."
+                            try:
+                                diff = service.update_search_differential(list_id)
+                                added = diff.get("added_count", 0)
+                                retained = diff.get("retained_count", 0)
+                                new_lid = diff.get("new_list_id", "")
+                                status_label.text = f"Sucesso! {retained} artigos preservados e {added} novos artigos identificados."
+                                ui.notify(f"Revisão Viva: {added} novos artigos encontrados!", type="positive" if added > 0 else "info")
+                                if new_lid:
+                                    ui.button("Abrir Lista Atualizada", on_click=lambda: ui.navigate.to(f"/lista/{new_lid}")).props("unelevated color=primary mt-2")
+                            except (RSLError, ValueError, OSError, RuntimeError) as e:
+                                status_label.text = f"Erro na atualização: {e}"
+                                ui.notify(f"Erro: {e}", type="negative")
+                            finally:
+                                spinner.set_visibility(False)
+
+                        with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                            ui.button("Fechar", on_click=dialog.close).props("flat")
+                            ui.button("Atualizar Busca Agora", icon="sync", on_click=_run_update).props("unelevated color=primary").mark("btn-confirm-living-review")
+                    dialog.open()
+
+                ui.button(
+                    "Revisão Viva",
+                    icon="sync",
+                    on_click=_handle_living_review,
+                ).props("outline color=primary").mark("btn-open-living-review")
 
         # 3. Cartão "Busca": string em monoespaçado com copy_block, ID e fontes (D-031, FR-16)
         with section_card("Busca", icon="search"):
@@ -518,6 +567,7 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     "screening_decision": dec_obj.get("decision", ""),
                     "has_note": bool(note_obj),
                     "note_source": str(note_obj.get("source") or ""),
+                    "is_new_in_search": raw_work_id in diff_added_ids or str(work.get("id")) in diff_added_ids,
                 }
             )
 
@@ -600,6 +650,10 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 <q-td :props="props">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold rsl-title leading-snug">{{ props.row.title }}</span>
+                        <q-badge v-if="props.row.is_new_in_search" color="positive" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            NOVO NA BUSCA
+                            <q-tooltip>Artigo inédito indexado após a busca original (Revisão Viva)</q-tooltip>
+                        </q-badge>
                         <q-badge v-if="props.row.is_retracted" color="negative" class="text-xs px-2 py-0.5 rounded-full font-bold">
                             RETRATADO
                             <q-tooltip>Artigo formalmente retratado ou com expressão de preocupação oficial</q-tooltip>

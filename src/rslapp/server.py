@@ -1039,6 +1039,105 @@ def export_network(
         raise ToolError(f"{code}: {e}") from e
 
 
+# FR-32, FR-20, D-002, D-006, D-012, D-029, D-043: Compara duas versões de busca (Revisão Viva)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def compare_search_versions(
+    base_list_id: str,
+    new_list_id: str,
+) -> dict[str, Any]:
+    """Compara duas listas de busca da Revisão Viva retornando novos artigos encontrados, registros mantidos e relatório metodológico em Markdown."""
+    store, _ = _build_tool_store()
+    try:
+        base_list = store.get_list(base_list_id)
+        new_list = store.get_list(new_list_id)
+
+        from rslapp.core.differential import (
+            compute_search_difference,
+            format_differential_markdown,
+        )
+
+        diff = compute_search_difference(
+            base_works=base_list.get("works", []),
+            new_works=new_list.get("works", []),
+            base_list_id=base_list_id,
+            new_list_id=new_list_id,
+        )
+
+        md_report = format_differential_markdown(
+            diff,
+            base_title=f"Lista {base_list_id}",
+            new_title=f"Lista {new_list_id}",
+        )
+        diff["report_markdown"] = md_report
+
+        store.save_differential(diff)
+        return diff
+    except (RSLError, ValueError, TypeError, KeyError, FileNotFoundError) as e:
+        code = getattr(
+            e,
+            "code",
+            "list_not_found" if isinstance(e, FileNotFoundError) else "invalid_input",
+        )
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-32, FR-20, D-002, D-006, D-012, D-029, D-043: Reexecuta busca prévia e calcula diferença (Revisão Viva)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def update_search_differential(
+    list_id: str,
+) -> dict[str, Any]:
+    """Reexecuta a busca de uma lista existente preservando triagens e notas, detecta novos artigos indexados e gera relatório de atualização metodológica."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        orig_list = store.get_list(list_id)
+        search_id = orig_list.get("search_id")
+        if not search_id:
+            raise ToolError(
+                f"invalid_input: A lista '{list_id}' não possui identificador de busca associado para repetição."
+            )
+
+        sources = build_sources(cfg)
+        _new_search_rec, new_list_rec = run_repeat(
+            store=store,
+            sources=sources,
+            search_id=search_id,
+            cache_dir=cfg.cache_dir,
+        )
+
+        new_list_id = new_list_rec["id"]
+
+        from rslapp.core.differential import (
+            compute_search_difference,
+            format_differential_markdown,
+        )
+
+        diff = compute_search_difference(
+            base_works=orig_list.get("works", []),
+            new_works=new_list_rec.get("works", []),
+            base_list_id=list_id,
+            new_list_id=new_list_id,
+        )
+
+        md_report = format_differential_markdown(
+            diff,
+            base_title=f"Lista Base {list_id}",
+            new_title=f"Lista Atualizada {new_list_id}",
+        )
+        diff["report_markdown"] = md_report
+
+        store.save_differential(diff)
+        return diff
+    except (RSLError, ValueError, TypeError, KeyError, FileNotFoundError) as e:
+        code = getattr(
+            e,
+            "code",
+            "list_not_found" if isinstance(e, FileNotFoundError) else "invalid_input",
+        )
+        raise ToolError(f"{code}: {e}") from e
+
+
+
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
 def plan_search(request: str) -> str:
@@ -1232,6 +1331,8 @@ def _build_http_mcp_server(
         (list_protocols, _READ_ONLY_ANNOTATIONS),
         (export_protocol_markdown, _ADDITIVE_WRITE_ANNOTATIONS),
         (export_network, _ADDITIVE_WRITE_ANNOTATIONS),
+        (compare_search_versions, _ADDITIVE_WRITE_ANNOTATIONS),
+        (update_search_differential, _ADDITIVE_WRITE_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)

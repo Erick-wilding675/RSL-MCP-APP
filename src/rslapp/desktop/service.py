@@ -396,3 +396,84 @@ class DesktopService:
 
         return res
 
+    # FR-32, D-043: Métodos de comparação diferencial e Revisão Viva
+    def compare_search_versions(
+        self, base_list_id: str, new_list_id: str
+    ) -> dict[str, Any]:
+        """Compara duas listas de busca gerando estatísticas de novidades e relatório em Markdown."""
+        store, _ = self._build_store()
+        base_list = store.get_list(base_list_id)
+        new_list = store.get_list(new_list_id)
+
+        from rslapp.core.differential import (
+            compute_search_difference,
+            format_differential_markdown,
+        )
+
+        diff = compute_search_difference(
+            base_works=base_list.get("works", []),
+            new_works=new_list.get("works", []),
+            base_list_id=base_list_id,
+            new_list_id=new_list_id,
+        )
+        diff["report_markdown"] = format_differential_markdown(
+            diff,
+            base_title=f"Lista Base {base_list_id}",
+            new_title=f"Lista Atualizada {new_list_id}",
+        )
+        store.save_differential(diff)
+        return diff
+
+    def update_search_differential(
+        self, list_id: str
+    ) -> dict[str, Any]:
+        """Reexecuta a busca da lista informada, detecta novos artigos e salva o diferencial."""
+        store, _ = self._build_store()
+        orig_list = store.get_list(list_id)
+        search_id = orig_list.get("search_id")
+        if not search_id:
+            raise RSLError(
+                "invalid_input",
+                f"A lista {list_id} não possui identificador de busca associado.",
+            )
+
+        sources = self._build_sources()
+        cfg = self._load_cfg()
+        _search_rec, new_list_rec = run_repeat(
+            store=store,
+            sources=sources,
+            search_id=search_id,
+            cache_dir=cfg.cache_dir,
+        )
+        new_list_id = new_list_rec["id"]
+
+        from rslapp.core.differential import (
+            compute_search_difference,
+            format_differential_markdown,
+        )
+
+        diff = compute_search_difference(
+            base_works=orig_list.get("works", []),
+            new_works=new_list_rec.get("works", []),
+            base_list_id=list_id,
+            new_list_id=new_list_id,
+        )
+        diff["report_markdown"] = format_differential_markdown(
+            diff,
+            base_title=f"Lista Base {list_id}",
+            new_title=f"Lista Atualizada {new_list_id}",
+        )
+        store.save_differential(diff)
+        return diff
+
+    def list_differentials(self, list_id: str | None = None) -> list[dict[str, Any]]:
+        """Devolve todas as auditorias diferenciais salvas."""
+        store, _ = self._build_store()
+        return store.list_differentials(list_id)
+
+    def get_latest_differential(self, list_id: str) -> dict[str, Any] | None:
+        """Devolve o diferencial mais recente da lista."""
+        store, _ = self._build_store()
+        return store.get_latest_differential(list_id)
+
+
