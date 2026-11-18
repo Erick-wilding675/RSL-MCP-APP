@@ -507,5 +507,19 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Situação:** decidida. Spec 19-01.
 
 
+## D-043 · Revisão Viva: Atualização de Busca com Comparação Diferencial e Rastreabilidade (v2.9)
+
+- **Decisão:** o RSL.app oferece suporte formal à Revisão Sistemática Viva (*Living Systematic Review*, LSR):
+  - **Reexecução com preservação de estado:** reexecuta as estratégias de busca de uma lista existente mantendo integralmente todas as decisões de triagem (`screening/{list_id}.json`) e fichamentos (`notes/{list_id}/`) já realizados pelos pesquisadores para os artigos existentes.
+  - **Detecção diferencial precisa:** identifica e separa quais artigos são idênticos aos já catalogados e quais são estritamente **novos artigos** (*new works*) indexados nas fontes desde a última execução da busca.
+  - **Relatório de atualização metodológica:** calcula métricas comparativas (`previous_count`, `new_count`, `total_count`), gera registro formal em `differential/{list_id}_{update_id}.json` e relatório textual pronto para seções de atualização de revisões (essencial para defesa de pós-graduação e periódicos que exigem buscas atualizadas até 6 meses antes da publicação).
+  - **Integração no Pacote de Reprodutibilidade:** inclusão de `differential_update.json` e `differential_update.md` no arquivo `.zip` com hashes no manifesto SHA-256.
+  - **Ferramentas MCP e Desktop:** ferramenta MCP `update_search_differential` e `compare_search_versions`, botões de ação na tela Lista e Histórico, filtros visuais para "Apenas novos artigos" e badges distintivos `NOVO NA BUSCA`.
+- **Motivo:**
+  - Em revisões reais, a busca inicial quase sempre precisa ser refeita meses depois (ao submeter para um periódico ou antes de uma banca). Refazer do zero perde todas as decisões de triagem já tomadas ou força o pesquisador a cruzar planilhas à mão. A Revisão Viva nativa resolve essa dor crucial com precisão matemática.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida. Spec 20-01.
+
+
 
 

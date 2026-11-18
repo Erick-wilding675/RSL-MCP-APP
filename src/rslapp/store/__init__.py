@@ -67,6 +67,7 @@ class Store:
         self.screening_dir: Path = self.data_dir / "screening"
         self.notes_dir: Path = self.data_dir / "notes"
         self.protocols_dir: Path = self.data_dir / "protocols"
+        self.differential_dir: Path = self.data_dir / "differential"
         # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
         self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
@@ -400,5 +401,40 @@ class Store:
                     hist_file.unlink()
 
             return existed
+
+    # FR-32, D-043: Armazenamento de comparações diferenciais da Revisão Viva
+    def save_differential(self, diff_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva a comparação diferencial de busca atomicamente em differential/{base_list_id}_{new_list_id}_{timestamp}.json."""
+        self.differential_dir.mkdir(parents=True, exist_ok=True)
+        base_id = sanitize_filename_id(str(diff_data.get("base_list_id", "diff")))
+        new_id = sanitize_filename_id(str(diff_data.get("new_list_id", "diff")))
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        diff_file = self.differential_dir / f"{base_id}_{new_id}_{ts}.json"
+        with file_lock(self.lock_path):
+            content = json.dumps(diff_data, ensure_ascii=False, indent=2) + "\n"
+            atomic_write_replace(diff_file, content)
+        return copy.deepcopy(diff_data)
+
+    def list_differentials(self, list_id: str | None = None) -> list[dict[str, Any]]:
+        """Lista as comparações diferenciais salvas, opcionalmente filtradas por list_id (base ou nova)."""
+        if not self.differential_dir.exists():
+            return []
+        results: list[dict[str, Any]] = []
+        for file in self.differential_dir.glob("*.json"):
+            try:
+                data = json.loads(file.read_text(encoding="utf-8"))
+                if list_id is not None and data.get("base_list_id") != list_id and data.get("new_list_id") != list_id:
+                    continue
+                results.append(data)
+            except (json.JSONDecodeError, OSError):
+                continue
+        results.sort(key=lambda d: d.get("updated_at", ""), reverse=True)
+        return results
+
+    def get_latest_differential(self, list_id: str) -> dict[str, Any] | None:
+        """Devolve a comparação diferencial mais recente para a lista especificada."""
+        diffs = self.list_differentials(list_id)
+        return diffs[0] if diffs else None
+
 
 

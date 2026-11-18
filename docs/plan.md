@@ -217,7 +217,15 @@ Decidido em 2026-11-18 (D-030, D-042): geração e exportação nativa de grafos
 2. Ferramenta MCP e Interface Desktop para Redes: ferramenta MCP `export_network` (25 ferramentas), botões de download e visualização de resumo de rede na tela Lista (`/lista/{list_id}`). Spec: `specs/19-02-redes-desktop-e-mcp.md`
 3. Publicação da 2.8.0 e teste real. Spec: `specs/19-03-publicacao-2-8-e-teste-real.md`
 
-**Fase 19 pronta em 2026-11-18:** tarefas 19-01 a 19-03 concluídas, 809 testes do núcleo e 71 testes do desktop passando, pacote 2.8.0 publicado no PyPI e release GitHub `v2.8.0` preparada.
+**Fase 19 pronta em 2026-11-18:** tarefas 19-01 a 19-03 concluídas, 809 testes do núcleo e 71 testes do desktop passando, pacote 2.8.0 publicado no PyPI e release GitHub `v2.8.0` publicada com executáveis.
+
+### 20 · Versão 2.9: Revisão Viva e Comparação Diferencial de Buscas
+
+Decidido em 2026-11-18 (D-030, D-043): suporte a Revisões Sistemáticas Vivas (Living Systematic Reviews - LSR) com reexecução de buscas prévias, detecção diferencial rigorosa entre artigos já catalogados e novas publicações indexadas, preservação integral de triagens e anotações, e relatório metodológico comparativo (FR-32).
+
+1. Comparação Diferencial no Núcleo e Armazenamento: módulo `rslapp.core.differential` com algoritmos de comparação de listas (`diff_search_lists`), cálculo de novidades (`new_works`, `retained_works`), persistência em `differential/{list_id}_{timestamp}.json` e formatação de relatório metodológico Markdown pronto para defesa/publicação. Spec: `specs/20-01-comparacao-diferencial-nucleo.md`
+2. Ferramentas MCP e Interface Desktop para Revisão Viva: ferramentas MCP `update_search_differential` e `compare_search_versions`, botão "Revisão Viva (Atualizar)" nas telas de Lista e Histórico, filtros visuais para "Apenas novos artigos" e badges `NOVO NA BUSCA`. Spec: `specs/20-02-revisao-viva-desktop-e-mcp.md`
+3. Publicação da 2.9.0 e teste real. Spec: `specs/20-03-publicacao-2-9-e-teste-real.md`
 
 
 ### Depois da 1.2: a versão maior (2.0)

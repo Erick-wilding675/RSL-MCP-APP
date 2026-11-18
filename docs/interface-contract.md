@@ -151,6 +151,8 @@ O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos n
 | `list_protocols` | Nada (desde a 2.7, D-041) | Lista de protocolos ativos com contagem, status e datas de atualização |
 | `export_protocol_markdown` | `protocol_id` (obrigatório); `version`, `output_path` (opcionais, desde a 2.7, D-041) | Documento Markdown formatado para submissão no PROSPERO/OSF ou anexo de tese |
 | `export_network` | `list_id` (obrigatório); `network_type` (`coauthorship`, `source_coupling`, `keyword_cooccurrence`), `format` (`vosviewer`, `gephi`, `json`), `min_node_weight`, `min_edge_weight`, `max_nodes`, `output_path` (desde a 2.8, D-042) | Exporta rede bibliométrica em arquivos nativos VOSviewer (.map e .network), Gephi (.gexf) ou JSON |
+| `compare_search_versions` | `base_list_id`, `new_list_id` (obrigatórios, desde a 2.9, D-043) | Compara duas versões de busca da Revisão Viva, retornando novos artigos, mantidos e relatório textual em Markdown |
+| `update_search_differential` | `list_id` (obrigatório, desde a 2.9, D-043) | Reexecuta a busca de uma lista existente preservando triagens e notas, e detecta novos artigos publicados |
 | `plan_search` | `request` (obrigatório) | Orientação em texto: separar o que é melhor buscado à parte, montar a string de cada fonte, chamar `search_works` uma vez por assunto e entregar cada lista separada |
 | `plan_scoping_review` | `topic`, `population`, `concept`, `context` (desde a 2.3, D-035) | Roteiro metodológico JBI / PRISMA-ScR pelo framework PCC e literatura cinzenta |
 | `plan_integrative_review` | `topic`, `guiding_question`, `theoretical_framework` (desde a 2.3, D-035) | Roteiro metodológico em 6 fases (Whittemore & Knafl / Mendes, Silveira e Galvão) |

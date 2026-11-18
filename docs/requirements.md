@@ -48,6 +48,7 @@ O que o pesquisador, por meio da IA dele, precisa conseguir fazer.
 | FR-29 | O pesquisador e a IA elaboram e exportam fichamento científico estruturado (objetivo, método, amostra, resultados, limitações, citações diretas) com distinção explícita de autoria (sugestão de IA vs. revisão humana) | 2.6 | D-040; ideias 2.1 |
 | FR-30 | O pesquisador e a IA elaboram, versionam e exportam protocolos metodológicos pré-busca estruturados (frameworks PICO, PCC, PICo, SPIDER, critérios e estratégias) compatíveis com PROSPERO e OSF | 2.7 | D-041; ideias 1.1 |
 | FR-31 | O sistema extrai e exporta redes bibliométricas nativas (coautoria, acoplamento de fontes e coocorrência de termos) nos formatos VOSviewer (.map e .network) e Gephi (.gexf) | 2.8 | D-042; ideias 3.1 |
+| FR-32 | O sistema suporta Revisão Sistemática Viva (Living Review) com atualização de buscas anteriores, preservação integral de triagens e anotações, detecção diferencial de novos artigos e relatório de atualização metodológica | 2.9 | D-043; ideias 1.6 |
 
 ## Requisitos não funcionais
 
