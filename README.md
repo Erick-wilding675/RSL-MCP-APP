@@ -19,7 +19,8 @@ O RSL.app roda **na sua máquina** (self-hosted), com as **suas** chaves gratuit
 - **Registra cada busca num log** (`log.md`): o pedido, a string enviada a cada base, a data, quantos artigos cada base achou e se veio do cache.
 - **Repete uma busca do log** com as mesmas strings, para atualizar uma revisão.
 - **Junta listas do mesmo assunto** (desde a 1.2): várias strings sobre um tema viram uma lista só, sem duplicatas, e a junção entra no log.
-- **Exporta em seis formatos:** RIS, CSV no padrão do Scopus, JSON completo, lista de DOIs, URL de consulta do OpenAlex e BibTeX (desde a 1.2). O RIS, o CSV e a lista de DOIs abrem no VOSviewer sem edição; o BibTeX abre no Zotero, no Mendeley e no JabRef.
+- **Triagem com rastro de autoria e PRISMA 2020** (desde a 2.4): selecione e trie artigos artigo a artigo (com atalhos `I`, `E`, `M` na interface desktop ou via MCP com `screen_work`), com rastro auditável de quem decidiu (`human` vs `ai`), motivos de exclusão, diagrama vetorial SVG oficial do PRISMA 2020 e declaração metodológica de IA no padrão COPE/ICMJE/SciELO.
+- **Exporta em sete formatos:** RIS, CSV no padrão do Scopus, JSON completo, lista de DOIs, URL de consulta do OpenAlex, BibTeX (desde a 1.2) e referências na ABNT NBR 6023:2018 (desde a 2.2). O RIS, o CSV e a lista de DOIs abrem no VOSviewer sem edição; o BibTeX abre no Zotero, no Mendeley e no JabRef.
 - **Guarda tudo na sua máquina:** listas, log, exportações e um cache das respostas, que expira em 7 dias e economiza sua cota.
 
 Ele **não** baixa texto completo de artigos e não abre o VOSviewer sozinho. Cada pedido vira a sua própria lista; só listas do mesmo assunto devem ser juntadas.

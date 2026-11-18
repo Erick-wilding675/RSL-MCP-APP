@@ -257,3 +257,14 @@ docker compose run --rm --entrypoint tar rslapp -czf - -C /data . > rsl-backup.t
 ```
 
 Guarde o arquivo `rsl-backup.tar.gz` em local seguro: ele contém os dados de pesquisa e os nomes, ORCID e afiliações de autores coletados nas buscas (**D-004**, **D-018**).
+
+---
+
+## 6. Para instituições: Triagem com Rastro e Fluxograma PRISMA 2020 (v2.4, D-029, D-036 a D-038)
+
+A partir da versão 2.4.0, o servidor RSL.app institucional disponibiliza para todos os pesquisadores e grupos de pesquisa:
+- **Triagem Isolada por Pesquisador (`screening/`):** cada pesquisador autenticado conduz a triagem (`screen_work`, `get_screening_status`) em ambiente isolado na máquina ou servidor da instituição (`/data/people/<id>/screening/`), sem expor manuscritos não publicados a plataformas comerciais externas;
+- **Rastro de Autoria Auditável (D-036):** distinção estrita entre decisões registradas por humanos e sugestões de IA assistiva, cumprindo exigências de comitês de ética em pesquisa (CEP/CONEP) e bancas de pós-graduação;
+- **Diagrama Vetorial PRISMA 2020 e PRISMA-S (D-037):** cálculo matemático das 4 fases (Identificação, Triagem, Elegibilidade, Inclusão) e exportação em SVG vetorial pronto para diagramação editorial;
+- **Declaração de Transparência Metodológica (D-038):** texto pronto para a seção de Metodologia em conformidade com as diretrizes internacionais do COPE, ICMJE e do Guia de Boas Práticas do SciELO Brasil.
+
