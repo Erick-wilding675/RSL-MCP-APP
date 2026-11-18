@@ -11,7 +11,7 @@ from rslapp.core.search import (
     MAX_MAX_RESULTS,
     MIN_MAX_RESULTS,
 )
-from rslapp.desktop.components import section_card
+from rslapp.desktop.components import section_card, status_badge
 from rslapp.desktop.pages import render_shell
 from rslapp.desktop.service import DesktopService
 from rslapp.desktop.theme import apply_theme
@@ -66,11 +66,70 @@ def build(service: DesktopService, initial_query: str = "") -> None:
             )
 
             with ui.row().classes(
-                "w-full justify-between items-center text-caption rsl-muted"
+                "w-full justify-between items-center text-caption rsl-muted flex-wrap gap-2"
             ):
-                ui.label(
-                    "A string vai como está para cada base selecionada; o app não usa IA."
-                )
+                with ui.row().classes("items-center gap-2"):
+                    ui.label(
+                        "A string vai como está para cada base selecionada; o app não usa IA."
+                    )
+                    # FR-33, D-044: Assistente DeCS/MeSH para expansão multilíngue
+                    def _open_decs_assistant() -> None:
+                        with ui.dialog() as decs_dialog, ui.card().classes("p-6 gap-4 max-w-2xl w-full"):
+                            ui.label("Assistente de Descritores DeCS/MeSH (PT/EN/ES)").classes("text-lg font-bold rsl-title")
+                            ui.label("Pesquise conceitos e insira a expressão booleana estruturada em inglês ou português.").classes("text-xs rsl-muted")
+
+                            search_decs_input = ui.input(placeholder="Ex.: inteligência artificial, atenção primária, depressão...").props("dense outlined autofocus").classes("w-full")
+                            results_col = ui.column().classes("w-full gap-2 max-h-80 overflow-y-auto")
+
+                            def _search_decs(val: str) -> None:
+                                results_col.clear()
+                                if not val or len(val.strip()) < 2:
+                                    return
+                                matches = service.lookup_descriptors(val.strip(), lang="pt", max_results=5)
+                                if not matches:
+                                    with results_col:
+                                        ui.label("Nenhum descritor DeCS/MeSH encontrado.").classes("text-xs rsl-muted italic p-2")
+                                    return
+                                with results_col:
+                                    for d in matches:
+                                        with ui.card().classes("w-full p-3 gap-2 rsl-surface-2"):
+                                            with ui.row().classes("w-full justify-between items-center"):
+                                                ui.label(d["terms"]["pt"]).classes("font-bold text-sm rsl-title")
+                                                status_badge(d["id"], kind="neutral")
+                                            with ui.row().classes("text-xs gap-3"):
+                                                ui.label(f"EN: {d['terms']['en']}").classes("text-primary font-medium")
+                                                ui.label(f"ES: {d['terms']['es']}").classes("rsl-muted")
+
+                                            syns_pt = d["synonyms"].get("pt", [])
+                                            syns_en = d["synonyms"].get("en", [])
+                                            if syns_pt:
+                                                ui.label("Sinônimos PT: " + ", ".join(syns_pt[:3])).classes("text-xs rsl-muted")
+                                            if syns_en:
+                                                ui.label("Sinônimos EN: " + ", ".join(syns_en[:3])).classes("text-xs rsl-muted")
+
+                                            with ui.row().classes("w-full justify-end gap-2 mt-1"):
+                                                def _insert_en(desc=d) -> None:
+                                                    q = service.build_multilingual_query([desc], operator="OR")
+                                                    query_input.value = q.get("en", "")
+                                                    ui.notify("Termos em inglês inseridos na busca!", type="positive")
+                                                    decs_dialog.close()
+
+                                                def _insert_pt(desc=d) -> None:
+                                                    q = service.build_multilingual_query([desc], operator="OR")
+                                                    query_input.value = q.get("pt", "")
+                                                    ui.notify("Termos em português inseridos na busca!", type="positive")
+                                                    decs_dialog.close()
+
+                                                ui.button("Inserir em Português", on_click=_insert_pt).props("outline size=xs")
+                                                ui.button("Inserir em Inglês", on_click=_insert_en).props("unelevated color=primary size=xs")
+
+                            search_decs_input.on("input", lambda e: _search_decs(e.value))
+                            with ui.row().classes("w-full justify-end mt-2"):
+                                ui.button("Fechar", on_click=decs_dialog.close).props("flat")
+                        decs_dialog.open()
+
+                    ui.button("Descritores DeCS/MeSH", icon="translate", on_click=_open_decs_assistant).props("outline size=sm color=primary").mark("btn-open-decs")
+
                 ui.label("Ctrl+Enter para buscar").classes(
                     "rsl-code text-xs px-2 py-0.5 rounded"
                 )

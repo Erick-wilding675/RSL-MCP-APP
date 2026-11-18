@@ -476,4 +476,22 @@ class DesktopService:
         store, _ = self._build_store()
         return store.get_latest_differential(list_id)
 
+    # FR-33, D-044: Assistente de descritores DeCS/MeSH trilíngues
+    def lookup_descriptors(
+        self, query: str, lang: str = "pt", max_results: int = 10
+    ) -> list[dict[str, Any]]:
+        """Consulta descritores DeCS/MeSH em português, inglês e espanhol com sinônimos autorizados."""
+        from rslapp.core.decs import lookup_descriptors as _lookup
+
+        return _lookup(query=query, lang=lang, max_results=max_results)
+
+    def build_multilingual_query(
+        self, descriptors: list[str], operator: str = "OR"
+    ) -> dict[str, str]:
+        """Gera strings booleanas de busca estruturadas em PT, EN e ES."""
+        from rslapp.core.decs import build_multilingual_query as _build
+
+        return _build(descriptors=descriptors, operator=operator)
+
+
 

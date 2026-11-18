@@ -1137,6 +1137,55 @@ def update_search_differential(
         raise ToolError(f"{code}: {e}") from e
 
 
+# FR-33, FR-20, D-002, D-006, D-012, D-029, D-044: Consulta descritores controlados DeCS/MeSH trilíngues
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def lookup_descriptors(
+    query: str,
+    lang: str = "pt",
+    max_results: int = 10,
+) -> dict[str, Any]:
+    """Consulta descritores controlados DeCS/MeSH em Português, Inglês e Espanhol com sinônimos e códigos hierárquicos."""
+    try:
+        from rslapp.core.decs import lookup_descriptors as _core_lookup
+
+        matches = _core_lookup(query=query, lang=lang, max_results=max_results)
+        return {
+            "query": query,
+            "lang": lang,
+            "total_matches": len(matches),
+            "descriptors": matches,
+        }
+    except (RSLError, ValueError, TypeError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-33, FR-20, D-002, D-006, D-012, D-029, D-044: Construtor de queries booleanas multilíngues (DeCS/MeSH)
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def build_multilingual_search_query(
+    descriptors: list[str],
+    operator: str = "OR",
+) -> dict[str, Any]:
+    """Gera expressões booleanas de busca estruturadas em Português, Inglês e Espanhol a partir dos descritores selecionados e seus sinônimos oficiais."""
+    try:
+        if not descriptors:
+            raise ToolError("invalid_input: A lista de descritores não pode estar vazia.")
+
+        from rslapp.core.decs import build_multilingual_query as _core_build
+
+        clean_op = "OR" if str(operator).strip().upper() == "OR" else "AND"
+        queries = _core_build(descriptors=descriptors, operator=clean_op)
+        return {
+            "descriptors": descriptors,
+            "operator": clean_op,
+            "queries": queries,
+        }
+    except (RSLError, ValueError, TypeError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+
 
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
@@ -1333,6 +1382,8 @@ def _build_http_mcp_server(
         (export_network, _ADDITIVE_WRITE_ANNOTATIONS),
         (compare_search_versions, _ADDITIVE_WRITE_ANNOTATIONS),
         (update_search_differential, _ADDITIVE_WRITE_ANNOTATIONS),
+        (lookup_descriptors, _READ_ONLY_ANNOTATIONS),
+        (build_multilingual_search_query, _READ_ONLY_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)
