@@ -109,7 +109,7 @@ def test_d031_common_css_regras_visuais() -> None:
     assert "150ms" in COMMON_CSS
     assert ":focus-visible" in COMMON_CSS
     assert "--q-primary" in COMMON_CSS
-    assert "#F8FAFC" in COMMON_CSS
+    assert "#F8FAF9" in COMMON_CSS
     assert "#1E293B" in COMMON_CSS
 
 

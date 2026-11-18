@@ -29,32 +29,32 @@ body, .nicegui-content {
   padding: 24px !important;
 }
 
-/* D-031: Fundo da página e variáveis de cores no tema claro (estilo papel de pesquisa) */
+/* D-031: Fundo da página e variáveis de cores no tema claro (estilo papel de pesquisa com detalhes verdes discretos) */
 body:not(.body--dark) {
-  background-color: #F8FAFC !important;
+  background-color: #F8FAF9 !important;
 }
 
 /* D-031: Fundo da página e variáveis de cores Quasar no tema escuro acadêmico */
 body.body--dark {
   background-color: #0F172A !important;
-  --q-primary: #60A5FA !important;
+  --q-primary: #34D399 !important;
   --q-secondary: #94A3B8 !important;
-  --q-accent: #38BDF8 !important;
+  --q-accent: #10B981 !important;
   --q-positive: #22C55E !important;
   --q-negative: #EF4444 !important;
   --q-warning: #F59E0B !important;
-  --q-info: #60A5FA !important;
+  --q-info: #38BDF8 !important;
 }
 
 /* D-031: Cartões com cantos de 6px (sóbrio/estruturado), borda nítida e sombra muito leve */
 .q-card {
   border-radius: 6px !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
   transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease !important;
 }
 body:not(.body--dark) .q-card {
   background-color: #FFFFFF !important;
-  border: 1px solid #CBD5E1 !important;
+  border: 1px solid #E5E7EB !important;
 }
 body.body--dark .q-card {
   background-color: #1E293B !important;
@@ -75,34 +75,34 @@ button, a, input, textarea, select, .q-btn, .q-field {
 /* D-031: Estilos da barra lateral drawer */
 body:not(.body--dark) .q-drawer {
   background-color: #FFFFFF !important;
-  border-right: 1px solid #CBD5E1 !important;
+  border-right: 1px solid #E5E7EB !important;
 }
 body.body--dark .q-drawer {
   background-color: #1E293B !important;
   border-right: 1px solid #334155 !important;
 }
 
-/* Estilos de itens de navegação ativo e inativo com acento clássico */
+/* Estilos de itens de navegação ativo e inativo com acento verde discreto */
 .nav-item-active {
-  background-color: rgba(30, 58, 138, 0.08) !important;
-  color: #1E3A8A !important;
+  background-color: rgba(27, 77, 62, 0.08) !important;
+  color: #1B4D3E !important;
   font-weight: 600 !important;
   border-radius: 4px !important;
-  border-left: 3px solid #1E3A8A !important;
+  border-left: 3px solid #1B4D3E !important;
 }
 body.body--dark .nav-item-active {
-  background-color: rgba(96, 165, 250, 0.12) !important;
-  color: #60A5FA !important;
-  border-left: 3px solid #60A5FA !important;
+  background-color: rgba(52, 211, 153, 0.12) !important;
+  color: #34D399 !important;
+  border-left: 3px solid #34D399 !important;
 }
 .nav-item-inactive {
   border-radius: 4px !important;
   border-left: 3px solid transparent !important;
-  color: inherit !important;
+  color: #374151 !important;
   transition: background-color 150ms ease !important;
 }
 .nav-item-inactive:hover {
-  background-color: rgba(0, 0, 0, 0.03) !important;
+  background-color: rgba(27, 77, 62, 0.04) !important;
 }
 body.body--dark .nav-item-inactive:hover {
   background-color: rgba(255, 255, 255, 0.04) !important;
@@ -118,7 +118,7 @@ body.body--dark .nav-item-inactive:hover {
 
 /* D-031: Classes semânticas próprias para suporte confiável ao tema claro e escuro */
 .rsl-title {
-  color: #0F172A !important;
+  color: #111827 !important;
 }
 body.body--dark .rsl-title {
   color: #F8FAFC !important;
@@ -131,7 +131,7 @@ body.body--dark .rsl-title {
 }
 
 .rsl-muted {
-  color: #475569 !important;
+  color: #4B5563 !important;
 }
 body.body--dark .rsl-muted {
   color: #94A3B8 !important;
@@ -139,8 +139,8 @@ body.body--dark .rsl-muted {
 
 .rsl-surface-2 {
   background-color: #FFFFFF !important;
-  border: 1px solid #CBD5E1 !important;
-  color: #0F172A !important;
+  border: 1px solid #E5E7EB !important;
+  color: #111827 !important;
 }
 body.body--dark .rsl-surface-2 {
   background-color: #1E293B !important;
@@ -149,8 +149,8 @@ body.body--dark .rsl-surface-2 {
 }
 
 .rsl-surface-disabled {
-  background-color: #F1F5F9 !important;
-  border: 1px solid #CBD5E1 !important;
+  background-color: #F3F4F6 !important;
+  border: 1px solid #E5E7EB !important;
   opacity: 0.65 !important;
 }
 body.body--dark .rsl-surface-disabled {
@@ -161,9 +161,9 @@ body.body--dark .rsl-surface-disabled {
 
 .rsl-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
-  border: 1px solid #CBD5E1 !important;
+  background-color: #F9FAFB !important;
+  color: #111827 !important;
+  border: 1px solid #E5E7EB !important;
 }
 body.body--dark .rsl-code {
   background-color: #0F172A !important;
@@ -173,13 +173,13 @@ body.body--dark .rsl-code {
 
 /* D-031: Cartão de progresso e divisor do rodapé do drawer */
 .progress-card {
-  background-color: rgba(30, 58, 138, 0.05) !important;
-  border: 1px solid rgba(30, 58, 138, 0.2) !important;
+  background-color: rgba(27, 77, 62, 0.04) !important;
+  border: 1px solid rgba(27, 77, 62, 0.2) !important;
   border-radius: 6px !important;
 }
 body.body--dark .progress-card {
-  background-color: rgba(96, 165, 250, 0.1) !important;
-  border: 1px solid rgba(96, 165, 250, 0.2) !important;
+  background-color: rgba(52, 211, 153, 0.1) !important;
+  border: 1px solid rgba(52, 211, 153, 0.2) !important;
 }
 
 /* D-031: Tabela com cabeçalho fixo e linhas alternadas suaves */
@@ -189,8 +189,8 @@ body.body--dark .progress-card {
   top: 0 !important;
 }
 body:not(.body--dark) .sticky-header-table thead tr th {
-  background-color: #F1F5F9 !important;
-  border-bottom: 2px solid #CBD5E1 !important;
+  background-color: #F9FAFB !important;
+  border-bottom: 2px solid #E5E7EB !important;
 }
 body.body--dark .sticky-header-table thead tr th {
   background-color: #1E293B !important;
@@ -205,7 +205,7 @@ body.body--dark .q-table tbody tr:nth-child(even) {
 }
 
 .drawer-footer {
-  border-top: 1px solid #CBD5E1 !important;
+  border-top: 1px solid #E5E7EB !important;
 }
 body.body--dark .drawer-footer {
   border-top: 1px solid #334155 !important;
@@ -213,9 +213,9 @@ body.body--dark .drawer-footer {
 
 /* D-031: Caixa de informação info compatível com tema claro e escuro */
 .rsl-info-box {
-  background-color: #EFF6FF !important;
-  border: 1px solid #BFDBFE !important;
-  color: #1E40AF !important;
+  background-color: #F0FDF4 !important;
+  border: 1px solid #BBF7D0 !important;
+  color: #166534 !important;
   border-radius: 6px !important;
 }
 body.body--dark .rsl-info-box {
@@ -248,7 +248,7 @@ body.body--dark .rsl-warning-box {
 }
 .save-bar-clean {
   background-color: #FFFFFF !important;
-  border: 1px solid #CBD5E1 !important;
+  border: 1px solid #E5E7EB !important;
 }
 body.body--dark .save-bar-clean {
   background-color: #1E293B !important;
@@ -270,15 +270,15 @@ body.body--dark .save-bar-dirty {
 # D-031, FR-16: Aplica cores, modo escuro, tipografia e CSS comum a uma página do app desktop
 def apply_theme() -> ui.dark_mode:
     """Configura o tema da página: cores Quasar, DarkMode conforme desktop.json, fontes e CSS global."""
-    # 1. Cores acadêmicas conservadoras e elegantes (Oxford Blue, Ardósia e tons sóbrios)
+    # 1. Cores acadêmicas sóbrias com detalhes verdes discretos (Deep Pine, Ardósia e tons clássicos)
     ui.colors(
-        primary="#1E3A8A",
-        secondary="#334155",
-        accent="#0284C7",
+        primary="#1B4D3E",
+        secondary="#4B5563",
+        accent="#2D6A4F",
         positive="#15803D",
-        negative="#B91C1C",
-        warning="#B45309",
-        info="#1D4ED8",
+        negative="#991B1B",
+        warning="#92400E",
+        info="#155E75",
         dark_page="#0F172A",
         dark="#1E293B",
     )
