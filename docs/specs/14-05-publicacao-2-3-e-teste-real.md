@@ -1,6 +1,6 @@
 # Publicação da 2.3.0 e teste real
 
-**Fase:** 14 · Versão 2.3 · Academia Brasileira · **Situação:** em andamento
+**Fase:** 14 · Versão 2.3 · Academia Brasileira · **Situação:** pronta
 
 ## O que faz
 
@@ -55,7 +55,7 @@ Prepara e valida a publicação da versão 2.3.0 do `rslapp` no PyPI e GitHub re
 - [x] Todos os gates passam (Ruff limpo, 761 testes core, 60 testes desktop).
 - [x] Pacote construído com `uv build --no-sources`.
 - [x] Branch `integracao-2.3` mesclada na `main`.
-- [ ] Publicação no PyPI e release GitHub `v2.3.0` realizada após confirmação do Erick.
+- [x] Publicação no PyPI e release GitHub `v2.3.0` realizada após confirmação do Erick.
 
 ## Vem de
 
