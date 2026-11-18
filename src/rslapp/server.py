@@ -29,11 +29,18 @@ from rslapp.auth import (
     build_auth_routes,
     current_person_id,
 )
+from rslapp.core.ai_disclosure import render_ai_disclosure
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
 from rslapp.core.merge import run_merge
+from rslapp.core.prisma import (
+    calculate_prisma_flow,
+    render_prisma_markdown,
+    render_prisma_svg,
+)
 from rslapp.core.related import run_related
 from rslapp.core.repeat import run_repeat
+from rslapp.core.screening import validate_decision_data
 from rslapp.core.search import run_search
 from rslapp.core.verify import run_verify_references
 from rslapp.core.views import get_list_view, get_search_log_view
@@ -458,6 +465,131 @@ def import_works(
         raise ToolError(f"{e.code}: {e.message}") from e
 
 
+# FR-25, FR-20, D-002, D-006, D-012, D-029, D-036: Registra ou atualiza decisão de triagem de um trabalho
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def screen_work(
+    list_id: str,
+    work_id: str,
+    decision: str,
+    reason: str = "",
+    decided_by: str = "ai",
+    stage: str = "title_abstract",
+    notes: str = "",
+    doi: str = "",
+) -> dict[str, Any]:
+    """Registra ou atualiza a decisão de triagem de um trabalho ('included', 'excluded', 'maybe') com rastro de autoria ('human' ou 'ai:modelo'), motivo da exclusão e estágio ('title_abstract' ou 'full_text')."""
+    store, _ = _build_tool_store()
+    try:
+        validated = validate_decision_data(
+            work_id=work_id,
+            decision=decision,
+            reason=reason or None,
+            decided_by=decided_by,
+            stage=stage,
+            notes=notes or None,
+            doi=doi or None,
+        )
+        saved = store.save_screening_decision(list_id, validated)
+        summary = store.get_screening_summary(list_id)
+        return {
+            "status": "ok",
+            "list_id": list_id,
+            "decision": saved["decisions"][validated["work_id"]],
+            "summary": summary,
+        }
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-25, FR-20, D-002, D-006, D-012, D-029, D-036: Consulta resumo quantitativo e motivos da triagem
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_screening_status(
+    list_id: str,
+) -> dict[str, Any]:
+    """Retorna o progresso atual da triagem da lista: total de trabalhos, triados, pendentes, contagens por decisão ('included', 'excluded', 'maybe'), motivos de exclusão e divisão por autoria ('human' vs 'ai')."""
+    store, _ = _build_tool_store()
+    try:
+        summary = store.get_screening_summary(list_id)
+        return {
+            "list_id": list_id,
+            **summary,
+        }
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-26, FR-20, D-002, D-006, D-012, D-029, D-037: Calcula fluxograma PRISMA 2020 e checklist PRISMA-S
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_prisma_flow(
+    list_id: str,
+    include_svg: NonIntBool = False,
+) -> dict[str, Any]:
+    """Calcula e retorna os quantitativos de cada fase do fluxograma oficial PRISMA 2020 (Identificação, Triagem, Elegibilidade, Inclusão) e o checklist PRISMA-S em Markdown. Opcionalmente inclui o SVG vetorial diagramado."""
+    store, _ = _build_tool_store()
+    try:
+        list_data = store.get_list(list_id)
+        search_id = list_data.get("search_id")
+        search_record = None
+        if search_id:
+            try:
+                search_record = store.get_search(search_id)
+            except (RSLError, FileNotFoundError, ValueError):
+                search_record = None
+        summary = store.get_screening_summary(list_id)
+        flow_data = calculate_prisma_flow(list_data, summary, search_record=search_record)
+        markdown_report = render_prisma_markdown(flow_data)
+        response: dict[str, Any] = {
+            "list_id": list_id,
+            "flow": flow_data,
+            "report_markdown": markdown_report,
+        }
+        if include_svg:
+            response["svg"] = render_prisma_svg(flow_data)
+        return response
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-27, FR-20, D-002, D-006, D-012, D-029, D-038: Gera declaração de uso de IA metodológica (COPE/ICMJE/SciELO)
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_ai_disclosure(
+    list_id: str,
+    language: str = "pt",
+) -> dict[str, Any]:
+    """Gera texto de transparência e declaração metodológica formal sobre uso de inteligência artificial na pesquisa (padrão COPE, ICMJE e SciELO), com quantitativos de triagem, rastro de auditoria e atestado de supervisão humana integral."""
+    store, _ = _build_tool_store()
+    try:
+        list_data = store.get_list(list_id)
+        search_id = list_data.get("search_id")
+        query = ""
+        if search_id:
+            try:
+                s = store.get_search(search_id)
+                query = str(s.get("request_summary", ""))
+            except (RSLError, FileNotFoundError, ValueError):
+                query = ""
+        summary = store.get_screening_summary(list_id)
+        total_works = int(list_data.get("total", len(list_data.get("works", []))))
+        disclosure_text = render_ai_disclosure(
+            list_id=list_id,
+            search_query=query,
+            total_works=total_works,
+            screening_summary=summary,
+            lang=language,
+        )
+        return {
+            "list_id": list_id,
+            "language": language,
+            "disclosure_markdown": disclosure_text,
+        }
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
 def plan_search(request: str) -> str:
@@ -637,6 +769,10 @@ def _build_http_mcp_server(
         (get_search_log, _READ_ONLY_ANNOTATIONS),
         (verify_references, _READ_ONLY_ANNOTATIONS),
         (import_works, _ADDITIVE_WRITE_ANNOTATIONS),
+        (screen_work, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_screening_status, _READ_ONLY_ANNOTATIONS),
+        (get_prisma_flow, _READ_ONLY_ANNOTATIONS),
+        (get_ai_disclosure, _READ_ONLY_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)
