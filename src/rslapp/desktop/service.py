@@ -228,3 +228,62 @@ class DesktopService:
 
         store, export_dir = self._build_store()
         return build_reproducibility_package(list_id=list_id, store=store, export_dir=export_dir)
+
+    # FR-29, D-040: Salva ou atualiza a ficha analítica de um artigo
+    def save_work_note(self, list_id: str, note_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva ou atualiza a ficha científica de um trabalho em notes/{list_id}/{work_id}.json."""
+        store, _ = self._build_store()
+        try:
+            return store.save_note(list_id.strip(), note_data)
+        except FileNotFoundError as err:
+            raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
+        except ValueError as err:
+            raise RSLError("invalid_input", str(err)) from err
+
+    # FR-29, D-040: Recupera a ficha analítica de um artigo
+    def get_work_note(self, list_id: str, work_id: str | int) -> dict[str, Any] | None:
+        """Recupera a ficha analítica de um artigo, se existir."""
+        store, _ = self._build_store()
+        try:
+            return store.get_note(list_id.strip(), work_id)
+        except FileNotFoundError as err:
+            raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
+
+    # FR-29, D-040: Lista todas as fichas científicas registradas para a lista
+    def list_work_notes(self, list_id: str) -> list[dict[str, Any]]:
+        """Lista todas as fichas analíticas da lista informada."""
+        store, _ = self._build_store()
+        try:
+            return store.list_notes(list_id.strip())
+        except FileNotFoundError as err:
+            raise RSLError("list_not_found", f"Lista não encontrada: {list_id}") from err
+
+    # FR-29, D-040: Exporta todas as fichas em Markdown para Obsidian
+    def export_notes_markdown(self, list_id: str) -> Path:
+        """Exporta todas as fichas em arquivo Markdown consolidado na pasta de exportações."""
+        from rslapp.core.notes import format_notes_compilation
+        from rslapp.store._atomic import atomic_write_replace
+
+        store, export_dir = self._build_store()
+        notes = self.list_work_notes(list_id)
+        if not notes:
+            raise RSLError("empty_list", f"Não há fichas científicas salvas para a lista {list_id}.")
+
+        list_data = self.get_list(list_id)
+        search_id = list_data.get("search_id")
+        query_str = ""
+        if search_id:
+            try:
+                s = store.get_search(search_id)
+                query_str = str(s.get("request_summary", ""))
+            except (RSLError, FileNotFoundError, ValueError):
+                query_str = ""
+        if not query_str:
+            query_str = list_data.get("query", f"Lista {list_id}")
+
+        md_content = format_notes_compilation(notes, list_id=list_id, list_title=query_str)
+        filename = f"notes_{list_id}.md"
+        dest_path = export_dir / filename
+        atomic_write_replace(dest_path, md_content)
+        return dest_path
+

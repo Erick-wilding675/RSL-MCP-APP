@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-18T16:15:00Z
+updated: 2026-11-18T16:45:00Z
 updated_by: Antigravity (Gemini)
 ---
 
@@ -160,6 +160,7 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - D-037 · Fluxograma PRISMA 2020 vetorial SVG e checklist PRISMA-S integrado · decided (2026-11-18)
 - D-038 · Declaração de transparência de IA no padrão COPE/ICMJE/SciELO · decided (2026-11-18)
 - D-039 · Pacote de reprodutibilidade científica com manifesto SHA-256 (.zip) · decided (2026-11-18)
+- D-040 · Fichamento científico estruturado com marcação de autoria e exportação Markdown · decided (2026-11-18)
 
 ## Open points
 
@@ -232,6 +233,11 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
   - **16-01 integrada:** gerador `build_reproducibility_package` (`rslapp.core.reproducibility`) consolidando os 11 arquivos da revisão e o manifesto `checksums.sha256` em arquivo `.zip` autocontido para Zenodo, OSF e repositórios institucionais (FR-28, D-039).
   - **Exposição MCP e Desktop:** ferramenta `export_reproducibility_package` (16 ferramentas no servidor MCP), download de `.zip` nas telas Lista e PRISMA do app desktop.
   - **16-02 pronta:** versão 2.5.0 definida, gates 100% limpos (785 testes do núcleo, 65 do desktop, ruff limpo).
+- **Fase 17 (2.6 · Fichamento Científico com Rastro de Autoria) concluída em 2026-11-18:**
+  - **17-01 integrada:** modelo `validate_note_data` (`rslapp.core.notes`) com 8 campos metodológicos, persistência atômica em `notes/{list_id}/{work_id}.json` (`save_note`, `get_note`, `list_notes`), distinção explícita de autoria (`source`: `ai_suggested` vs `human_reviewed`), exportador Markdown para Obsidian e relatório compilado da revisão (FR-29, D-040).
+  - **Exposição MCP e Reprodutibilidade:** 4 novas ferramentas (`save_work_note`, `get_work_note`, `list_work_notes`, `export_notes_markdown`, somando 20 ferramentas no servidor MCP stdio e HTTP); inclusão automática de `notes.md` e `notes.json` no pacote `.zip` de reprodutibilidade com hashes SHA-256 no manifesto.
+  - **Interface Desktop:** páginas `/ficha/{list_id}` (índice com busca e métricas) e `/ficha/{list_id}/{work_id}` (formulário completo, validação humana em 1 clique e cópia de markdown), badges visuais na tela Lista ("FICHA OK", "FICHA IA", "FICHA") e exportação Markdown consolidada.
+  - **17-02 e 17-03 prontas:** versão 2.6.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, gates 100% limpos (794 testes do núcleo, 68 do desktop, ruff limpo), build de wheel/tarball bem-sucedido.
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.

@@ -33,6 +33,10 @@ EXPECTED_TOOLS = {
     "get_prisma_flow",
     "get_ai_disclosure",
     "export_reproducibility_package",
+    "save_work_note",
+    "get_work_note",
+    "list_work_notes",
+    "export_notes_markdown",
 }
 
 

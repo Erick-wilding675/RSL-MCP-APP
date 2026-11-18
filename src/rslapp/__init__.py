@@ -1,4 +1,4 @@
 """RSL.app — Servidor MCP para revisão sistemática da literatura."""
 
 # D-001: Pacote principal em Python
-__version__ = "2.5.0"
+__version__ = "2.6.0"

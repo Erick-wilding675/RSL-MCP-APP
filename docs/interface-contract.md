@@ -141,6 +141,11 @@ O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos n
 | `get_screening_status` | `list_id` (obrigatório, desde a 2.4, D-036) | Resumo com total, triados, pendentes, decisões, motivos e autoria |
 | `get_prisma_flow` | `list_id` (obrigatório); `include_svg` (opcional, desde a 2.4, D-037) | Quantitativos das 4 fases PRISMA 2020, checklist PRISMA-S e SVG vetorial |
 | `get_ai_disclosure` | `list_id` (obrigatório); `language` (opcional, desde a 2.4, D-038) | Declaração metodológica de uso de IA (padrão COPE/ICMJE/SciELO) em PT ou EN |
+| `export_reproducibility_package` | `list_id` (obrigatório); `export_dir` (opcional, desde a 2.5, D-039) | Gera `.zip` autocontido com os 11 arquivos da revisão e manifesto `checksums.sha256` |
+| `save_work_note` | `list_id`, `work_id` (obrigatórios); campos analíticos, `source` (`ai_suggested`, `human_reviewed`), `ai_model` (desde a 2.6, D-040) | Ficha científica gravada em `notes/{list_id}/{work_id}.json` |
+| `get_work_note` | `list_id`, `work_id` (obrigatórios, desde a 2.6, D-040) | Ficha científica detalhada com rastro de autoria |
+| `list_work_notes` | `list_id` (obrigatório, desde a 2.6, D-040) | Lista de todas as fichas científicas registradas para a lista |
+| `export_notes_markdown` | `list_id` (obrigatório); `export_dir` (opcional, desde a 2.6, D-040) | Arquivo Markdown compilado pronto para Obsidian/Logseq |
 | `plan_search` | `request` (obrigatório) | Orientação em texto: separar o que é melhor buscado à parte, montar a string de cada fonte, chamar `search_works` uma vez por assunto e entregar cada lista separada |
 | `plan_scoping_review` | `topic`, `population`, `concept`, `context` (desde a 2.3, D-035) | Roteiro metodológico JBI / PRISMA-ScR pelo framework PCC e literatura cinzenta |
 | `plan_integrative_review` | `topic`, `guiding_question`, `theoretical_framework` (desde a 2.3, D-035) | Roteiro metodológico em 6 fases (Whittemore & Knafl / Mendes, Silveira e Galvão) |

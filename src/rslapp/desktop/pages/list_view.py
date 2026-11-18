@@ -9,6 +9,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from nicegui import ui
 
@@ -192,6 +193,12 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 screening_data = service.get_screening(list_id)
                 decisions_map = screening_data.get("decisions", {})
 
+        notes_map: dict[str, Any] = {}
+        if hasattr(service, "list_work_notes"):
+            with contextlib.suppress(RSLError, Exception):
+                notes_list = service.list_work_notes(list_id)
+                notes_map = {str(n.get("work_id")): n for n in notes_list}
+
         # 1. Aviso de lista incompleta no topo (FR-08, FR-16, D-031)
         failed_sources = [
             src
@@ -304,6 +311,11 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     icon="schema",
                     on_click=lambda: ui.navigate.to(f"/prisma/{list_id}"),
                 ).props("outline color=primary").mark("btn-open-prisma")
+                ui.button(
+                    "Fichamento",
+                    icon="edit_note",
+                    on_click=lambda: ui.navigate.to(f"/ficha/{list_id}"),
+                ).props("outline color=primary").mark("btn-open-notes")
 
         # 3. Cartão "Busca": string em monoespaçado com copy_block, ID e fontes (D-031, FR-16)
         with section_card("Busca", icon="search"):
@@ -397,6 +409,18 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     export_feedback_row.set_visibility(True)
                 ui.notify(f"Pacote de reprodutibilidade gerado: {res.get('filename')}", type="positive")
 
+            def _handle_notes_export() -> None:
+                try:
+                    res_path = service.export_notes_markdown(list_id)
+                except (RSLError, AttributeError) as err:
+                    msg = getattr(err, "message", str(err))
+                    ui.notify(msg, type="negative")
+                    return
+                last_export_dir[0] = res_path.parent
+                export_feedback_label.text = str(res_path)
+                export_feedback_row.set_visibility(True)
+                ui.notify(f"Fichamento exportado: {res_path.name}", type="positive")
+
             with ui.row().classes("items-center gap-3 flex-wrap"):
                 for label, fmt in EXPORT_FORMATS:
                     ui.button(
@@ -406,6 +430,13 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
                         f"export-{fmt}"
                     )
+                ui.button(
+                    "Fichas (.md)",
+                    icon="note_alt",
+                    on_click=_handle_notes_export,
+                ).props("unelevated").classes("rsl-surface-2 font-medium").mark(
+                    "export-notes-md"
+                )
                 ui.button(
                     "Pacote de Reprodutibilidade (.zip)",
                     icon="archive",
@@ -425,9 +456,12 @@ def build(service: DesktopService, list_id: str = "") -> None:
             doi_text, doi_url = _format_doi(work.get("doi"))
             work_key = str(work.get("doi") or idx)
             dec_obj = decisions_map.get(work_key) or decisions_map.get(str(idx)) or {}
+            raw_work_id = str(work.get("id") or idx)
+            note_obj = notes_map.get(raw_work_id) or notes_map.get(str(idx)) or {}
             rows.append(
                 {
                     "id": idx,
+                    "raw_work_id": raw_work_id,
                     "title": str(work.get("title") or ""),
                     "authors": _format_authors(work.get("authors")),
                     "year": work.get("year") if work.get("year") is not None else "",
@@ -438,6 +472,8 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     "is_retracted": bool(work.get("is_retracted", False)),
                     "type": str(work.get("type") or ""),
                     "screening_decision": dec_obj.get("decision", ""),
+                    "has_note": bool(note_obj),
+                    "note_source": str(note_obj.get("source") or ""),
                 }
             )
 
@@ -476,6 +512,13 @@ def build(service: DesktopService, list_id: str = "") -> None:
                 "field": "sources",
                 "sortable": False,
                 "align": "left",
+            },
+            {
+                "name": "ficha",
+                "label": "Ficha",
+                "field": "raw_work_id",
+                "sortable": False,
+                "align": "center",
             },
         ]
 
@@ -537,6 +580,18 @@ def build(service: DesktopService, list_id: str = "") -> None:
                             DÚVIDA
                             <q-tooltip>Artigo em dúvida na triagem</q-tooltip>
                         </q-badge>
+                        <q-badge v-if="props.row.has_note && props.row.note_source === 'human_reviewed'" color="positive" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            FICHA OK
+                            <q-tooltip>Ficha científica revisada por humano</q-tooltip>
+                        </q-badge>
+                        <q-badge v-else-if="props.row.has_note && props.row.note_source === 'ai_suggested'" color="warning" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            FICHA IA
+                            <q-tooltip>Ficha científica sugerida por IA</q-tooltip>
+                        </q-badge>
+                        <q-badge v-else-if="props.row.has_note" color="primary" class="text-xs px-2 py-0.5 rounded-full font-bold">
+                            FICHA
+                            <q-tooltip>Ficha científica preenchida</q-tooltip>
+                        </q-badge>
                     </div>
                     <div v-if="props.row.authors" class="text-xs rsl-muted mt-0.5">{{ props.row.authors }}</div>
                 </q-td>
@@ -565,4 +620,21 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     <span v-else class="rsl-muted">—</span>
                 </q-td>
                 """,
+            )
+
+            table.add_slot(
+                "body-cell-ficha",
+                r"""
+                <q-td :props="props">
+                    <q-btn dense flat round color="primary" icon="edit_note" @click="() => $parent.$emit('open_work_note', props.row.raw_work_id)">
+                        <q-tooltip>Abrir ficha científica</q-tooltip>
+                    </q-btn>
+                </q-td>
+                """,
+            )
+            table.on(
+                "open_work_note",
+                lambda e: ui.navigate.to(
+                    f"/ficha/{list_id}/{quote(str(e.args), safe='')}"
+                ),
             )

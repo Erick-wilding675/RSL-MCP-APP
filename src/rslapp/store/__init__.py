@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from rslapp.core.notes import sanitize_filename_id, validate_note_data
 from rslapp.core.screening import calculate_screening_summary
 from rslapp.store._atomic import (
     atomic_write_exclusive,
@@ -63,6 +64,7 @@ class Store:
         self.lists_dir: Path = self.data_dir / "lists"
         self.searches_dir: Path = self.data_dir / "searches"
         self.screening_dir: Path = self.data_dir / "screening"
+        self.notes_dir: Path = self.data_dir / "notes"
         # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
         self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
@@ -222,3 +224,62 @@ class Store:
             total_works=total_works,
             decisions=screening_data.get("decisions", {}),
         )
+
+    # FR-29, D-040: Fichamento científico estruturado no Store
+    def save_note(self, list_id: str, note_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva ou atualiza a ficha científica de um trabalho em notes/{list_id}/{work_id}.json."""
+        self.get_list(list_id)  # Valida se a lista existe
+        work_id = note_data.get("work_id")
+        if not work_id:
+            raise ValueError("note_data deve conter 'work_id'")
+
+        kwargs = {k: v for k, v in note_data.items() if k not in ("list_id", "work_id")}
+        valid_note = validate_note_data(list_id=list_id, work_id=work_id, **kwargs)
+
+        list_notes_dir = self.notes_dir / list_id
+        list_notes_dir.mkdir(parents=True, exist_ok=True)
+        note_filename = f"{sanitize_filename_id(work_id)}.json"
+        note_path = list_notes_dir / note_filename
+
+        with file_lock(self.lock_path):
+            content = json.dumps(valid_note, ensure_ascii=False, indent=2) + "\n"
+            atomic_write_replace(note_path, content)
+
+        return copy.deepcopy(valid_note)
+
+    def get_note(self, list_id: str, work_id: str | int) -> dict[str, Any] | None:
+        """Recupera a ficha científica de um trabalho, se existir."""
+        self.get_list(list_id)  # Valida se a lista existe
+        note_filename = f"{sanitize_filename_id(work_id)}.json"
+        note_path = self.notes_dir / list_id / note_filename
+        if not note_path.exists():
+            return None
+        return json.loads(note_path.read_text(encoding="utf-8"))
+
+    def list_notes(self, list_id: str) -> list[dict[str, Any]]:
+        """Lista todas as fichas científicas registradas para a lista."""
+        self.get_list(list_id)  # Valida existência da lista
+        list_notes_dir = self.notes_dir / list_id
+        if not list_notes_dir.exists():
+            return []
+
+        notes: list[dict[str, Any]] = []
+        for file in sorted(list_notes_dir.glob("*.json")):
+            try:
+                data = json.loads(file.read_text(encoding="utf-8"))
+                notes.append(data)
+            except (json.JSONDecodeError, OSError):
+                continue
+        return notes
+
+    def delete_note(self, list_id: str, work_id: str | int) -> bool:
+        """Remove a ficha científica de um trabalho."""
+        self.get_list(list_id)
+        note_filename = f"{sanitize_filename_id(work_id)}.json"
+        note_path = self.notes_dir / list_id / note_filename
+        with file_lock(self.lock_path):
+            if note_path.exists():
+                note_path.unlink()
+                return True
+        return False
+

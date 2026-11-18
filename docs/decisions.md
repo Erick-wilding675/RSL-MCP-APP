@@ -460,3 +460,17 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
 - **Situação:** decidida. Spec 16-01.
 
+
+## D-040 · Fichamento Científico Estruturado com Marcação de Autoria e Exportação Markdown (v2.6)
+
+- **Decisão:** o RSL.app oferece suporte nativo ao fichamento científico aprofundado de artigos lidos (`notes/{list_id}/{work_id}.json`), com campos metodológicos padronizados e rastro de autoria:
+  - **Campos estruturados:** objetivo (`objective`), desenho metodológico (`methodology`), amostra/participantes (`sample`), principais achados/resultados (`results`), limitações apontadas pelos autores (`limitations`), palavras-chave próprias do pesquisador (`personal_keywords`), síntese crítica do pesquisador (`synthesis`), e citações diretas com indicação de página (`direct_quotes`).
+  - **Rastro de autoria e transparência:** cada ficha e seus campos são categorizados com `source`: `"ai_suggested"` (sugerido por IA com registro de modelo em `ai_model`), `"human_reviewed"` (revisado e validado pelo pesquisador) ou `"human_created"`. Uma sugestão de IA nunca é tratada como revisão humana sem validação explícita.
+  - **Exportação:** formato Markdown estruturado com frontmatter YAML pronto para Obsidian/Logseq, e consolidado de fichas da revisão (`notes_{list_id}.md`), integrado opcionalmente ao Pacote de Reprodutibilidade (.zip).
+  - **Ferramentas MCP:** `save_work_note`, `get_work_note`, `list_work_notes` e `export_notes_markdown`.
+- **Motivo:**
+  - O fichamento analítico é a etapa onde o pesquisador gasta mais horas de trabalho cognitivo. A IA é excelente para sumarizar e extrair esses campos a partir de resumos e textos, mas a integridade acadêmica exige que o pesquisador saiba exatamente o que foi sugerido por IA versus o que foi atestado e revisado por ele.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-18
+- **Situação:** decidida. Spec 17-01.
+
+

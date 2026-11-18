@@ -33,6 +33,7 @@ from rslapp.core.ai_disclosure import render_ai_disclosure
 from rslapp.core.errors import RSLError
 from rslapp.core.find import run_find
 from rslapp.core.merge import run_merge
+from rslapp.core.notes import format_notes_compilation
 from rslapp.core.prisma import (
     calculate_prisma_flow,
     render_prisma_markdown,
@@ -64,6 +65,7 @@ from rslapp.sources import (
     list_sources_info,
 )
 from rslapp.store import Store
+from rslapp.store._atomic import atomic_write_replace
 
 __all__ = ["SourceInfo", "SourceName", "SourceStatus"]
 
@@ -626,6 +628,176 @@ def export_reproducibility_package(list_id: str) -> dict[str, Any]:
     return result
 
 
+# FR-29, FR-20, D-002, D-006, D-012, D-029, D-040: Registra ou atualiza ficha científica estruturada com rastro de autoria
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def save_work_note(
+    list_id: str,
+    work_id: str,
+    objective: str | None = None,
+    methodology: str | None = None,
+    sample: str | None = None,
+    results: str | None = None,
+    limitations: str | None = None,
+    synthesis: str | None = None,
+    personal_keywords: list[str] | None = None,
+    direct_quotes: list[dict[str, Any]] | None = None,
+    source: str = "ai_suggested",
+    ai_model: str | None = None,
+    reviewed_by: str | None = None,
+) -> dict[str, Any]:
+    """Salva ou atualiza a ficha analítica de um artigo (objetivo, método, amostra, resultados, limitações, citações diretas com página, palavras-chave e síntese crítica). Registra explicitamente o rastro de autoria ('ai_suggested', 'human_reviewed' ou 'human_created') e modelo utilizado."""
+    store, _ = _build_tool_store()
+    try:
+        note_data: dict[str, Any] = {
+            "work_id": work_id,
+            "objective": objective,
+            "methodology": methodology,
+            "sample": sample,
+            "results": results,
+            "limitations": limitations,
+            "synthesis": synthesis,
+            "personal_keywords": personal_keywords,
+            "direct_quotes": direct_quotes,
+            "source": source,
+            "ai_model": ai_model,
+            "reviewed_by": reviewed_by,
+        }
+        # Tenta enriquecer com metadados do artigo se existirem na lista
+        try:
+            list_data = store.get_list(list_id)
+            clean_id = str(work_id).strip()
+            for w in list_data.get("works", []):
+                if str(w.get("id")) == clean_id:
+                    note_data["title"] = w.get("title")
+                    note_data["authors"] = [
+                        a.get("name") for a in w.get("authors", []) if isinstance(a, dict) and a.get("name")
+                    ]
+                    note_data["year"] = w.get("year")
+                    note_data["doi"] = w.get("doi")
+                    from rslapp.core.abnt import format_abnt_reference
+
+                    note_data["abnt_reference"] = format_abnt_reference(w)
+                    break
+        except (RSLError, FileNotFoundError, ValueError, KeyError):
+            pass
+
+        saved = store.save_note(list_id, note_data)
+        return {
+            "list_id": list_id,
+            "work_id": work_id,
+            "status": "saved",
+            "source": saved.get("source"),
+            "note": saved,
+        }
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-29, FR-20, D-002, D-006, D-012, D-029, D-040: Consulta ficha científica de um artigo
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_work_note(
+    list_id: str,
+    work_id: str,
+) -> dict[str, Any]:
+    """Recupera a ficha analítica de um artigo específico com todos os campos estruturados e rastro de autoria."""
+    store, _ = _build_tool_store()
+    try:
+        note = store.get_note(list_id, work_id)
+        if not note:
+            raise ToolError(
+                f"work_not_found: Ficha não encontrada para o trabalho '{work_id}' na lista '{list_id}'."
+            )
+        return {
+            "list_id": list_id,
+            "work_id": work_id,
+            "note": note,
+        }
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-29, FR-20, D-002, D-006, D-012, D-029, D-040: Lista todas as fichas científicas registradas
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def list_work_notes(
+    list_id: str,
+) -> dict[str, Any]:
+    """Lista todas as fichas analíticas salvas para a lista indicada, com contagem e indicação de autoria."""
+    store, _ = _build_tool_store()
+    try:
+        notes = store.list_notes(list_id)
+        return {
+            "list_id": list_id,
+            "total_notes": len(notes),
+            "notes": notes,
+        }
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-29, FR-20, D-002, D-006, D-012, D-029, D-040: Exporta fichamento consolidado em Markdown (Obsidian)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def export_notes_markdown(list_id: str) -> dict[str, Any]:
+    """Exporta todas as fichas analíticas da lista em um arquivo Markdown consolidado com frontmatter e callouts pronto para Obsidian/Logseq."""
+    cfg = config.load()
+    person_id = _resolve_person_id()
+    store, export_dir = _build_tool_store(cfg)
+
+    if person_id is not None:
+        downloads.clean_expired_exports(export_dir)
+
+    try:
+        notes = store.list_notes(list_id)
+        if not notes:
+            raise ToolError(
+                f"empty_list: Não há fichas científicas registradas na lista '{list_id}'."
+            )
+
+        list_data = store.get_list(list_id)
+        search_id = list_data.get("search_id", "")
+        title_query = ""
+        if search_id:
+            try:
+                s = store.get_search(search_id)
+                title_query = str(s.get("request_summary", ""))
+            except (RSLError, FileNotFoundError, ValueError, KeyError):
+                title_query = ""
+        if not title_query:
+            title_query = list_data.get("query", f"Lista {list_id}")
+
+        md_content = format_notes_compilation(notes, list_id=list_id, list_title=title_query)
+
+        filename = f"notes_{list_id}.md"
+        dest_path = export_dir / filename
+        atomic_write_replace(dest_path, md_content)
+
+        response: dict[str, Any] = {
+            "list_id": list_id,
+            "path": str(dest_path.resolve()),
+            "filename": filename,
+            "total_notes": len(notes),
+        }
+
+        if person_id is not None:
+            download_url, expires_at = downloads.create_download_link(
+                person_id,
+                filename,
+                public_url=_resolve_public_url(),
+                data_dir=cfg.data_dir,
+            )
+            response.pop("path", None)
+            response["download_url"] = download_url
+            response["expires_at"] = expires_at
+
+        return response
+    except (RSLError, ValueError, FileNotFoundError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
 @mcp.prompt()
 def plan_search(request: str) -> str:
@@ -810,6 +982,10 @@ def _build_http_mcp_server(
         (get_prisma_flow, _READ_ONLY_ANNOTATIONS),
         (get_ai_disclosure, _READ_ONLY_ANNOTATIONS),
         (export_reproducibility_package, _ADDITIVE_WRITE_ANNOTATIONS),
+        (save_work_note, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_work_note, _READ_ONLY_ANNOTATIONS),
+        (list_work_notes, _READ_ONLY_ANNOTATIONS),
+        (export_notes_markdown, _ADDITIVE_WRITE_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)

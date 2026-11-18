@@ -127,6 +127,16 @@ def build_reproducibility_package(
         "ai_disclosure_en.md": disclosure_en.encode("utf-8"),
     }
 
+    # FR-29, D-040: Inclui fichamento científico se houver fichas salvas
+    notes = store.list_notes(list_id)
+    if notes:
+        from rslapp.core.notes import format_notes_compilation
+
+        notes_md = format_notes_compilation(notes, list_id=list_id, list_title=query_str)
+        notes_json = json.dumps(notes, ensure_ascii=False, indent=2) + "\n"
+        files_to_pack["notes.md"] = notes_md.encode("utf-8")
+        files_to_pack["notes.json"] = notes_json.encode("utf-8")
+
     # 5. Cálculo dos hashes SHA-256 e manifesto
     checksum_lines: list[str] = []
     for fname, data in files_to_pack.items():

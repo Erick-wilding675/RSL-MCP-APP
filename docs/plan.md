@@ -188,6 +188,16 @@ Decidido em 2026-11-18 (D-030, D-039): exportação em `.zip` autocontido com os
 1. Pacote de Reprodutibilidade no Núcleo, MCP e Desktop: módulo `rslapp.core.reproducibility`, ferramenta MCP `export_reproducibility_package` e botões de download na interface desktop. Spec: `specs/16-01-pacote-reprodutibilidade.md`
 2. Publicação da 2.5.0 e teste real. Spec: `specs/16-02-publicacao-2-5-e-teste-real.md`
 
+**Fase 16 pronta em 2026-11-18:** tarefas 16-01 e 16-02 concluídas, 785 testes do núcleo e 65 testes do desktop passando, pacote 2.5.0 construído, tag `v2.5.0` enviada.
+
+### 17 · Versão 2.6: Fichamento Científico Estruturado com Marcação de IA
+
+Decidido em 2026-11-18 (D-030, D-040): suporte a fichamento científico analítico com campos padronizados (objetivo, método, amostra, resultados, limitações, citações diretas com página, palavras-chave e síntese crítica), distinção explícita de autoria (`ai_suggested` vs. `human_reviewed`), exportação Markdown para Obsidian e ferramentas MCP dedicadas (FR-29).
+
+1. Fichamento no Núcleo, Armazenamento e Exportação Markdown: modelo `WorkNote`, persistência em `notes/{list_id}/{work_id}.json`, exportador Markdown com frontmatter e integração ao Pacote de Reprodutibilidade. Spec: `specs/17-01-fichamento-cientifico.md`
+2. Interface Desktop e Ferramentas MCP: ferramentas `save_work_note`, `get_work_note`, `list_work_notes`, `export_notes_markdown`, tela/diálogo de fichamento no app desktop e badges informativos na tela Lista. Spec: `specs/17-02-desktop-fichamento-e-mcp.md`
+3. Publicação da 2.6.0 e teste real. Spec: `specs/17-03-publicacao-2-6-e-teste-real.md`
+
 ### Depois da 1.2: a versão maior (2.0)
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):

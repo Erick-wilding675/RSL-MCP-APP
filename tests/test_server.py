@@ -348,6 +348,8 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "get_screening_status",
         "get_prisma_flow",
         "get_ai_disclosure",
+        "get_work_note",
+        "list_work_notes",
     }
     additive_write_tools = {
         "search_works",
@@ -359,6 +361,8 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "import_works",
         "screen_work",
         "export_reproducibility_package",
+        "save_work_note",
+        "export_notes_markdown",
     }
 
     async with Client(server.mcp) as client:
