@@ -164,6 +164,7 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - D-041 · Protocolo metodológico pré-busca versionado para PROSPERO e OSF · decided (2026-11-18)
 - D-042 · Redes bibliométricas nativas VOSviewer (.map/.network) e Gephi (.gexf) · decided (2026-11-18)
 - D-043 · Revisão Viva: atualização de busca com comparação diferencial e rastreabilidade · decided (2026-11-18)
+- D-044 · Descritores DeCS/MeSH trilíngues e construtor de strings multilíngues · decided (2026-11-18)
 
 ## Open points
 
@@ -252,7 +253,11 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - **Fase 20 (2.9 · Revisão Viva e Comparação Diferencial de Buscas) concluída em 2026-11-18:**
   - **20-01 integrada:** módulo `rslapp.core.differential` com identificação rigorosa de novos artigos (`added_works`) vs. artigos preservados (`retained_works`), geração de relatório metodológico em Markdown para bancas/defesas e persistência atômica no Store (`differential/{base_id}_{new_id}_{ts}.json`) (FR-32, D-043).
   - **20-02 integrada:** 2 novas ferramentas MCP (`compare_search_versions` e `update_search_differential`, totalizando 27 ferramentas no servidor MCP stdio e HTTP multiusuário); botão "Revisão Viva" na tela Lista (`/lista/{list_id}`) com modal de atualização automática e selo visual distintivo `NOVO NA BUSCA` na tabela de artigos.
-  - **20-03 pronta:** versão 2.9.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, pacote `rslapp` 2.9.0 publicado no PyPI, tag `v2.9.0` preparada, gates 100% limpos (816 testes do núcleo, 71 do desktop, ruff limpo).
+  - **20-03 pronta:** versão 2.9.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, pacote `rslapp` 2.9.0 publicado no PyPI, tag e release `v2.9.0` no GitHub com executáveis, gates 100% limpos.
+- **Fase 21 (2.10 · Descritores DeCS/MeSH Trilíngues e Construtor de Strings Multilíngues) concluída em 2026-11-18:**
+  - **21-01 integrada:** módulo `rslapp.core.decs` com catálogo curado e motor de busca fonética de descritores autorizados em Português, Inglês e Espanhol com termos alternativos/sinônimos oficiais e construtor de strings booleanas (`build_multilingual_query`) (FR-33, D-044).
+  - **21-02 integrada:** 2 novas ferramentas MCP (`lookup_descriptors` e `build_multilingual_search_query`, totalizando 29 ferramentas no servidor MCP stdio e HTTP multiusuário); modal/assistente interativo na tela Buscar (`/`) para pesquisa e inserção de strings booleanas com 1 clique.
+  - **21-03 pronta:** versão 2.10.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, pacote `rslapp` 2.10.0 publicado no PyPI, tag `v2.10.0` preparada, gates 100% limpos (820 testes do núcleo, 71 do desktop, ruff limpo).
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
