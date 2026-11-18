@@ -130,6 +130,10 @@ O `rslapp serve` oferece as mesmas ferramentas e o mesmo prompt, com os mesmos n
 | `get_list` | `list_id` (obrigatório); `page`, `page_size` e `detail` (`summary` ou `full`, padrão `summary`) | `works`, `page`, `next_page`, `total`, `status` |
 | `get_search_log` | `search_id` e `limit`, ambos opcionais | `entries` e `log_file` (o caminho do arquivo legível) |
 | `list_sources` | Nada | Por fonte: `name`, `configured`, `needs_key`, `status`. Desde a 1.2, também `pubmed` e `europe_pmc`. Desde a 1.3, `scopus` e `web_of_science`. Desde a 2.3, `bdtd` (D-035) |
+| `screen_work` | `list_id`, `work_id`, `decision` (obrigatórios); `reason`, `decided_by`, `stage`, `notes`, `doi` (opcionais, desde a 2.4, D-036) | Decisão gravada em `screening/{list_id}.json` e resumo da triagem atualizado |
+| `get_screening_status` | `list_id` (obrigatório, desde a 2.4, D-036) | Resumo com total, triados, pendentes, decisões, motivos e autoria |
+| `get_prisma_flow` | `list_id` (obrigatório); `include_svg` (opcional, desde a 2.4, D-037) | Quantitativos das 4 fases PRISMA 2020, checklist PRISMA-S e SVG vetorial |
+| `get_ai_disclosure` | `list_id` (obrigatório); `language` (opcional, desde a 2.4, D-038) | Declaração metodológica de uso de IA (padrão COPE/ICMJE/SciELO) em PT ou EN |
 | `plan_search` | `request` (obrigatório) | Orientação em texto: separar o que é melhor buscado à parte, montar a string de cada fonte, chamar `search_works` uma vez por assunto e entregar cada lista separada |
 | `plan_scoping_review` | `topic`, `population`, `concept`, `context` (desde a 2.3, D-035) | Roteiro metodológico JBI / PRISMA-ScR pelo framework PCC e literatura cinzenta |
 | `plan_integrative_review` | `topic`, `guiding_question`, `theoretical_framework` (desde a 2.3, D-035) | Roteiro metodológico em 6 fases (Whittemore & Knafl / Mendes, Silveira e Galvão) |

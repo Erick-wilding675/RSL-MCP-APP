@@ -87,6 +87,8 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
         history,
         import_view,
         list_view,
+        prisma_view,
+        screening_view,
         search,
         settings_page,
         verify_view,
@@ -119,6 +121,16 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     def list_detail_page(list_id: str) -> None:
         assert _active_service is not None
         list_view.build(_active_service, list_id)
+
+    @ui.page("/triagem/{list_id}")
+    def screening_detail_page(list_id: str) -> None:
+        assert _active_service is not None
+        screening_view.build(_active_service, list_id)
+
+    @ui.page("/prisma/{list_id}")
+    def prisma_detail_page(list_id: str) -> None:
+        assert _active_service is not None
+        prisma_view.build(_active_service, list_id)
 
     @ui.page("/historico")
     def history_page() -> None:
