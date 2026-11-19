@@ -1,5 +1,7 @@
 # RSL.app
 
+[Português](README.md) | [English](README-en.md) | [Español](README-es.md) | [Français](README-fr.md)
+
 **A plataforma completa, gratuita e self-hosted de Revisão Sistemática, Metanálise e Bibliometria com IA Rastreável.**
 
 O **RSL.app** acompanha o pesquisador em todas as etapas da revisão de literatura: do desenho do protocolo pré-busca à extração matemática de dados para metanálise. Ele roda **na sua máquina**, usa as suas próprias chaves gratuitas ou institucionais, conecta-se à sua IA favorita via protocolo MCP (*Model Context Protocol*) e oferece um **aplicativo desktop com interface gráfica moderna** para Windows e Linux.
