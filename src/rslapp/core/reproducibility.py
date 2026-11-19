@@ -188,6 +188,39 @@ def build_reproducibility_package(
             coauth_net["nodes"], coauth_net["edges"], title=f"Coauthorship - {query_str}"
         ).encode("utf-8")
 
+    # FR-35, D-046: Inclui extração de dados para metanálise se houver
+    extractions = store.list_extractions(list_id)
+    if extractions:
+        from rslapp.core.extraction import ExtractionData, export_metafor_csv
+
+        ext_objs = [ExtractionData.from_dict(e) for e in extractions]
+        w_map: dict[str, dict[str, Any]] = {}
+        for w in works:
+            if isinstance(w, dict):
+                authors = w.get("authors", [])
+                first_author = authors[0].get("name") if authors and isinstance(authors[0], dict) else "Author"
+                w_map[str(w.get("id", ""))] = {"first_author": first_author, "year": w.get("year")}
+        ext_csv = export_metafor_csv(ext_objs, w_map)
+        ext_json = json.dumps(extractions, ensure_ascii=False, indent=2) + "\n"
+        files_to_pack["extraction.csv"] = ext_csv.encode("utf-8")
+        files_to_pack["extraction.json"] = ext_json.encode("utf-8")
+
+    # FR-36, D-047: Inclui avaliações de risco de viés se houver
+    rob_list = store.list_risk_of_bias(list_id)
+    if rob_list:
+        from rslapp.core.risk_of_bias import RiskOfBiasAssessment, generate_traffic_light_matrix
+
+        rob_objs = [RiskOfBiasAssessment.from_dict(r) for r in rob_list]
+        matrix = generate_traffic_light_matrix(rob_objs)
+        rob_json = json.dumps({"assessments": rob_list, "matrix": matrix}, ensure_ascii=False, indent=2) + "\n"
+        files_to_pack["risk_of_bias.json"] = rob_json.encode("utf-8")
+
+    # FR-34, D-045: Inclui manifesto de texto completo em acesso aberto se houver
+    ft_manifest = store.get_fulltext_manifest(list_id)
+    if ft_manifest.get("records"):
+        ft_json = json.dumps(ft_manifest, ensure_ascii=False, indent=2) + "\n"
+        files_to_pack["fulltext_manifest.json"] = ft_json.encode("utf-8")
+
     # 5. Cálculo dos hashes SHA-256 e manifesto
     checksum_lines: list[str] = []
     for fname, data in files_to_pack.items():

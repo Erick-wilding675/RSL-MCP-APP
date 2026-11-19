@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Any
 
@@ -146,3 +147,98 @@ def calculate_screening_summary(
         "by_author": authors_count,
         "by_stage": stages_count,
     }
+
+
+# FR-37, D-048: Cálculo da concordância inter-avaliadores (Kappa de Cohen)
+def calculate_cohen_kappa(
+    decisions_a: dict[str, Any],
+    decisions_b: dict[str, Any],
+) -> dict[str, Any]:
+    """Calcula o índice Kappa de Cohen entre dois conjuntos de decisões de triagem."""
+    def _extract_decision(val: Any) -> str | None:
+        if isinstance(val, dict):
+            raw = val.get("decision")
+        else:
+            raw = val
+        if not raw:
+            return None
+        c = str(raw).strip().lower()
+        return c if c in VALID_DECISIONS else None
+
+    map_a = {str(k).strip(): _extract_decision(v) for k, v in decisions_a.items()}
+    map_b = {str(k).strip(): _extract_decision(v) for k, v in decisions_b.items()}
+
+    # Apenas artigos avaliados por ambos
+    common_ids = sorted([k for k in map_a if k in map_b and map_a[k] and map_b[k]])
+    n = len(common_ids)
+    if n == 0:
+        return {
+            "n_common": 0,
+            "agreements": 0,
+            "observed_agreement": 0.0,
+            "expected_agreement": 0.0,
+            "kappa": 0.0,
+            "interpretation": "Sem dados comuns",
+            "divergences": [],
+            "contingency_matrix": {},
+        }
+
+    categories = ["included", "excluded", "maybe"]
+    # Matriz de contingência 3x3
+    matrix = {cat_a: {cat_b: 0 for cat_b in categories} for cat_a in categories}
+    divergences: list[dict[str, Any]] = []
+    agreements = 0
+
+    for wid in common_ids:
+        dec_a = map_a[wid]
+        dec_b = map_b[wid]
+        assert dec_a is not None and dec_b is not None
+        matrix[dec_a][dec_b] += 1
+        if dec_a == dec_b:
+            agreements += 1
+        else:
+            divergences.append({
+                "work_id": wid,
+                "reviewer_a": dec_a,
+                "reviewer_b": dec_b,
+            })
+
+    po = agreements / n  # Concordância observada
+
+    # Concordância esperada pelo acaso (Pe)
+    pe = 0.0
+    for cat in categories:
+        marginal_a = sum(matrix[cat][c] for c in categories) / n
+        marginal_b = sum(matrix[r][cat] for r in categories) / n
+        pe += (marginal_a * marginal_b)
+
+    if math.isclose(pe, 1.0):
+        kappa = 1.0 if math.isclose(po, 1.0) else 0.0
+    else:
+        kappa = (po - pe) / (1.0 - pe)
+
+    # Interpretação Landis & Koch (1977)
+    if kappa < 0:
+        interp = "Pobre (concordância inferior ao acaso)"
+    elif kappa <= 0.20:
+        interp = "Leve"
+    elif kappa <= 0.40:
+        interp = "Razoável"
+    elif kappa <= 0.60:
+        interp = "Moderada"
+    elif kappa <= 0.80:
+        interp = "Substancial"
+    else:
+        interp = "Quase perfeita"
+
+    return {
+        "n_common": n,
+        "agreements": agreements,
+        "observed_agreement": round(po, 4),
+        "expected_agreement": round(pe, 4),
+        "kappa": round(kappa, 4),
+        "interpretation": interp,
+        "divergences": divergences,
+        "contingency_matrix": matrix,
+    }
+
