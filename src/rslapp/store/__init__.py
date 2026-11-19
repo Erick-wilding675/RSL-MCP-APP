@@ -68,6 +68,7 @@ class Store:
         self.notes_dir: Path = self.data_dir / "notes"
         self.protocols_dir: Path = self.data_dir / "protocols"
         self.differential_dir: Path = self.data_dir / "differential"
+        self.fulltext_dir: Path = self.data_dir / "fulltext"
         # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
         self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
@@ -435,6 +436,51 @@ class Store:
         """Devolve a comparação diferencial mais recente para a lista especificada."""
         diffs = self.list_differentials(list_id)
         return diffs[0] if diffs else None
+
+    # FR-34, D-045: Armazenamento e manifesto de texto completo (Open Access)
+    def save_fulltext_record(self, list_id: str, record_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva ou atualiza um registro de texto completo no manifesto da lista."""
+        clean_lid = sanitize_filename_id(list_id)
+        list_ft_dir = self.fulltext_dir / clean_lid
+        list_ft_dir.mkdir(parents=True, exist_ok=True)
+        manifest_file = list_ft_dir / "manifest.json"
+
+        with file_lock(self.lock_path):
+            manifest: dict[str, Any] = {
+                "list_id": clean_lid,
+                "records": {},
+                "updated_at": format_utc_iso(parse_utc_timestamp(None)),
+            }
+            if manifest_file.exists():
+                try:
+                    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    pass
+            records = manifest.setdefault("records", {})
+            wid = str(record_data.get("work_id", ""))
+            records[wid] = copy.deepcopy(record_data)
+            manifest["updated_at"] = format_utc_iso(parse_utc_timestamp(None))
+            atomic_write_replace(manifest_file, json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
+        return manifest
+
+    def get_fulltext_manifest(self, list_id: str) -> dict[str, Any]:
+        """Devolve o manifesto de texto completo para a lista especificada."""
+        clean_lid = sanitize_filename_id(list_id)
+        manifest_file = self.fulltext_dir / clean_lid / "manifest.json"
+        if not manifest_file.exists():
+            return {"list_id": clean_lid, "records": {}, "updated_at": None}
+        try:
+            return json.loads(manifest_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return {"list_id": clean_lid, "records": {}, "updated_at": None}
+
+    def get_fulltext_dir(self, list_id: str) -> Path:
+        """Devolve o caminho da pasta de textos completos para a lista."""
+        clean_lid = sanitize_filename_id(list_id)
+        p = self.fulltext_dir / clean_lid
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
 
 
 
