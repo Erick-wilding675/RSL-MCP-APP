@@ -20,10 +20,14 @@ O RSL.app roda **na sua máquina** (self-hosted), com as **suas** chaves gratuit
 - **Repete uma busca do log** com as mesmas strings, para atualizar uma revisão.
 - **Junta listas do mesmo assunto** (desde a 1.2): várias strings sobre um tema viram uma lista só, sem duplicatas, e a junção entra no log.
 - **Triagem com rastro de autoria e PRISMA 2020** (desde a 2.4): selecione e trie artigos artigo a artigo (com atalhos `I`, `E`, `M` na interface desktop ou via MCP com `screen_work`), com rastro auditável de quem decidiu (`human` vs `ai`), motivos de exclusão, diagrama vetorial SVG oficial do PRISMA 2020 e declaração metodológica de IA no padrão COPE/ICMJE/SciELO.
+- **Texto completo em Acesso Aberto (Open Access)** (desde a 3.0): resolução e download automático de PDFs legítimos e íntegros via Unpaywall, PubMed Central (PMC) e OpenAlex OA (`fetch_fulltext`), com validação binária de cabeçalho PDF e armazenamento local indexado.
+- **Extração estruturada para Metanálise** (desde a 3.0): extração de variáveis, desenho amostral e desfechos dicotômicos (OR, RR) e contínuos (MD, SMD/Hedges' g) com exportação nativa pronta para **R `metafor`** (`yi`, `vi`) e **RevMan 5/Web** (Cochrane).
+- **Risco de Viés e Qualidade Metodológica** (desde a 3.0): aplicação de Cochrane RoB 2, ROBINS-I e JBI com algoritmos de julgamento global e geração de matriz visual de semáforo (*traffic-light plot*).
+- **Concordância inter-avaliadores (Kappa de Cohen)** (desde a 3.0): cálculo de concordância em dupla triagem com escala Landis & Koch e lista de divergências para resolução de consenso.
 - **Exporta em sete formatos:** RIS, CSV no padrão do Scopus, JSON completo, lista de DOIs, URL de consulta do OpenAlex, BibTeX (desde a 1.2) e referências na ABNT NBR 6023:2018 (desde a 2.2). O RIS, o CSV e a lista de DOIs abrem no VOSviewer sem edição; o BibTeX abre no Zotero, no Mendeley e no JabRef.
 - **Guarda tudo na sua máquina:** listas, log, exportações e um cache das respostas, que expira em 7 dias e economiza sua cota.
 
-Ele **não** baixa texto completo de artigos e não abre o VOSviewer sozinho. Cada pedido vira a sua própria lista; só listas do mesmo assunto devem ser juntadas.
+Ele busca textos completos apenas em fontes de Acesso Aberto legalmente autorizadas e não abre o VOSviewer sozinho. Cada pedido vira a sua própria lista; só listas do mesmo assunto devem ser juntadas.
 
 ## Do que você precisa
 
@@ -179,15 +183,23 @@ As variáveis do modo hospedado (`RSL_PUBLIC_URL`, prazos dos links e dos tokens
 
 | Ferramenta | O que faz |
 |---|---|
-| `search_works` | Busca por termos nas três bases (e no PubMed, no Europe PMC, no Scopus e no Web of Science, quando pedidos) e cria uma lista, sem os pareceres de revisão (a não ser que se peça `include_peer_review`) |
+| `search_works` | Busca por termos nas bases abertas e pagas e cria uma lista, sem pareceres de revisão |
 | `find_work` | Acha um artigo específico por título ou DOI |
-| `get_related_works` | Traz as referências ou as citações de um artigo, até um teto por base (padrão 1.000) |
+| `get_related_works` | Traz as referências ou as citações de um artigo |
 | `repeat_search` | Repete uma busca do log |
 | `get_list` | Mostra uma lista salva, por páginas |
 | `get_search_log` | Mostra o log e o caminho do `log.md` |
 | `merge_lists` | Junta listas do mesmo assunto numa lista nova, sem duplicatas |
 | `export_list` | Grava a lista em `ris`, `csv`, `json`, `dois`, `openalex_url` ou `bibtex` |
-| `list_sources` | Diz quais das cinco bases estão prontas |
+| `list_sources` | Diz quais bases estão prontas |
+| `fetch_fulltext` | Resolve e baixa texto completo em Acesso Aberto (Unpaywall, PMC, OpenAlex) em PDF íntegro |
+| `get_fulltext_status` | Consulta manifesto e status de textos completos baixados para a lista |
+| `save_extraction_data` | Registra desenho amostral e desfechos de um estudo para metanálise |
+| `get_extraction_table` | Obtém tabela consolidada de extração de uma lista |
+| `export_extraction_csv` | Exporta matriz de extração para formato R `metafor` ou RevMan |
+| `save_risk_of_bias` | Salva avaliação de qualidade/risco de viés (RoB 2, ROBINS-I, JBI) com julgamento global |
+| `get_risk_of_bias_summary` | Gera sumário de avaliações e dados para matriz de semáforo (*traffic-light*) |
+| `get_screening_concordance`| Calcula concordância inter-avaliadores (Kappa de Cohen) e lista divergências |
 | `plan_search` (prompt) | Orienta a IA a planejar e dividir o pedido antes de buscar |
 
 O contrato completo, com entradas, respostas e códigos de erro, está em [`docs/interface-contract.md`](docs/interface-contract.md).

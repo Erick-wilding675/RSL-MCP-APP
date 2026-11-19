@@ -8,7 +8,7 @@ documents_at: docs/
 tasks_at: docs/specs/
 memory: Lore
 observability: journal
-updated: 2026-11-18T16:45:00Z
+updated: 2026-11-19T16:40:00Z
 updated_by: Antigravity (Gemini)
 ---
 
@@ -165,6 +165,11 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - D-042 · Redes bibliométricas nativas VOSviewer (.map/.network) e Gephi (.gexf) · decided (2026-11-18)
 - D-043 · Revisão Viva: atualização de busca com comparação diferencial e rastreabilidade · decided (2026-11-18)
 - D-044 · Descritores DeCS/MeSH trilíngues e construtor de strings multilíngues · decided (2026-11-18)
+- D-045 · Texto Completo Open Access: Unpaywall, PMC e OpenAlex com validação binária de PDF · decided (2026-11-19)
+- D-046 · Extração de dados para metanálise estruturada e exportação nativa para R metafor e RevMan · decided (2026-11-19)
+- D-047 · Avaliação metodológica e risco de viés (RoB 2, ROBINS-I, JBI) com matriz de semáforo · decided (2026-11-19)
+- D-048 · Dupla triagem com concordância de Kappa de Cohen e pacote de reprodutibilidade expandido · decided (2026-11-19)
+- D-049 · Exposição MCP (37 ferramentas) e rotas desktop para extração e qualidade metodológica · decided (2026-11-19)
 
 ## Open points
 
@@ -261,7 +266,14 @@ Aprovou a lista de chamadas ("ótimas") e a pasta configurável para as exporta�
 - **Correções do teste real do Erick (2026-11-19):**
   - Botão de tema no drawer lateral removido a pedido do Erick (deixando apenas o rótulo de versão no rodapé).
   - Diagnóstico e correção de relevância nos conectores de busca: Crossref trocado de `cursor=*` (que desativava a relevância da API) para paginação por `offset`; Europe PMC trocado de `cursorMark` para `page`; PubMed com `"sort": "relevance"` explícito no ESearch.
-  - Gates 100% passando: 822 testes do núcleo e 71 testes do desktop.
+  - **Investigação da chave Scopus recusada:** a chave do Erick é válida, mas quando usada fora da rede IP institucional da universidade sem `SCOPUS_INSTTOKEN`, a Elsevier recusa requisições com `view="COMPLETE"` retornando HTTP 401 com erro de autorização (`AUTHORIZATION_ERROR`). O conector Scopus foi aprimorado para detectar esse caso específico e realizar fallback transparente imediato para `view="STANDARD"`, permitindo recuperar os artigos (título, primeiro autor, ano, venue, citações e DOI) com sucesso.
+- **Fase 22 (3.0.0 · A Revisão Completa) implementada em 2026-11-19:**
+  - **22-01 integrada:** resolução e download de texto completo em Acesso Aberto (`rslapp.core.fulltext`) via Unpaywall, PubMed Central (PMC) e OpenAlex OA com validação de assinatura binária `%PDF` e armazenamento atômico (FR-34, D-045).
+  - **22-02 integrada:** módulo de extração estruturada para metanálise (`rslapp.core.extraction`) com cálculos de OR, RR, MD, SMD (Hedges' g) e exportadores nativos para R `metafor` (`yi`, `vi`) e RevMan 5/Web (FR-35, D-046).
+  - **22-03 integrada:** avaliação sistemática de risco de viés e qualidade metodológica (`rslapp.core.risk_of_bias`) com Cochrane RoB 2, ROBINS-I e JBI Critical Appraisal, com algoritmo determinístico de julgamento global e matriz de semáforo (*traffic-light plot*) (FR-36, D-047).
+  - **22-04 integrada:** dupla triagem com cálculo de concordância inter-avaliadores (Kappa de Cohen) com escala Landis & Koch e listagem de divergências (`rslapp.core.screening`), e integração de todos os artefatos ao Pacote de Reprodutibilidade Expandido com manifesto SHA-256 (FR-37, D-048).
+  - **22-05 integrada:** 8 novas ferramentas MCP (totalizando 37 ferramentas no servidor MCP stdio e HTTP multiusuário) e novas páginas no desktop: `/extracao/{list_id}`, `/qualidade/{list_id}` e botão de download em lote de PDFs em Acesso Aberto (FR-38, D-049).
+  - **22-06 pronta:** versão 3.0.0 definida em `pyproject.toml` e `src/rslapp/__init__.py`, documentação atualizada no `README.md`, gates 100% limpos (842 testes do núcleo, 73 do desktop, ruff limpo). Pronto para testes do usuário.
 - **Servidor de teste na Azure: fica no ar** por decisão do Erick (2026-11-14), que vai usá-lo nos próximos meses. Não perguntar de novo.
 - **Gates:** `uv run --python <v> --extra dev python -m pytest`; o `uv run pytest` puro pode pegar o pytest do sistema, sem o `mcp`.
 - **Fase 9 pronta (2026-11-11), conferida pelo Erick.** 09-07: 1.2.0 publicada. `rslapp` 1.2.0 no PyPI, tag e release `v1.2.0`, imagem `1.2.0`/`latest` no ghcr.io, servidor `rsl.sinteselabs.com` atualizado (`/health` 1.2.0). 622 testes em 3.10 e 3.14. O compose passou a repassar `NCBI_API_KEY`. O Claude Code testou sem tela, pelo stdio com buscas reais, pelo modo HTTP local com duas pessoas e pelo conector RSL-APP no claude.ai do Erick; tudo passou, e o Erick conferiu no Zotero, no VOSviewer e no Claude Desktop. Achado para decidir: o OpenAlex traz registros de revisão por pares (Publons, tipo `peer-review`) como artigos.
