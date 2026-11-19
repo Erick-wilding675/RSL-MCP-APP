@@ -494,6 +494,7 @@ class PubmedSource(Source):
             "retmax": str(retmax_esearch),
             "usehistory": "y",
             "tool": "rslapp",
+            "sort": "relevance",
         }
         if contact_email:
             esearch_params["email"] = contact_email

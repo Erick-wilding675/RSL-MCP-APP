@@ -42,6 +42,10 @@ EXPECTED_TOOLS = {
     "list_protocols",
     "export_protocol_markdown",
     "export_network",
+    "compare_search_versions",
+    "update_search_differential",
+    "lookup_descriptors",
+    "build_multilingual_search_query",
 }
 
 

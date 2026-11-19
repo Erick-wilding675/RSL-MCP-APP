@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from nicegui import ui
 from nicegui.testing import User
@@ -11,7 +9,6 @@ from nicegui.testing import User
 from rslapp import __version__
 from rslapp.desktop.app import register_pages
 from rslapp.desktop.pages import NAV_ITEMS, render_shell
-from rslapp.desktop.settings import get_theme, set_theme
 
 
 # D-031, FR-16: A casca monta o drawer com os quatro itens na ordem da spec, logo e versão
@@ -69,35 +66,16 @@ async def test_d031_fr16_item_ativo_destacado(user: User) -> None:
     assert "nav-item-active" in search_item_lista._classes
 
 
-# D-031: O botão de tema alterna auto -> light -> dark -> auto e grava no desktop.json
-async def test_d031_botao_tema_alterna_e_persiste(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    user: User,
-) -> None:
-    cfg_file = tmp_path / "desktop.json"
-    monkeypatch.setenv("RSL_DESKTOP_CONFIG", str(cfg_file))
-    set_theme("auto")
-
-    @ui.page("/test-toggle-theme")
-    def page_toggle() -> None:
+# D-031: O rodapé da casca exibe a versão do app e não exibe alternador de tema
+async def test_d031_rodape_casca_sem_botao_tema(user: User) -> None:
+    @ui.page("/test-drawer-footer")
+    def page_footer() -> None:
         render_shell("Buscar", "Sub")
 
-    await user.open("/test-toggle-theme")
-    assert get_theme() == "auto"
-
-    btn = user.find(marker="theme-toggle-btn")
-    # 1. Clique de auto -> light
-    btn.click()
-    assert get_theme() == "light"
-
-    # 2. Clique de light -> dark
-    btn.click()
-    assert get_theme() == "dark"
-
-    # 3. Clique de dark -> auto
-    btn.click()
-    assert get_theme() == "auto"
+    await user.open("/test-drawer-footer")
+    assert user.find(marker="app-version-label")
+    with pytest.raises(AssertionError):
+        user.find(marker="theme-toggle-btn")
 
 
 # D-024, D-025, D-031, FR-16: Todas as cinco telas abrem com apply_theme e render_shell

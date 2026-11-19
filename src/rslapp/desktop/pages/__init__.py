@@ -5,7 +5,6 @@ from __future__ import annotations
 from nicegui import ui
 
 from rslapp import __version__
-from rslapp.desktop.settings import get_theme, set_theme
 from rslapp.desktop.theme import apply_theme
 
 # D-031, FR-16, FR-21, FR-23, D-033, D-035, D-041: Itens de navegação lateral
@@ -19,18 +18,6 @@ NAV_ITEMS: tuple[tuple[str, str, str], ...] = (
     ("Conectar IA", "hub", "/conectar"),
     ("Configurações", "settings", "/configuracoes"),
 )
-
-THEME_ICONS: dict[str, str] = {
-    "auto": "brightness_auto",
-    "light": "light_mode",
-    "dark": "dark_mode",
-}
-
-THEME_TOOLTIPS: dict[str, str] = {
-    "auto": "Tema: automático (sistema)",
-    "light": "Tema: claro",
-    "dark": "Tema: escuro",
-}
 
 
 # D-031, FR-16: Casca comum com navegação lateral (drawer) e barra superior de conteúdo
@@ -47,7 +34,6 @@ def render_shell(
         dm = apply_theme()
 
     current_active = active or ("Buscar" if title == "Lista" else title)
-    theme_state = get_theme()
 
     # D-031: Navegação lateral recolhe para só ícones abaixo de 1000px
     with (
@@ -93,7 +79,7 @@ def render_shell(
                             )
                         ui.tooltip(name)
 
-        # Pé do drawer com versão e alternador de tema
+        # Pé do drawer com versão
         with (
             ui.column().classes("w-full pt-3 drawer-footer gap-2"),
             ui.row().classes(
@@ -103,41 +89,6 @@ def render_shell(
             ui.label(f"v{__version__}").classes(
                 "text-xs text-grey-5 font-mono drawer-full-only"
             ).mark("app-version-label")
-
-            def _cycle_theme() -> None:
-                nonlocal theme_state
-                if theme_state == "auto":
-                    next_theme = "light"
-                elif theme_state == "light":
-                    next_theme = "dark"
-                else:
-                    next_theme = "auto"
-                theme_state = next_theme
-                set_theme(next_theme)
-                if dm is not None:
-                    if next_theme == "light":
-                        dm.disable()
-                    elif next_theme == "dark":
-                        dm.enable()
-                    else:
-                        dm.auto()
-                theme_btn.props(f"icon={THEME_ICONS.get(next_theme, 'brightness_auto')}")
-                theme_tooltip.text = THEME_TOOLTIPS.get(
-                    next_theme, "Tema: automático (sistema)"
-                )
-
-            theme_btn = (
-                ui.button(
-                    icon=THEME_ICONS.get(theme_state, "brightness_auto"),
-                    on_click=_cycle_theme,
-                )
-                .props("flat round dense")
-                .mark("theme-toggle-btn")
-            )
-            with theme_btn:
-                theme_tooltip = ui.tooltip(
-                    THEME_TOOLTIPS.get(theme_state, "Tema: automático (sistema)")
-                ).mark("theme-tooltip")
 
     # D-031, FR-16: Barra de cima da área de conteúdo com título e subtítulo idêntico
     with ui.column().classes("w-full gap-1 mb-4"):

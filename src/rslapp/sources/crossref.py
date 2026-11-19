@@ -373,7 +373,7 @@ class CrossrefSource(Source):
         works: list[Work] = []
         found: int | None = None
         page = 1
-        cursor = "*"
+        offset = 0
 
         try:
             async with self._get_client() as client:
@@ -381,8 +381,8 @@ class CrossrefSource(Source):
                     params: dict[str, str] = {
                         "query": clean_query,
                         "rows": str(rows),
+                        "offset": str(offset),
                         "select": SELECT_FIELDS,
-                        "cursor": cursor,
                     }
                     if contact_email:
                         params["mailto"] = contact_email
@@ -424,14 +424,7 @@ class CrossrefSource(Source):
                     if len(raw_items) < rows:
                         break
 
-                    raw_next_cursor = message.get("next-cursor")
-                    if not isinstance(raw_next_cursor, str) or not raw_next_cursor.strip():
-                        break
-                    next_cursor = raw_next_cursor.strip()
-                    if next_cursor == cursor:
-                        break
-
-                    cursor = next_cursor
+                    offset += len(raw_items)
                     page += 1
         except Exception:  # noqa: BLE001
             return SourceResult(

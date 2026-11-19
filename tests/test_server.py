@@ -352,6 +352,8 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "list_work_notes",
         "get_protocol",
         "list_protocols",
+        "lookup_descriptors",
+        "build_multilingual_search_query",
     }
     additive_write_tools = {
         "search_works",
@@ -368,6 +370,8 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "save_protocol",
         "export_protocol_markdown",
         "export_network",
+        "compare_search_versions",
+        "update_search_differential",
     }
 
     async with Client(server.mcp) as client:

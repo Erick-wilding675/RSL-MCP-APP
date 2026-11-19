@@ -160,7 +160,7 @@ async def test_fr01_fr03_fr14_d004_d020_mapeamento_completo_autores_html_afiliac
     assert req.url.params["resultType"] == "core"
     assert req.url.params["format"] == "json"
     assert req.url.params["pageSize"] == "100"
-    assert req.url.params["cursorMark"] == "*"
+    assert req.url.params["page"] == "1"
     assert "email" not in req.url.params
     assert req.headers["User-Agent"].startswith("rslapp/")
 
@@ -246,10 +246,10 @@ async def test_fr01_fr03_fr14_d004_d020_mapeamento_completo_autores_html_afiliac
     assert w4.abstract == "p < 0.05 & n > 30 observed"
 
 
-# FR-01, NFR-04, D-020: Paginação por cursorMark, parada em max_results, página menor e cursor repetido
+# FR-01, NFR-04, D-020: Paginação por página preservando relevância, parada em max_results e página menor
 @pytest.mark.anyio
 async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_repetido() -> None:
-    # 1. max_results=10 envia pageSize=10 e cursorMark=*
+    # 1. max_results=10 envia pageSize=10 e page=1
     seen_sizes: list[str] = []
 
     def handler_small(request: httpx.Request) -> httpx.Response:
@@ -258,7 +258,6 @@ async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_r
             200,
             json={
                 "hitCount": 50,
-                "nextCursorMark": "cur-2",
                 "resultList": {"result": [_make_raw_work(i) for i in range(10)]},
             },
         )
@@ -270,20 +269,19 @@ async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_r
     assert res_small.fetched == 10
     assert res_small.query == "query=small · pageSize=10 · páginas 1-1"
 
-    # 2. Paginação com nextCursorMark até max_results=150 preservando found
-    cursors_seen: list[str] = []
+    # 2. Paginação com page até max_results=150 preservando found
+    pages_seen: list[str] = []
 
     def handler_max(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursorMark"]
-        cursors_seen.append(cur)
-        page_idx = len(cursors_seen)
+        p = request.url.params["page"]
+        pages_seen.append(p)
+        page_idx = len(pages_seen)
         start = (page_idx - 1) * 100
         total = 500 if page_idx == 1 else 999
         return httpx.Response(
             200,
             json={
                 "hitCount": total,
-                "nextCursorMark": f"cur-{page_idx + 1}",
                 "resultList": {"result": [_make_raw_work(start + i) for i in range(100)]},
             },
         )
@@ -291,19 +289,19 @@ async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_r
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_max)) as client:
         res_max = await EuropePMCSource(client=client).search("paging", max_results=150)
 
-    assert cursors_seen == ["*", "cur-2"]
+    assert pages_seen == ["1", "2"]
     assert res_max.found == 500
     assert res_max.fetched == 150
     assert len(res_max.works) == 150
     assert res_max.query == "query=paging · pageSize=100 · páginas 1-2"
 
     # 3. max_results=100 com 5 itens sem título na página 1 pede a página 2
-    cursors_discard: list[str] = []
+    pages_discard: list[str] = []
 
     def handler_discard(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursorMark"]
-        cursors_discard.append(cur)
-        page_idx = len(cursors_discard)
+        p = request.url.params["page"]
+        pages_discard.append(p)
+        page_idx = len(pages_discard)
         start = (page_idx - 1) * 100
         items = [
             _make_raw_work(start + i, title="" if (page_idx == 1 and i < 5) else None)
@@ -313,7 +311,6 @@ async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_r
             200,
             json={
                 "hitCount": 200,
-                "nextCursorMark": f"cur-d-{page_idx + 1}",
                 "resultList": {"result": items},
             },
         )
@@ -321,23 +318,22 @@ async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_r
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_discard)) as client:
         res_discard = await EuropePMCSource(client=client).search("discard", max_results=100)
 
-    assert cursors_discard == ["*", "cur-d-2"]
+    assert pages_discard == ["1", "2"]
     assert res_discard.fetched == 100
     assert len(res_discard.works) == 100
 
     # 4. Para quando a página vem com menos itens que pageSize
-    cursors_short: list[str] = []
+    pages_short: list[str] = []
 
     def handler_short(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursorMark"]
-        cursors_short.append(cur)
-        count = 100 if cur == "*" else 35
-        start = 0 if cur == "*" else 100
+        p = request.url.params["page"]
+        pages_short.append(p)
+        count = 100 if p == "1" else 35
+        start = 0 if p == "1" else 100
         return httpx.Response(
             200,
             json={
                 "hitCount": 135,
-                "nextCursorMark": "cur-next-unused" if cur != "*" else "cur-2",
                 "resultList": {"result": [_make_raw_work(start + i) for i in range(count)]},
             },
         )
@@ -345,60 +341,17 @@ async def test_fr01_nfr04_d020_paginacao_cursor_max_results_descartes_e_cursor_r
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_short)) as client:
         res_short = await EuropePMCSource(client=client).search("short", max_results=300)
 
-    assert cursors_short == ["*", "cur-2"]
+    assert pages_short == ["1", "2"]
     assert res_short.fetched == 135
     assert len(res_short.works) == 135
 
-    # 5. Para quando nextCursorMark é igual ao cursor anterior (cursor repetido)
-    cursors_repeat: list[str] = []
-
-    def handler_repeat(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursorMark"]
-        cursors_repeat.append(cur)
-        return httpx.Response(
-            200,
-            json={
-                "hitCount": 200,
-                "nextCursorMark": cur,
-                "resultList": {"result": [_make_raw_work(i) for i in range(100)]},
-            },
-        )
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_repeat)) as client:
-        res_repeat = await EuropePMCSource(client=client).search("repeat", max_results=300)
-
-    assert cursors_repeat == ["*"]
-    assert res_repeat.fetched == 100
-
-    # 6. Para quando nextCursorMark está ausente ou vazio
-    cursors_none: list[str] = []
-
-    def handler_none(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursorMark"]
-        cursors_none.append(cur)
-        return httpx.Response(
-            200,
-            json={
-                "hitCount": 200,
-                "nextCursorMark": None,
-                "resultList": {"result": [_make_raw_work(i) for i in range(100)]},
-            },
-        )
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_none)) as client:
-        res_none = await EuropePMCSource(client=client).search("none", max_results=300)
-
-    assert cursors_none == ["*"]
-    assert res_none.fetched == 100
-
-    # 7. Se a segunda página falha, preserva os trabalhos já trazidos
+    # 5. Se a segunda página falha, preserva os trabalhos já trazidos
     def handler_partial(request: httpx.Request) -> httpx.Response:
-        if request.url.params["cursorMark"] == "*":
+        if request.url.params["page"] == "1":
             return httpx.Response(
                 200,
                 json={
                     "hitCount": 250,
-                    "nextCursorMark": "cur-2",
                     "resultList": {"result": [_make_raw_work(i) for i in range(100)]},
                 },
             )

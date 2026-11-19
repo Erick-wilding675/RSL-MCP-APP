@@ -430,7 +430,6 @@ class EuropePMCSource(Source):
         works: list[Work] = []
         found: int | None = None
         page = 1
-        cursor = "*"
 
         try:
             async with self._get_client() as client:
@@ -440,7 +439,7 @@ class EuropePMCSource(Source):
                         "resultType": "core",
                         "format": "json",
                         "pageSize": str(page_size),
-                        "cursorMark": cursor,
+                        "page": str(page),
                     }
                     if contact_email:
                         params["email"] = contact_email
@@ -486,14 +485,6 @@ class EuropePMCSource(Source):
                     if len(raw_items) < page_size:
                         break
 
-                    raw_next_cursor = data.get("nextCursorMark")
-                    if not isinstance(raw_next_cursor, str) or not raw_next_cursor.strip():
-                        break
-                    next_cursor = raw_next_cursor.strip()
-                    if next_cursor == cursor:
-                        break
-
-                    cursor = next_cursor
                     page += 1
         except Exception:  # noqa: BLE001
             return SourceResult(

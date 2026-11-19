@@ -170,7 +170,7 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
         req.url.params["select"]
         == "DOI,title,author,issued,container-title,abstract,reference,references-count,is-referenced-by-count,type"
     )
-    assert req.url.params["cursor"] == "*"
+    assert req.url.params["offset"] == "0"
     assert "mailto" not in req.url.params
     assert req.headers["User-Agent"].startswith("rslapp/")
 
@@ -246,10 +246,10 @@ async def test_fr01_fr03_fr14_d004_mapeamento_completo_autores_ror_jats_e_nulos(
     assert w4.abstract == "effect p<0.05 when n>30 observed"
 
 
-# FR-01, NFR-04: Paginação por cursor (next-cursor, max_results, descartes e página menor que rows)
+# FR-01, NFR-04: Paginação por offset preservando relevância (max_results, descartes e página menor que rows)
 @pytest.mark.anyio
 async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor() -> None:
-    # 1. max_results=10 envia rows=10 e cursor=*
+    # 1. max_results=10 envia rows=10 e offset=0
     seen_rows: list[str] = []
 
     def handler_small(request: httpx.Request) -> httpx.Response:
@@ -260,7 +260,6 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
                 "status": "ok",
                 "message": {
                     "total-results": 50,
-                    "next-cursor": "cur-2",
                     "items": [_make_raw_work(i) for i in range(10)],
                 },
             },
@@ -273,13 +272,13 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
     assert res_small.fetched == 10
     assert res_small.query == "query=small · rows=10 · páginas 1-1"
 
-    # 2. Paginação com next-cursor até max_results=150 e preserva found da primeira página
-    cursors_seen: list[str] = []
+    # 2. Paginação com offset até max_results=150 e preserva found da primeira página
+    offsets_seen: list[str] = []
 
     def handler_max(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursor"]
-        cursors_seen.append(cur)
-        page_idx = len(cursors_seen)
+        off = request.url.params["offset"]
+        offsets_seen.append(off)
+        page_idx = len(offsets_seen)
         start = (page_idx - 1) * 100
         total = 500 if page_idx == 1 else 999
         return httpx.Response(
@@ -288,7 +287,6 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
                 "status": "ok",
                 "message": {
                     "total-results": total,
-                    "next-cursor": f"cur-{page_idx + 1}",
                     "items": [_make_raw_work(start + i) for i in range(100)],
                 },
             },
@@ -297,19 +295,19 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_max)) as client:
         res_max = await CrossrefSource(client=client).search("paging", max_results=150)
 
-    assert cursors_seen == ["*", "cur-2"]
+    assert offsets_seen == ["0", "100"]
     assert res_max.found == 500
     assert res_max.fetched == 150
     assert len(res_max.works) == 150
     assert res_max.query == "query=paging · rows=100 · páginas 1-2"
 
-    # 3. max_results=100 com 5 itens sem título na página 1 pede a página 2 com next-cursor
-    cursors_discard: list[str] = []
+    # 3. max_results=100 com 5 itens sem título na página 1 pede a página 2 com offset
+    offsets_discard: list[str] = []
 
     def handler_discard(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursor"]
-        cursors_discard.append(cur)
-        page_idx = len(cursors_discard)
+        off = request.url.params["offset"]
+        offsets_discard.append(off)
+        page_idx = len(offsets_discard)
         start = (page_idx - 1) * 100
         items = [
             _make_raw_work(start + i, title="" if (page_idx == 1 and i < 5) else None)
@@ -321,7 +319,6 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
                 "status": "ok",
                 "message": {
                     "total-results": 200,
-                    "next-cursor": f"cur-d-{page_idx + 1}",
                     "items": items,
                 },
             },
@@ -330,25 +327,24 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_discard)) as client:
         res_discard = await CrossrefSource(client=client).search("discard", max_results=100)
 
-    assert cursors_discard == ["*", "cur-d-2"]
+    assert offsets_discard == ["0", "100"]
     assert res_discard.fetched == 100
     assert len(res_discard.works) == 100
 
-    # 4. Para quando a página vem com menos itens que rows, mesmo com next-cursor presente
-    cursors_short: list[str] = []
+    # 4. Para quando a página vem com menos itens que rows
+    offsets_short: list[str] = []
 
     def handler_short(request: httpx.Request) -> httpx.Response:
-        cur = request.url.params["cursor"]
-        cursors_short.append(cur)
-        count = 100 if cur == "*" else 35
-        start = 0 if cur == "*" else 100
+        off = request.url.params["offset"]
+        offsets_short.append(off)
+        count = 100 if off == "0" else 35
+        start = 0 if off == "0" else 100
         return httpx.Response(
             200,
             json={
                 "status": "ok",
                 "message": {
                     "total-results": 135,
-                    "next-cursor": "cur-next-unused" if cur != "*" else "cur-2",
                     "items": [_make_raw_work(start + i) for i in range(count)],
                 },
             },
@@ -357,20 +353,19 @@ async def test_fr01_nfr04_paginacao_cursor_max_results_descartes_e_pagina_menor(
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler_short)) as client:
         res_short = await CrossrefSource(client=client).search("short", max_results=300)
 
-    assert cursors_short == ["*", "cur-2"]
+    assert offsets_short == ["0", "100"]
     assert res_short.fetched == 135
     assert len(res_short.works) == 135
 
     # 5. Se a segunda página falha, preserva as páginas já trazidas
     def handler_partial(request: httpx.Request) -> httpx.Response:
-        if request.url.params["cursor"] == "*":
+        if request.url.params["offset"] == "0":
             return httpx.Response(
                 200,
                 json={
                     "status": "ok",
                     "message": {
                         "total-results": 250,
-                        "next-cursor": "cur-2",
                         "items": [_make_raw_work(i) for i in range(100)],
                     },
                 },
