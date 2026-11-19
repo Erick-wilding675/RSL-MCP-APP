@@ -403,7 +403,7 @@ async def test_d021_http_maria_nao_consegue_juntar_lista_do_joao(
         assert tools_r.status_code == 200
         tools_body = _extract_http_jsonrpc_body(tools_r)
         tool_names = {t["name"] for t in tools_body["result"]["tools"]}
-        assert len(tool_names) == 29
+        assert len(tool_names) == 37
         assert "merge_lists" in tool_names
         assert "verify_references" in tool_names
         assert "import_works" in tool_names

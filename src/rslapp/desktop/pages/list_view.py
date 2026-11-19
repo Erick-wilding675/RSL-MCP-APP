@@ -324,6 +324,36 @@ def build(service: DesktopService, list_id: str = "") -> None:
                     icon="edit_note",
                     on_click=lambda: ui.navigate.to(f"/ficha/{list_id}"),
                 ).props("outline color=primary").mark("btn-open-notes")
+                ui.button(
+                    "Extração",
+                    icon="analytics",
+                    on_click=lambda: ui.navigate.to(f"/extracao/{list_id}"),
+                ).props("outline color=primary").mark("btn-open-extraction")
+                ui.button(
+                    "Risco de Viés",
+                    icon="fact_check",
+                    on_click=lambda: ui.navigate.to(f"/qualidade/{list_id}"),
+                ).props("outline color=primary").mark("btn-open-quality")
+
+                # FR-34, D-045: Baixar PDFs OA
+                async def _download_all_oa() -> None:
+                    ui.notify("Iniciando busca e download de textos completos em acesso aberto...", type="info")
+                    works_list = list_data.get("works", [])
+                    success_cnt = 0
+                    for w in works_list:
+                        wid = str(w.get("id") or w.get("doi") or "")
+                        if wid:
+                            with contextlib.suppress(RSLError, OSError, ValueError, KeyError):
+                                res = await service.fetch_fulltext(list_id, wid)
+                                if res.get("status") == "downloaded":
+                                    success_cnt += 1
+                    ui.notify(f"Download concluído: {success_cnt} PDFs recuperados com sucesso!", type="positive")
+
+                ui.button(
+                    "Baixar PDFs OA",
+                    icon="download_for_offline",
+                    on_click=_download_all_oa,
+                ).props("outline color=secondary").mark("btn-download-oa")
 
                 # FR-32, D-043: Botão e diálogo da Revisão Sistemática Viva
                 def _handle_living_review() -> None:

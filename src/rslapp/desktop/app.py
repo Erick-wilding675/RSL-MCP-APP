@@ -83,6 +83,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
 
     from rslapp.desktop.pages import (
         connect_page,
+        extraction_page,
         guidelines_view,
         history,
         import_view,
@@ -90,6 +91,7 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
         note_view,
         prisma_view,
         protocol_view,
+        quality_page,
         screening_view,
         search,
         settings_page,
@@ -133,6 +135,16 @@ def register_pages(service: DesktopService | None = None) -> DesktopService:
     def prisma_detail_page(list_id: str) -> None:
         assert _active_service is not None
         prisma_view.build(_active_service, list_id)
+
+    @ui.page("/extracao/{list_id}")
+    def extraction_detail_page(list_id: str) -> None:
+        assert _active_service is not None
+        extraction_page.build(_active_service, list_id)
+
+    @ui.page("/qualidade/{list_id}")
+    def quality_detail_page(list_id: str) -> None:
+        assert _active_service is not None
+        quality_page.build(_active_service, list_id)
 
     @ui.page("/ficha/{list_id}")
     def notes_list_page(list_id: str) -> None:

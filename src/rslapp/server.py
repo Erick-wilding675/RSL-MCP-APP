@@ -1185,6 +1185,315 @@ def build_multilingual_search_query(
         raise ToolError(f"{code}: {e}") from e
 
 
+# FR-34, FR-20, D-002, D-006, D-012, D-029, D-045: Resolve e baixa PDF de acesso aberto legal
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+async def fetch_fulltext(
+    list_id: str,
+    work_id: str,
+    email: str | None = None,
+    client: Any | None = None,
+) -> dict[str, Any]:
+    """Tenta resolver e baixar o PDF em acesso aberto legal (Open Access) de um artigo da lista."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        list_data = store.get_list(list_id)
+        works = list_data.get("works", [])
+        target_work_dict = None
+        for w in works:
+            if isinstance(w, dict) and str(w.get("id") or w.get("doi") or "") == str(work_id):
+                target_work_dict = w
+                break
+        if not target_work_dict:
+            try:
+                idx = int(work_id)
+                if 0 <= idx < len(works):
+                    target_work_dict = works[idx]
+            except ValueError:
+                pass
+
+        from rslapp.core.fulltext import download_fulltext_pdf, resolve_open_access_pdf
+        from rslapp.core.models import Work
+
+        if target_work_dict:
+            work_obj = Work.from_dict(target_work_dict)
+        else:
+            work_obj = Work(title=f"Artigo {work_id}", doi=work_id if "/" in work_id else None)
+
+        contact_email = email or cfg.contact_email
+        rec = await resolve_open_access_pdf(work_obj, work_id=work_id, email=contact_email, client=client)
+        if rec.status == "available":
+            dest_dir = store.get_fulltext_dir(list_id)
+            rec = await download_fulltext_pdf(rec, dest_dir=dest_dir, client=client)
+
+        store.save_fulltext_record(list_id, rec.to_dict())
+        return {
+            "list_id": list_id,
+            "work_id": work_id,
+            "record": rec.to_dict(),
+        }
+    except (RSLError, ValueError, TypeError, KeyError, FileNotFoundError) as e:
+        code = getattr(e, "code", "list_not_found" if isinstance(e, FileNotFoundError) else "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-34, FR-20, D-002, D-006, D-012, D-029, D-045: Resumo do status de textos completos de uma lista
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_fulltext_status(
+    list_id: str,
+) -> dict[str, Any]:
+    """Devolve o resumo e manifesto dos textos completos em acesso aberto resolvidos ou baixados para a lista."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        manifest = store.get_fulltext_manifest(list_id)
+        records = manifest.get("records", {})
+        counts = {"downloaded": 0, "available": 0, "restricted_paywall": 0, "not_found": 0, "failed": 0}
+        for r in records.values():
+            st = str(r.get("status", "not_found"))
+            counts[st] = counts.get(st, 0) + 1
+        return {
+            "list_id": list_id,
+            "total_checked": len(records),
+            "counts": counts,
+            "records": records,
+            "updated_at": manifest.get("updated_at"),
+        }
+    except (RSLError, ValueError, TypeError, KeyError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-35, FR-20, D-002, D-006, D-012, D-029, D-046: Salva dados analíticos de extração para metanálise
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def save_extraction_data(
+    list_id: str,
+    work_id: str,
+    study_design: str = "RCT",
+    outcomes: list[dict[str, Any]] | None = None,
+    sample_size_total: NonBoolInt | None = None,
+    country: str | None = None,
+    intervention_description: str | None = None,
+    control_description: str | None = None,
+    evidence_quote: str | None = None,
+    page_number: str | None = None,
+    author_type: str = "human",
+    verified_by_human: NonIntBool = True,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Salva ou atualiza a ficha analítica de extração de dados de um estudo para metanálise."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        from rslapp.core.extraction import ExtractionData, StudyOutcome
+
+        parsed_outcomes = [StudyOutcome.from_dict(o) for o in (outcomes or [])]
+        ext = ExtractionData(
+            work_id=work_id,
+            study_design=study_design,
+            sample_size_total=sample_size_total,
+            country=country,
+            intervention_description=intervention_description,
+            control_description=control_description,
+            outcomes=parsed_outcomes,
+            evidence_quote=evidence_quote,
+            page_number=page_number,
+            author_type=author_type,
+            verified_by_human=verified_by_human,
+            notes=notes,
+        )
+        saved = store.save_extraction(list_id, ext.to_dict())
+        return {
+            "list_id": list_id,
+            "work_id": work_id,
+            "extraction": saved,
+        }
+    except (RSLError, ValueError, TypeError, KeyError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-35, FR-20, D-002, D-006, D-012, D-029, D-046: Tabela consolidada de extração da lista
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_extraction_table(
+    list_id: str,
+) -> dict[str, Any]:
+    """Devolve a tabela consolidada de extrações de dados para metanálise de todos os estudos da lista."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        extractions = store.list_extractions(list_id)
+        return {
+            "list_id": list_id,
+            "count": len(extractions),
+            "extractions": extractions,
+        }
+    except (RSLError, ValueError, TypeError, KeyError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-35, FR-20, D-002, D-006, D-012, D-029, D-046: Exporta extrações em CSV pronto para R metafor ou RevMan
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def export_extraction_csv(
+    list_id: str,
+    format: str = "metafor",
+) -> dict[str, Any]:
+    """Exporta a tabela de extração de dados em CSV pronto para o pacote metafor do R ou para o RevMan."""
+    cfg = config.load()
+    store, export_dir = _build_tool_store(cfg)
+    try:
+        list_data = store.get_list(list_id)
+        works = list_data.get("works", [])
+        w_map: dict[str, dict[str, Any]] = {}
+        for w in works:
+            if isinstance(w, dict):
+                authors = w.get("authors", [])
+                first_author = authors[0].get("name") if authors and isinstance(authors[0], dict) else "Author"
+                w_map[str(w.get("id", ""))] = {"first_author": first_author, "year": w.get("year")}
+
+        from rslapp.core.extraction import ExtractionData, export_metafor_csv, export_revman_csv
+
+        ext_dicts = store.list_extractions(list_id)
+        if not ext_dicts:
+            raise ToolError(f"empty_list: A lista '{list_id}' não possui dados de extração para exportação.")
+
+        ext_objs = [ExtractionData.from_dict(d) for d in ext_dicts]
+        clean_fmt = format.lower().strip()
+        if clean_fmt == "revman":
+            csv_content = export_revman_csv(ext_objs, w_map)
+            filename = f"extraction_revman_{list_id}.csv"
+        else:
+            csv_content = export_metafor_csv(ext_objs, w_map)
+            filename = f"extraction_metafor_{list_id}.csv"
+
+        target_file = export_dir / filename
+        atomic_write_replace(target_file, csv_content)
+
+        return {
+            "list_id": list_id,
+            "format": clean_fmt,
+            "filename": filename,
+            "path": str(target_file.resolve()),
+            "content": csv_content,
+        }
+    except (RSLError, ValueError, TypeError, KeyError, FileNotFoundError) as e:
+        code = getattr(e, "code", "list_not_found" if isinstance(e, FileNotFoundError) else "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-36, FR-20, D-002, D-006, D-012, D-029, D-047: Salva avaliação de risco de viés (RoB 2, ROBINS-I, JBI)
+@mcp.tool(annotations=_ADDITIVE_WRITE_ANNOTATIONS)
+def save_risk_of_bias(
+    list_id: str,
+    work_id: str,
+    tool: str = "rob2",
+    domains: list[dict[str, Any]] | None = None,
+    overall_judgment: str | None = None,
+    overall_rationale: str | None = None,
+    author_type: str = "human",
+    verified_by_human: NonIntBool = True,
+) -> dict[str, Any]:
+    """Salva ou atualiza a avaliação de risco de viés de um estudo com RoB 2, ROBINS-I ou JBI."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        from rslapp.core.risk_of_bias import (
+            DomainAssessment,
+            RiskOfBiasAssessment,
+            compute_overall_rob2,
+            compute_overall_robins_i,
+        )
+
+        parsed_domains = [DomainAssessment.from_dict(d) for d in (domains or [])]
+        clean_tool = tool.lower().strip()
+        calculated_overall = overall_judgment
+        if not calculated_overall:
+            if clean_tool == "rob2":
+                calculated_overall = compute_overall_rob2(parsed_domains)
+            elif clean_tool == "robins_i":
+                calculated_overall = compute_overall_robins_i(parsed_domains)
+            else:
+                calculated_overall = "low"
+
+        ass = RiskOfBiasAssessment(
+            work_id=work_id,
+            tool=clean_tool,
+            domains=parsed_domains,
+            overall_judgment=calculated_overall,
+            overall_rationale=overall_rationale,
+            author_type=author_type,
+            verified_by_human=verified_by_human,
+        )
+        saved = store.save_risk_of_bias(list_id, ass.to_dict())
+        return {
+            "list_id": list_id,
+            "work_id": work_id,
+            "risk_of_bias": saved,
+        }
+    except (RSLError, ValueError, TypeError, KeyError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-36, FR-20, D-002, D-006, D-012, D-029, D-047: Resumo e matriz de semáforo de risco de viés
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_risk_of_bias_summary(
+    list_id: str,
+) -> dict[str, Any]:
+    """Devolve a matriz de semáforo e todas as avaliações de risco de viés da lista."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        from rslapp.core.risk_of_bias import RiskOfBiasAssessment, generate_traffic_light_matrix
+
+        items = store.list_risk_of_bias(list_id)
+        ass_objs = [RiskOfBiasAssessment.from_dict(d) for d in items]
+        matrix = generate_traffic_light_matrix(ass_objs)
+        return {
+            "list_id": list_id,
+            "count": len(items),
+            "assessments": items,
+            "matrix": matrix,
+        }
+    except (RSLError, ValueError, TypeError, KeyError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+# FR-37, FR-20, D-002, D-006, D-012, D-029, D-048: Análise de concordância de triagem (Kappa de Cohen)
+@mcp.tool(annotations=_READ_ONLY_ANNOTATIONS)
+def get_screening_concordance(
+    list_id: str,
+    reviewer_b_decisions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Calcula o índice Kappa de Cohen de concordância entre avaliadores (ou humano vs sugestão IA) e lista divergências."""
+    cfg = config.load()
+    store, _ = _build_tool_store(cfg)
+    try:
+        from rslapp.core.screening import calculate_cohen_kappa
+
+        screening = store.get_screening(list_id)
+        decisions_a = screening.get("decisions", {})
+
+        decisions_b = reviewer_b_decisions or {}
+        if not decisions_b:
+            decisions_b = {
+                wid: ("included" if "ai" in str(d.get("decided_by", "")) else d.get("decision"))
+                for wid, d in decisions_a.items()
+            }
+
+        concordance = calculate_cohen_kappa(decisions_a, decisions_b)
+        return {
+            "list_id": list_id,
+            "concordance": concordance,
+        }
+    except (RSLError, ValueError, TypeError, KeyError) as e:
+        code = getattr(e, "code", "invalid_input")
+        raise ToolError(f"{code}: {e}") from e
+
+
+
 
 
 # FR-10, UC-01, D-002, D-003: Prompt de planejamento que orienta a IA antes de buscar
@@ -1384,6 +1693,14 @@ def _build_http_mcp_server(
         (update_search_differential, _ADDITIVE_WRITE_ANNOTATIONS),
         (lookup_descriptors, _READ_ONLY_ANNOTATIONS),
         (build_multilingual_search_query, _READ_ONLY_ANNOTATIONS),
+        (fetch_fulltext, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_fulltext_status, _READ_ONLY_ANNOTATIONS),
+        (save_extraction_data, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_extraction_table, _READ_ONLY_ANNOTATIONS),
+        (export_extraction_csv, _ADDITIVE_WRITE_ANNOTATIONS),
+        (save_risk_of_bias, _ADDITIVE_WRITE_ANNOTATIONS),
+        (get_risk_of_bias_summary, _READ_ONLY_ANNOTATIONS),
+        (get_screening_concordance, _READ_ONLY_ANNOTATIONS),
     ):
         http_mcp.add_tool(tool_fn, annotations=tool_annotations)
     http_mcp.prompt()(plan_search)

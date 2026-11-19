@@ -318,6 +318,14 @@ def test_d020_modo_http_mantem_mesmas_ferramentas(tmp_path: Path) -> None:
         "update_search_differential",
         "lookup_descriptors",
         "build_multilingual_search_query",
+        "fetch_fulltext",
+        "get_fulltext_status",
+        "save_extraction_data",
+        "get_extraction_table",
+        "export_extraction_csv",
+        "save_risk_of_bias",
+        "get_risk_of_bias_summary",
+        "get_screening_concordance",
     }
     registered_tools = set(http_server._tool_manager._tools.keys())
     assert registered_tools == expected_tools

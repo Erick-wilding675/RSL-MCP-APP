@@ -493,5 +493,138 @@ class DesktopService:
 
         return _build(descriptors=descriptors, operator=operator)
 
+    # FR-34, D-045: Texto completo legal em acesso aberto (Open Access)
+    async def fetch_fulltext(
+        self, list_id: str, work_id: str, email: str | None = None
+    ) -> dict[str, Any]:
+        """Tenta resolver e baixar o PDF em acesso aberto para o trabalho especificado."""
+        store, cfg = self._build_store()
+        list_data = store.get_list(list_id)
+        works = list_data.get("works", [])
+        target_work_dict = None
+        for w in works:
+            if isinstance(w, dict) and str(w.get("id") or w.get("doi") or "") == str(work_id):
+                target_work_dict = w
+                break
+        if not target_work_dict:
+            try:
+                idx = int(work_id)
+                if 0 <= idx < len(works):
+                    target_work_dict = works[idx]
+            except ValueError:
+                pass
+
+        from rslapp.core.fulltext import download_fulltext_pdf, resolve_open_access_pdf
+        from rslapp.core.models import Work
+
+        if target_work_dict:
+            work_obj = Work.from_dict(target_work_dict)
+        else:
+            work_obj = Work(title=f"Artigo {work_id}", doi=work_id if "/" in work_id else None)
+
+        contact_email = email or cfg.contact_email
+        rec = await resolve_open_access_pdf(work_obj, work_id=work_id, email=contact_email)
+        if rec.status == "available":
+            dest_dir = store.get_fulltext_dir(list_id)
+            rec = await download_fulltext_pdf(rec, dest_dir=dest_dir)
+
+        store.save_fulltext_record(list_id, rec.to_dict())
+        return rec.to_dict()
+
+    def get_fulltext_manifest(self, list_id: str) -> dict[str, Any]:
+        """Devolve o manifesto de textos completos da lista."""
+        store, _ = self._build_store()
+        return store.get_fulltext_manifest(list_id)
+
+    # FR-35, D-046: Extração de dados para metanálise
+    def save_extraction(self, list_id: str, extraction_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva a ficha de extração de dados do estudo."""
+        store, _ = self._build_store()
+        return store.save_extraction(list_id, extraction_data)
+
+    def get_extraction(self, list_id: str, work_id: str | int) -> dict[str, Any] | None:
+        """Devolve a extração de dados de um estudo específico."""
+        store, _ = self._build_store()
+        return store.get_extraction(list_id, work_id)
+
+    def list_extractions(self, list_id: str) -> list[dict[str, Any]]:
+        """Lista todas as fichas de extração de dados da lista."""
+        store, _ = self._build_store()
+        return store.list_extractions(list_id)
+
+    def export_extractions(self, list_id: str, format: str = "metafor") -> dict[str, Any]:
+        """Exporta os dados de extração em CSV para R metafor ou RevMan."""
+        store, cfg = self._build_store()
+        list_data = store.get_list(list_id)
+        works = list_data.get("works", [])
+        w_map: dict[str, dict[str, Any]] = {}
+        for w in works:
+            if isinstance(w, dict):
+                authors = w.get("authors", [])
+                first_author = authors[0].get("name") if authors and isinstance(authors[0], dict) else "Author"
+                w_map[str(w.get("id", ""))] = {"first_author": first_author, "year": w.get("year")}
+
+        from rslapp.core.extraction import ExtractionData, export_metafor_csv, export_revman_csv
+
+        ext_dicts = store.list_extractions(list_id)
+        ext_objs = [ExtractionData.from_dict(d) for d in ext_dicts]
+        clean_fmt = format.lower().strip()
+        if clean_fmt == "revman":
+            csv_content = export_revman_csv(ext_objs, w_map)
+            filename = f"extraction_revman_{list_id}.csv"
+        else:
+            csv_content = export_metafor_csv(ext_objs, w_map)
+            filename = f"extraction_metafor_{list_id}.csv"
+
+        dest_file = cfg.export_dir / filename
+        from rslapp.store._atomic import atomic_write_replace
+
+        atomic_write_replace(dest_file, csv_content)
+        return {"filename": filename, "path": str(dest_file.resolve()), "content": csv_content}
+
+    # FR-36, D-047: Avaliação de risco de viés e qualidade metodológica
+    def save_risk_of_bias(self, list_id: str, assessment_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva a avaliação de risco de viés do estudo."""
+        store, _ = self._build_store()
+        return store.save_risk_of_bias(list_id, assessment_data)
+
+    def get_risk_of_bias(self, list_id: str, work_id: str | int) -> dict[str, Any] | None:
+        """Devolve a avaliação de risco de viés de um estudo."""
+        store, _ = self._build_store()
+        return store.get_risk_of_bias(list_id, work_id)
+
+    def list_risk_of_bias(self, list_id: str) -> list[dict[str, Any]]:
+        """Lista todas as avaliações de risco de viés da lista."""
+        store, _ = self._build_store()
+        return store.list_risk_of_bias(list_id)
+
+    def get_risk_of_bias_matrix(self, list_id: str) -> dict[str, Any]:
+        """Gera a matriz de semáforo de risco de viés para a lista."""
+        store, _ = self._build_store()
+        from rslapp.core.risk_of_bias import RiskOfBiasAssessment, generate_traffic_light_matrix
+
+        items = store.list_risk_of_bias(list_id)
+        ass_objs = [RiskOfBiasAssessment.from_dict(d) for d in items]
+        return generate_traffic_light_matrix(ass_objs)
+
+    # FR-37, D-048: Concordância de triagem e Kappa de Cohen
+    def get_screening_concordance(
+        self, list_id: str, reviewer_b_decisions: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Calcula o Kappa de Cohen entre dois conjuntos de triagem."""
+        store, _ = self._build_store()
+        screening = store.get_screening(list_id)
+        decisions_a = screening.get("decisions", {})
+        decisions_b = reviewer_b_decisions or {}
+        if not decisions_b:
+            decisions_b = {
+                wid: ("included" if "ai" in str(d.get("decided_by", "")) else d.get("decision"))
+                for wid, d in decisions_a.items()
+            }
+        from rslapp.core.screening import calculate_cohen_kappa
+
+        return calculate_cohen_kappa(decisions_a, decisions_b)
+
+
 
 

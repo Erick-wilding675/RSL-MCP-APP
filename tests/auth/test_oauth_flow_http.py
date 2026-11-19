@@ -46,6 +46,14 @@ EXPECTED_TOOLS = {
     "update_search_differential",
     "lookup_descriptors",
     "build_multilingual_search_query",
+    "fetch_fulltext",
+    "get_fulltext_status",
+    "save_extraction_data",
+    "get_extraction_table",
+    "export_extraction_csv",
+    "save_risk_of_bias",
+    "get_risk_of_bias_summary",
+    "get_screening_concordance",
 }
 
 

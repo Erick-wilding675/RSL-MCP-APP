@@ -354,6 +354,10 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "list_protocols",
         "lookup_descriptors",
         "build_multilingual_search_query",
+        "get_fulltext_status",
+        "get_extraction_table",
+        "get_risk_of_bias_summary",
+        "get_screening_concordance",
     }
     additive_write_tools = {
         "search_works",
@@ -372,6 +376,10 @@ async def test_d002_d006_d029_fr20_tools_list_anotacoes_read_only_e_destructive_
         "export_network",
         "compare_search_versions",
         "update_search_differential",
+        "fetch_fulltext",
+        "save_extraction_data",
+        "export_extraction_csv",
+        "save_risk_of_bias",
     }
 
     async with Client(server.mcp) as client:
