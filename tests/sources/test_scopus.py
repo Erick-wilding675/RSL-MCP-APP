@@ -419,6 +419,52 @@ async def test_d023_fallback_visao_reduzida_403_complete_200_standard_e_403_nas_
     )
     assert res_denied.query == "query=TITLE-ABS-KEY(genomics) · view=COMPLETE · count=10 · páginas 1-1"
 
+    # Caso 3: 401 com erro de autorização de visão na COMPLETE (usuário fora do campus) e 200 na STANDARD
+    views_called_3: list[str] = []
+
+    def handler_401_fallback(request: httpx.Request) -> httpx.Response:
+        view = request.url.params.get("view")
+        views_called_3.append(view or "")
+        if view == "COMPLETE":
+            return httpx.Response(
+                401,
+                json={
+                    "service-error": {
+                        "status": {
+                            "statusCode": "AUTHORIZATION_ERROR",
+                            "statusText": "The requestor is not authorized to access the requested view or fields of the resource",
+                        }
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "search-results": {
+                    "opensearch:totalResults": "1",
+                    "entry": [
+                        {
+                            "dc:identifier": "SCOPUS_ID:85000000001",
+                            "dc:title": "Standard View Fallback on 401",
+                            "dc:creator": "Silva, João P.",
+                        }
+                    ],
+                }
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler_401_fallback)) as client:
+        source = ScopusSource(client=client, sleep=_noop_sleep)
+        res_401_ok = await source.search("genomics", max_results=10)
+
+    assert views_called_3 == ["COMPLETE", "STANDARD"]
+    assert res_401_ok.status == "ok"
+    assert res_401_ok.reason == (
+        "visão reduzida do Scopus: só o primeiro autor, sem resumo nem palavras-chave"
+    )
+    assert res_401_ok.fetched == 1
+    assert res_401_ok.works[0].title == "Standard View Fallback on 401"
+
 
 # D-023: Tratamento de erros 401, 429, 5xx, timeout, rede e preservação de páginas já trazidas
 @pytest.mark.anyio

@@ -424,6 +424,19 @@ class ScopusSource(Source):
                     return data, 200, None, None
 
                 if status_code == 401:
+                    is_view_auth_error = False
+                    try:
+                        err_json = response.json()
+                        if isinstance(err_json, dict):
+                            status_obj = err_json.get("service-error", {}).get("status", {})
+                            if isinstance(status_obj, dict):
+                                status_text = str(status_obj.get("statusText", "")).lower()
+                                if "not authorized to access the requested view" in status_text:
+                                    is_view_auth_error = True
+                    except (ValueError, TypeError, KeyError):
+                        is_view_auth_error = False
+                    if is_view_auth_error:
+                        return None, 401, None, None
                     return None, 401, "failed", "chave do Scopus recusada"
                 if status_code == 403:
                     return None, 403, None, None
@@ -501,8 +514,8 @@ class ScopusSource(Source):
                         client, params, headers
                     )
 
-                    # Trata 403 e fallback da visão COMPLETE para STANDARD (D-023)
-                    if code == 403:
+                    # Trata autorização de visão (403 ou 401 com erro de visão) e fallback para STANDARD (D-023)
+                    if err_status is None and code in (401, 403):
                         if current_view == "COMPLETE":
                             await self._sleep(REQUEST_INTERVAL)
                             params["view"] = "STANDARD"
@@ -515,7 +528,7 @@ class ScopusSource(Source):
                                     "visão reduzida do Scopus: só o primeiro autor, "
                                     "sem resumo nem palavras-chave"
                                 )
-                        if code == 403:
+                        if code in (401, 403):
                             err_status = "failed"
                             err_reason = (
                                 "o Scopus recusou o acesso: confira se está na rede da instituição "
