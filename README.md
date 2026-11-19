@@ -1,70 +1,88 @@
 # RSL.app
 
-**Servidor MCP gratuito para revisão sistemática de literatura.** Você pede à sua IA, em linguagem natural, os artigos de um tema. Ela busca no OpenAlex, na Crossref e na Semantic Scholar (e, em temas de saúde e biologia, também no PubMed e no Europe PMC), junta os resultados sem duplicatas e grava um arquivo pronto para abrir no [VOSviewer](https://www.vosviewer.com/), com autores, afiliações, palavras-chave, referências e citações.
+**A plataforma completa, gratuita e self-hosted de Revisão Sistemática, Metanálise e Bibliometria com IA Rastreável.**
 
-> Exemplo: *"Quero os artigos sobre burnout em professores da educação básica e, separado, sobre inteligência artificial na correção de redações. Exporte cada um em RIS."*
-> A IA faz duas buscas, monta duas listas e entrega dois arquivos `.ris`. Cada busca fica registrada num log legível, que você pode anexar à metodologia do seu artigo.
+O **RSL.app** acompanha o pesquisador em todas as etapas da revisão de literatura: do desenho do protocolo pré-busca à extração matemática de dados para metanálise. Ele roda **na sua máquina**, usa as suas próprias chaves gratuitas ou institucionais, conecta-se à sua IA favorita via protocolo MCP (*Model Context Protocol*) e oferece um **aplicativo desktop com interface gráfica moderna** para Windows e Linux.
 
-O RSL.app roda **na sua máquina** (self-hosted), com as **suas** chaves gratuitas. Ele não tem servidor central, não cobra nada e não manda seus dados para lugar nenhum além das próprias bases consultadas.
+> **O Fundamento do Projeto:** Elevar a revisão sistemática com a IA do próprio pesquisador, com rastreabilidade e reprodutibilidade auditáveis, substituindo a desconfiança pelo rigor metodológico e em conformidade com as diretrizes internacionais (**PRISMA 2020**, **PRISMA-S**, **COPE**, **ICMJE** e **SciELO**).
 
-## O que ele faz
+---
 
-- **Busca por tema, palavra-chave, subtema ou título** nas três bases abertas, ao mesmo tempo. Em temas de saúde, medicina e biologia, a IA pode pedir também o **PubMed** e o **Europe PMC** (desde a 1.2).
-- **Usa o Scopus e o Web of Science com as suas chaves** (desde a 1.3), se você ou a sua instituição tiverem acesso. Veja "Bases pagas", abaixo.
-- **Deixa de fora os pareceres de revisão** (desde a 1.3): pareceres, cartas de decisão e respostas de autores que algumas bases trazem como se fossem artigos. Quem estuda a revisão por pares pode pedir para incluí-los.
-- **Tira as duplicatas.** O mesmo artigo vindo de mais de uma base aparece uma vez só, com os ids de cada base.
-- **Avisa quando a lista está incompleta.** Se uma base falha ou um limite corta a busca, a lista sai marcada como incompleta, com o motivo. Nenhuma lista incompleta passa por completa.
-- **Acha um artigo específico** pelo título ou pelo DOI.
-- **Traz as referências de um artigo e quem o cita**, como uma lista própria.
-- **Registra cada busca num log** (`log.md`): o pedido, a string enviada a cada base, a data, quantos artigos cada base achou e se veio do cache.
-- **Repete uma busca do log** com as mesmas strings, para atualizar uma revisão.
-- **Junta listas do mesmo assunto** (desde a 1.2): várias strings sobre um tema viram uma lista só, sem duplicatas, e a junção entra no log.
-- **Triagem com rastro de autoria e PRISMA 2020** (desde a 2.4): selecione e trie artigos artigo a artigo (com atalhos `I`, `E`, `M` na interface desktop ou via MCP com `screen_work`), com rastro auditável de quem decidiu (`human` vs `ai`), motivos de exclusão, diagrama vetorial SVG oficial do PRISMA 2020 e declaração metodológica de IA no padrão COPE/ICMJE/SciELO.
-- **Texto completo em Acesso Aberto (Open Access)** (desde a 3.0): resolução e download automático de PDFs legítimos e íntegros via Unpaywall, PubMed Central (PMC) e OpenAlex OA (`fetch_fulltext`), com validação binária de cabeçalho PDF e armazenamento local indexado.
-- **Extração estruturada para Metanálise** (desde a 3.0): extração de variáveis, desenho amostral e desfechos dicotômicos (OR, RR) e contínuos (MD, SMD/Hedges' g) com exportação nativa pronta para **R `metafor`** (`yi`, `vi`) e **RevMan 5/Web** (Cochrane).
-- **Risco de Viés e Qualidade Metodológica** (desde a 3.0): aplicação de Cochrane RoB 2, ROBINS-I e JBI com algoritmos de julgamento global e geração de matriz visual de semáforo (*traffic-light plot*).
-- **Concordância inter-avaliadores (Kappa de Cohen)** (desde a 3.0): cálculo de concordância em dupla triagem com escala Landis & Koch e lista de divergências para resolução de consenso.
-- **Exporta em sete formatos:** RIS, CSV no padrão do Scopus, JSON completo, lista de DOIs, URL de consulta do OpenAlex, BibTeX (desde a 1.2) e referências na ABNT NBR 6023:2018 (desde a 2.2). O RIS, o CSV e a lista de DOIs abrem no VOSviewer sem edição; o BibTeX abre no Zotero, no Mendeley e no JabRef.
-- **Guarda tudo na sua máquina:** listas, log, exportações e um cache das respostas, que expira em 7 dias e economiza sua cota.
+## O Ciclo Completo da Revisão (Do Protocolo à Metanálise)
 
-Ele busca textos completos apenas em fontes de Acesso Aberto legalmente autorizadas e não abre o VOSviewer sozinho. Cada pedido vira a sua própria lista; só listas do mesmo assunto devem ser juntadas.
+O RSL.app não é apenas um buscador de artigos: é uma bancada metodológica completa com 37 ferramentas MCP e interface desktop dedicada:
 
-## Do que você precisa
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ 1. Planejamento │ ──> │   2. Coleta &   │ ──> │ 3. Triagem com  │
+│  & Protocolos   │     │  Deduplicação   │     │ Rastro & Kappa  │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ 6. Metanálise,  │ <── │ 5. Textos OA &  │ <── │ 4. PRISMA 2020  │
+│  Risco & Redes  │     │   Fichamento    │     │ & Transparência │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
 
-1. **Uma IA que fale MCP**, como o Claude Desktop, o Claude Code ou outro cliente compatível.
-2. **O [uv](https://docs.astral.sh/uv/getting-started/installation/)** instalado. É ele que baixa e roda o RSL.app; você não precisa instalar o Python à mão.
-3. **Uma chave gratuita do OpenAlex**, obrigatória. Crie em [openalex.org/settings/api](https://openalex.org/settings/api) e **ative pelo link que chega no e-mail**: a chave só funciona depois disso. Ela dá 10.000 créditos por dia, e uma busca gasta cerca de 10.
-4. **Opcional: uma chave gratuita da [Semantic Scholar](https://www.semanticscholar.org/product/api#api-key-form).** Sem ela a Semantic Scholar funciona, mas recusa pedidos com mais frequência.
+### 1. Planejamento Metodológico e Vocabulário Controlado
+- **Protocolos pré-busca versionados:** Crie, versione e exporte protocolos nos formatos **PICO**, **PCC**, **PICo**, **SPIDER** ou Narrativo, prontos para registro no **PROSPERO** e no **OSF**.
+- **Descritores DeCS/MeSH trilíngues:** Catálogo integrado de descritores autorizados em Português, Inglês e Espanhol com sinônimos oficiais e construtor automático de strings booleanas.
+- **Roteiros especializados:** Prompts e orientações metodológicas para Revisão Sistemática (Cochrane), Revisão de Escopo (JBI), Revisão Integrativa (Whittemore/Mendes) e Estudo Bibliométrico.
 
-A Crossref e o Europe PMC não precisam de chave. O PubMed funciona sem chave; com uma chave gratuita do NCBI (`NCBI_API_KEY`), aceita mais pedidos por segundo.
+### 2. Busca Abrangente, Literatura Cinzenta e Deduplicação
+- **8 bases integradas:** Consulta simultânea e unificada em **OpenAlex**, **Crossref**, **Semantic Scholar**, **PubMed**, **Europe PMC**, **BDTD** (Biblioteca Digital Brasileira de Teses e Dissertações para literatura cinzenta nacional), além de **Scopus** e **Web of Science** (usando credenciais e acessos da sua instituição).
+- **Filtro de pareceres de revisão:** Exclusão automática de pareceres de revisão por pares (*peer-reviews* e cartas de decisão) que poluem as buscas.
+- **Deduplicação inteligente:** Unificação de artigos duplicados entre bases, preservando IDs cruzados e fontes de origem.
+- **Importação de arquivos externos:** Importe arquivos manuais em **RIS**, **BibTeX**, **CSV do Scopus** e **TSV do Web of Science** diretamente para as suas listas.
+- **Revisão Viva (Living Systematic Review):** Reexecute buscas passadas e detecte automaticamente artigos novos versus artigos preservados, gerando relatórios metodológicos diferenciais.
 
-## Bases pagas: Scopus e Web of Science
+### 3. Integridade Científica e Dupla Triagem Rastreável
+- **Verificador de alucinações de referências:** Valide se referências coladas ou geradas por IA realmente existem na Crossref e no OpenAlex, identificando dados divergentes ou referências fictícias.
+- **Detecção de retratações:** Alerta visual e metadados de artigos retratados ou com expressão de preocupação via base do **Retraction Watch**.
+- **Triagem com rastro de autoria:** Registre decisões de inclusão (`included`), exclusão (`excluded`) ou dúvida (`maybe`) com justificativa formal, marcando expressamente quem decidiu (`human` vs. `ai`).
+- **Atalhos rápidos no desktop:** Navegue e trie centenas de artigos por teclado (`I` para incluir, `E` para excluir, `M` para dúvida).
+- **Concordância inter-avaliadores (Kappa de Cohen):** Suporte a dupla triagem independente com cálculo automatizado de concordância de Kappa, categorização de Landis & Koch e listagem de divergências para resolução de consenso.
 
-**O RSL.app não dá acesso a bases pagas.** O Scopus e o Web of Science só funcionam com as chaves e a assinatura do próprio pesquisador ou da instituição dele. O RSL.app usa a sua conta, do mesmo jeito que usa a sua chave do OpenAlex. Elas só funcionam no RSL.app instalado no seu computador: o servidor hospedado não as oferece, porque os termos das duas bases proíbem servir os dados a quem é de fora da instituição.
+### 4. Relato e Transparência Metodológica
+- **Fluxograma PRISMA 2020 oficial em SVG:** Diagrama vetorial desenhado com os números reais de cada etapa (identificação, duplicatas removidas, triagem por título/resumo, elegibilidade e inclusão final).
+- **Checklist PRISMA-S:** Relatório auditável com datas, strings exatas por base, filtros aplicados e contagens.
+- **Declaração ética de IA:** Geração automatizada de declaração de transparência metodológica no padrão internacional **COPE / ICMJE / SciELO**, em português e inglês.
 
-**Scopus (Elsevier):**
-1. Crie uma chave gratuita em [dev.elsevier.com](https://dev.elsevier.com/), em "My API Key", com o e-mail da instituição. Ponha em `SCOPUS_API_KEY`.
-2. A chave sozinha não traz dados. A Elsevier confere a assinatura pelo IP: rode as buscas **na rede da instituição** ou na VPN dela. O login pela CAFe, no Portal de Periódicos da CAPES, vale para o site do Scopus, mas a API não o usa.
-3. Fora da rede, só com um token institucional, que a biblioteca pede à Elsevier. Ponha em `SCOPUS_INSTTOKEN`.
-4. Sem acesso completo, o RSL.app tenta a visão reduzida (só o primeiro autor, sem resumo) e avisa. Sem acesso nenhum, diz para conferir a rede ou o token.
+### 5. Textos Completos Open Access e Fichamento Analítico
+- **Download legal de PDFs em Acesso Aberto:** Resolução automatizada e download de textos completos legítimos via **Unpaywall**, **PubMed Central (PMC)** e **OpenAlex OA**, com validação de integridade do cabeçalho `%PDF`.
+- **Fichamento científico estruturado:** Registro analítico de objetivo, método, amostra, resultados, limitações e citações diretas com página, com distinção clara entre rascunho de IA e validação humana.
+- **Exportação para Obsidian:** Exporte fichamentos consolidados da revisão em Markdown com metadados estruturados.
 
-**Web of Science (Clarivate):**
-1. Peça uma chave da Starter API em [developer.clarivate.com](https://developer.clarivate.com/apis/wos-starter) e ponha em `WOS_STARTER_API_KEY`. O plano de teste é aberto a qualquer um, mas dá só **50 pedidos por dia** e não traz o número de citações. O plano de membro, para quem é de instituição assinante, dá 5.000 por dia, com citações.
-2. A Starter API não traz resumo, afiliações nem referências. Para mapas de coautoria por instituição ou de cocitação, use as bases abertas ou o Scopus.
+### 6. Síntese, Metanálise, Redes e Reprodutibilidade
+- **Tabela de extração para Metanálise:** Estruturação de dados amostrais e extração de desfechos dicotômicos (**OR**, **RR**) e contínuos (**MD**, **SMD / Hedges' g**) com cálculo de intervalos de confiança de 95%.
+- **Exportação nativa para R `metafor` e RevMan:** Arquivos CSV prontos para modelagem estatística com colunas `yi` e `vi` ou tabelas de contingência 2x2.
+- **Risco de Viés e Qualidade Metodológica:** Instrumentos **Cochrane RoB 2** (ensaios clínicos), **Cochrane ROBINS-I** (estudos não-randomizados) e **JBI Critical Appraisal**, com algoritmo determinístico de julgamento global e geração de **matriz de semáforo** (*traffic-light plot*).
+- **Redes bibliométricas nativas:** Geração de grafos de coautoria, acoplamento de veículos e coocorrência de palavras-chave prontos para o **VOSviewer** (`.map` e `.network`) e **Gephi** (`.gexf`).
+- **Pacote de Reprodutibilidade (.zip):** Pacote autocontido com todos os arquivos da revisão (dados brutos, protocolos, buscas, triagem, fichas, matrizes de metanálise e risco de viés) e manifesto de hashes criptográficos `checksums.sha256` pronto para depósito no **Zenodo** ou **OSF**.
 
-**O que os termos pedem de você:**
-- use os dados na sua própria pesquisa e cite a base como fonte (o log do RSL.app já faz o crédito);
-- não repasse as listas a quem é de fora da sua instituição;
-- pelos termos gerais da Clarivate, o conteúdo baixado do Web of Science só pode ser guardado por 3 meses, a não ser que a instituição tenha licença de arquivo.
+---
 
-O contrato da sua instituição vale mais do que este resumo.
+## Como Usar
 
-## Instalação no Claude Desktop
+O RSL.app pode ser utilizado de duas formas complementares:
 
-1. Feche o Claude Desktop por completo (no Windows, clique com o botão direito no ícone perto do relógio e escolha **Quit**).
-2. Abra a configuração: **Settings → Developer → Edit Config**. O arquivo é o `claude_desktop_config.json`.
-3. Acrescente o `rslapp` dentro de `"mcpServers"`:
+### Opção 1: Aplicativo Desktop (Interface Gráfica)
+Se você prefere uma interface visual sem intermediários:
+1. Baixe o executável pronto na página de [Releases](https://github.com/Erick-wilding675/RSL-MCP-APP/releases):
+   - **Windows (x64):** Baixe `RSL.app-<versao>-windows-x64.zip`, extraia e abra `RSL.app.exe`.
+   - **Linux (x86_64):** Baixe `RSL.app-<versao>-linux-x86_64.AppImage`, marque permissão de execução (`chmod +x`) e execute.
+2. Ou instale via Python (3.10+):
+   ```bash
+   pip install "rslapp[desktop]"
+   rslapp-desktop
+   ```
+3. O app inclui abas dedicadas para: **Buscar**, **Lista de Artigos**, **Triagem**, **PRISMA 2020**, **Extração Metanálise**, **Risco de Viés**, **Fichamento**, **Roteiros Metodológicos**, **Protocolos**, **Verificar Referências**, **Importar Arquivos**, **Histórico** e **Configurações**.
 
+### Opção 2: Servidor MCP (Conectado à sua IA)
+Conecte o RSL.app diretamente ao Claude Desktop, Claude Code, Cursor, VS Code ou ChatGPT.
+
+#### Configuração no Claude Desktop (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
@@ -73,152 +91,174 @@ O contrato da sua instituição vale mais do que este resumo.
       "args": ["rslapp"],
       "env": {
         "OPENALEX_API_KEY": "sua-chave-do-openalex",
-        "SEMANTIC_SCHOLAR_API_KEY": "sua-chave-da-semantic-scholar"
+        "SEMANTIC_SCHOLAR_API_KEY": "sua-chave-da-semantic-scholar",
+        "SCOPUS_API_KEY": "sua-chave-scopus-opcional"
       }
     }
   }
 }
 ```
 
-4. Salve e abra o Claude Desktop de novo. O `rslapp` aparece na lista de ferramentas, com nove ferramentas.
-5. Para conferir, peça: *"Quais fontes do rslapp estão prontas?"*. A IA chama `list_sources` e deve mostrar as três fontes como `ok`.
-
-**Se o Claude Desktop não achar o `uvx`:** troque `"uvx"` pelo caminho completo. No Windows, costuma ser `C:\\Users\\<seu-usuário>\\.local\\bin\\uvx.exe`. No macOS e no Linux, rode `which uvx` no terminal para descobrir.
-
-**Suas chaves ficam só no arquivo de configuração da sua máquina.** O RSL.app nunca as escreve no log, nas listas nem nas respostas à IA.
-
-### No Claude Code
-
+#### No Claude Code:
 ```bash
-claude mcp add --env OPENALEX_API_KEY=sua-chave --env SEMANTIC_SCHOLAR_API_KEY=sua-chave --transport stdio rslapp -- uvx rslapp
+claude mcp add --env OPENALEX_API_KEY=sua-chave --transport stdio rslapp -- uvx rslapp
 ```
 
-As opções vêm antes do nome `rslapp`, e o `--transport stdio` fica entre o último `--env` e o nome, como pede a [documentação do Claude Code](https://code.claude.com/docs/en/mcp).
+#### Conectar em 1 clique pelo Desktop:
+Na tela **Conectar IA** do app desktop, você pode configurar o Claude Desktop e o Cursor automaticamente com um clique.
 
-### Em outros clientes MCP
+---
 
-O RSL.app é um servidor MCP por **stdio**. O comando é `uvx rslapp`, e as chaves vão como variáveis de ambiente.
+## Exemplos de Interação com a IA
 
-## Usar por link (servidor hospedado)
+Fale com sua IA em linguagem natural. Alguns fluxos recomendados:
 
-<!-- D-011, D-017, D-018 -->
-**Para instituições de ensino:** uma universidade pode oferecer o RSL.app a todos os seus pesquisadores, no Claude e no ChatGPT, num servidor próprio. Comece pela seção "Para instituições de ensino" do [guia de hospedagem](docs/hospedagem.md).
+- **Planejamento:** *"Monte um protocolo PICO para avaliar o impacto do feedback formativo mediado por IA na retenção escolar e gere a busca com descritores DeCS."*
+- **Busca ampla:** *"Busque artigos sobre 'living systematic reviews' e metodologias ágeis de síntese de evidência no OpenAlex, PubMed e BDTD. Exporte a lista em RIS."*
+- **Verificação:** *"Confira este parágrafo com citações contra a base da Crossref e me diga se alguma referência foi alucinada ou se algum estudo foi retratado."*
+- **Triagem:** *"Trie os artigos da lista l-0005 com base nos critérios do protocolo e calcule a concordância Kappa de Cohen entre o revisor humano e as sugestões de IA."*
+- **Textos completos:** *"Baixe os PDFs em acesso aberto de todos os estudos incluídos na lista l-0005 e liste o status do manifesto."*
+- **Metanálise:** *"Extraia os dados amostrais e os desfechos de mortalidade dos ensaios clínicos da lista e gere a matriz de exportação para o pacote R metafor."*
+- **Risco de Viés:** *"Aplique o instrumento Cochrane RoB 2 nos estudos incluídos e exiba o resumo com a matriz de semáforo."*
+- **Reprodutibilidade:** *"Exporte o pacote completo de reprodutibilidade em .zip com hashes SHA-256 para depósito no OSF."*
 
-Um laboratório, grupo de pesquisa ou pessoa também pode hospedar o RSL.app num servidor próprio com Docker e HTTPS pelo Caddy, gerando um código de acesso individual para cada pesquisador conectar por link (`https://<domínio>/mcp`) sem instalar nada na própria máquina. As chaves das bases e os dados das buscas ficam no servidor de quem hospeda. Veja o passo a passo e o aviso sobre a LGPD em [`docs/hospedagem.md`](docs/hospedagem.md).
+---
 
-## App desktop
+## As 37 Ferramentas do Servidor MCP
 
-<!-- D-024, D-025, D-026, FR-16, FR-17, FR-18 -->
-Se você preferir usar o RSL.app direto numa tela (buscar, ver a lista, exportar em RIS, CSV, BibTeX, JSON ou DOIs, consultar o histórico, repetir buscas e configurar as chaves sem precisar de uma IA no meio), há executáveis prontos para Windows e Linux na página de [Releases](https://github.com/Erick-wilding675/RSL-MCP-APP/releases):
+O servidor MCP expõe 37 ferramentas auditáveis e estruturadas:
 
-- **Windows (x64):** baixe `RSL.app-<versão>-windows-x64.zip`, extraia a pasta `RSL.app` e abra `RSL.app.exe`. Como o executável não é assinado comercialmente, o Windows SmartScreen pode mostrar o aviso *"O Windows protegeu o computador"* na primeira execução: clique em **Mais informações** e depois em **Executar assim mesmo**. **Na 2.0.0 e na 2.1.0, se a janela não abrir**, o Windows bloqueou os arquivos vindos da internet: clique com o botão direito no zip → **Propriedades** → marque **Desbloquear** → **OK**, e extraia de novo. A partir da 2.1.1 isso não é mais preciso.
-- **Linux (x86_64):** baixe `RSL.app-<versão>-linux-x86_64.AppImage`, dê permissão de execução (`chmod +x RSL.app-*-linux-x86_64.AppImage`) e execute-o. No Linux, o AppImage abre a interface no navegador padrão, escutando apenas na própria máquina (`127.0.0.1`).
-- **Instalação pelo `pip` (Python 3.11+):**
-  ```bash
-  pip install "rslapp[desktop]"
-  rslapp-desktop
-  ```
-
-**Ligar a sua IA ao app (desde a 2.1):** na tela **Conectar IA**, um botão liga o Claude Desktop ao RSL.app do seu computador (o app mostra o que vai mudar e guarda uma cópia do arquivo de configuração do Claude). Para o Cursor há um botão de instalação, e para o VS Code e o Claude Code o comando pronto para copiar. Não precisa instalar Python, nem `uv`, nem editar arquivo: a IA usa o próprio programa do app (`RSL.app.exe --mcp`), com as chaves salvas em Configurações, e as buscas que ela fizer aparecem no Histórico. O ChatGPT só se liga a servidores na internet: use-o pelo servidor da sua instituição (veja o [guia de hospedagem](docs/hospedagem.md#no-chatgpt)).
-
-**Mesmos dados do servidor e onde ficam as chaves:**
-- O app desktop usa **a mesma pasta de dados** (`~/RSL.app` ou `RSL_DATA_DIR`), **as mesmas listas** e **o mesmo `log.md`** do servidor MCP. As buscas feitas no app aparecem no servidor MCP e vice-versa.
-- As chaves e pastas salvas na tela **Configurações** ficam fora da pasta de dados (para não irem junto se você compactar `~/RSL.app` para anexar à metodologia): em `%APPDATA%\RSL.app\desktop.json` no Windows e em `$XDG_CONFIG_HOME/rslapp/desktop.json` (ou `~/.config/rslapp/desktop.json`) no Linux, com permissão restrita ao dono (`0600` no Linux). Variáveis de ambiente já definidas no sistema continuam tendo prioridade e não são sobrescritas.
-
-## Como usar
-
-Fale com a IA normalmente. Alguns pedidos que funcionam bem:
-
-- *"Busque artigos sobre aprendizagem baseada em projetos no ensino de ciências e exporte em RIS."*
-- *"Ache o artigo 'Software survey: VOSviewer, a computer program for bibliometric mapping' e me traga até 200 trabalhos que o citam, de cada base."*
-- *"Me mostre o log das buscas de hoje."*
-- *"Repita a busca s-0003 e exporte em CSV."*
-
-A IA planeja antes de buscar: se o pedido tem assuntos diferentes, ela faz uma busca e uma lista para cada um.
-
-### Abrir no VOSviewer
-
-| Arquivo | Como abrir no VOSviewer |
-|---|---|
-| `.ris` | Create → *Create a map based on bibliographic data* → *Read data from reference manager files* → RIS |
-| `.csv` | Create → *Create a map based on bibliographic data* → *Read data from bibliographic database files* → aba **Scopus** |
-| `.dois.txt` | Create → *Create a map based on bibliographic data* → *Read data through API* |
-| `.openalex.txt` | A URL da consulta ao OpenAlex (uma por linha, até 100 artigos cada), com os artigos da lista que vieram do OpenAlex |
-| `.bib` | Não abre no VOSviewer: importe no Zotero (*Arquivo → Importar*), no Mendeley ou no JabRef |
-
-O CSV leva as referências como DOIs, o que permite mapas de citação e de acoplamento bibliográfico.
-
-## Onde ficam os arquivos
-
-Por padrão, na pasta `RSL.app` dentro da sua pasta de usuário (no Windows, `C:\Users\<seu-usuário>\RSL.app`):
-
-| Pasta ou arquivo | O que tem |
-|---|---|
-| `log.md` | O log legível de todas as buscas |
-| `exports/` | Os arquivos exportados (`l-0001.ris`, `l-0001.csv`…) |
-| `lists/` e `searches/` | As listas e as buscas salvas, para reexportar depois |
-| `cache/` | As respostas das bases, por 7 dias |
-
-## Configuração
-
-Tudo por variáveis de ambiente, no bloco `env` da configuração do cliente. Nenhuma exige mexer no código.
-
-| Variável | O que faz | Padrão |
+| Categoria | Ferramenta | O que faz |
 |---|---|---|
-| `OPENALEX_API_KEY` | Chave do OpenAlex (obrigatória para o OpenAlex) | - |
-| `SEMANTIC_SCHOLAR_API_KEY` | Chave da Semantic Scholar (opcional) | - |
-| `NCBI_API_KEY` | Chave do NCBI para o PubMed (opcional) | - |
-| `SCOPUS_API_KEY` | Sua chave do Scopus (só com acesso da instituição) | - |
-| `SCOPUS_INSTTOKEN` | Token institucional do Scopus, para buscar fora da rede da instituição (opcional) | - |
-| `WOS_STARTER_API_KEY` | Sua chave da Web of Science Starter API | - |
-| `RSL_CONTACT_EMAIL` | Seu e-mail, enviado à Crossref, ao NCBI e ao Europe PMC, que atendem melhor quem se identifica (opcional) | - |
-| `RSL_DATA_DIR` | Onde guardar listas, log e cache | `~/RSL.app` |
-| `RSL_EXPORT_DIR` | Onde gravar as exportações | `<RSL_DATA_DIR>/exports` |
-| `RSL_CACHE_DAYS` | Por quantos dias o cache vale | `7` |
-| `RSL_DESKTOP_CONFIG` | Só no app desktop: onde fica o `desktop.json` com as chaves e pastas salvas na tela Configurações | `%APPDATA%\RSL.app\desktop.json` (Windows), `~/.config/rslapp/desktop.json` (Linux) |
+| **Busca & Coleta** | `search_works` | Busca unificada em 8 bases com remoção de duplicatas e filtro de pareceres |
+| | `find_work` | Localiza artigo por título exato ou DOI |
+| | `get_related_works` | Recupera referências citadas ou trabalhos que citam um artigo |
+| | `repeat_search` | Repete busca prévia a partir do log |
+| | `get_list` | Consulta artigos de uma lista salva com paginação |
+| | `get_search_log` | Recupera o histórico de buscas e caminho do `log.md` |
+| | `merge_lists` | Junta múltiplas listas do mesmo tema sem duplicatas |
+| | `list_sources` | Informa status e conectividade das bases de dados |
+| | `import_works` | Importa arquivos externos (RIS, BibTeX, Scopus CSV, WoS TSV) |
+| **Protocolo & Método**| `save_protocol` | Cria ou atualiza protocolo metodológico versionado (PICO, PCC, etc.) |
+| | `get_protocol` | Recupera versão específica ou atual de um protocolo |
+| | `list_protocols` | Lista todos os protocolos registrados |
+| | `export_protocol_markdown`| Exporta protocolo em Markdown estruturado para PROSPERO/OSF |
+| | `lookup_descriptors` | Busca descritores controlados DeCS/MeSH trilíngues |
+| | `build_multilingual_search_query` | Monta strings de busca booleanas estruturadas |
+| **Triagem & PRISMA** | `screen_work` | Registra decisão de triagem com motivo e rastro de autoria (`human`/`ai`) |
+| | `get_screening_status` | Sumário quantitativo da triagem e motivos de exclusão |
+| | `get_screening_concordance` | Calcula concordância Kappa de Cohen e lista divergências |
+| | `get_prisma_flow` | Dados estruturados e métricas das 4 etapas do PRISMA 2020 |
+| | `get_ai_disclosure` | Gera declaração metodológica de uso de IA (COPE/ICMJE/SciELO) |
+| **Integridade** | `verify_references` | Valida listas de referências contra alucinações via Crossref e OpenAlex |
+| **Textos & Fichas** | `fetch_fulltext` | Resolve e baixa PDF de acesso aberto via Unpaywall, PMC ou OpenAlex |
+| | `get_fulltext_status` | Consulta manifesto de textos completos baixados |
+| | `save_work_note` | Salva fichamento analítico com marcação de revisão humana |
+| | `get_work_note` | Recupera ficha científica de um estudo |
+| | `list_work_notes` | Lista fichamentos cadastrados para uma revisão |
+| | `export_notes_markdown` | Exporta compilação de fichamentos em Markdown para Obsidian |
+| **Metanálise & Viés** | `save_extraction_data` | Registra variáveis, intervenções e desfechos quantitativos |
+| | `get_extraction_table` | Obtém tabela consolidada de extração de dados |
+| | `export_extraction_csv` | Exporta matriz de dados para R `metafor` (`yi`, `vi`) ou RevMan 5 |
+| | `save_risk_of_bias` | Registra avaliação Cochrane RoB 2, ROBINS-I ou JBI com julgamento global |
+| | `get_risk_of_bias_summary` | Sumário de risco de viés e dados para matriz de semáforo |
+| **Bibliometria & Redes**| `export_network` | Extrai e exporta redes de coautoria, periódicos e termos (VOSviewer / Gephi) |
+| **Revisão Viva** | `compare_search_versions` | Compara duas versões de busca identificando artigos novos e retidos |
+| | `update_search_differential` | Atualiza busca prévia em modo LSR gerando relatório diferencial |
+| **Exportação & Pacote**| `export_list` | Exporta lista em RIS, CSV, JSON, DOIs, BibTeX, ABNT ou OpenAlex URL |
+| | `export_reproducibility_package` | Gera pacote autocontido em `.zip` com manifesto de integridade SHA-256 |
+| **Prompts MCP** | `plan_search` | Guia a IA no planejamento rigoroso da estratégia de busca |
 
-As variáveis do modo hospedado (`RSL_PUBLIC_URL`, prazos dos links e dos tokens) estão no [guia de hospedagem](docs/hospedagem.md).
+---
 
-## As ferramentas que a IA recebe
+## Compatibilidade com Ferramentas Externas
 
-| Ferramenta | O que faz |
-|---|---|
-| `search_works` | Busca por termos nas bases abertas e pagas e cria uma lista, sem pareceres de revisão |
-| `find_work` | Acha um artigo específico por título ou DOI |
-| `get_related_works` | Traz as referências ou as citações de um artigo |
-| `repeat_search` | Repete uma busca do log |
-| `get_list` | Mostra uma lista salva, por páginas |
-| `get_search_log` | Mostra o log e o caminho do `log.md` |
-| `merge_lists` | Junta listas do mesmo assunto numa lista nova, sem duplicatas |
-| `export_list` | Grava a lista em `ris`, `csv`, `json`, `dois`, `openalex_url` ou `bibtex` |
-| `list_sources` | Diz quais bases estão prontas |
-| `fetch_fulltext` | Resolve e baixa texto completo em Acesso Aberto (Unpaywall, PMC, OpenAlex) em PDF íntegro |
-| `get_fulltext_status` | Consulta manifesto e status de textos completos baixados para a lista |
-| `save_extraction_data` | Registra desenho amostral e desfechos de um estudo para metanálise |
-| `get_extraction_table` | Obtém tabela consolidada de extração de uma lista |
-| `export_extraction_csv` | Exporta matriz de extração para formato R `metafor` ou RevMan |
-| `save_risk_of_bias` | Salva avaliação de qualidade/risco de viés (RoB 2, ROBINS-I, JBI) com julgamento global |
-| `get_risk_of_bias_summary` | Gera sumário de avaliações e dados para matriz de semáforo (*traffic-light*) |
-| `get_screening_concordance`| Calcula concordância inter-avaliadores (Kappa de Cohen) e lista divergências |
-| `plan_search` (prompt) | Orienta a IA a planejar e dividir o pedido antes de buscar |
+O RSL.app integra-se perfeitamente às ferramentas de pesquisa mais utilizadas:
 
-O contrato completo, com entradas, respostas e códigos de erro, está em [`docs/interface-contract.md`](docs/interface-contract.md).
+| Ferramenta | Formato Gerado pelo RSL.app | Aplicação |
+|---|---|---|
+| **VOSviewer** | `.ris`, `.csv` (Scopus), `.map`, `.network`, `.dois.txt` | Mapas de coautoria, cocitação e acoplamento bibliográfico |
+| **Gephi** | `.gexf` (Graph Exchange XML Format) | Análise avançada de redes complexas e métricas de centralidade |
+| **R (`metafor` / `meta`)** | `.csv` (com colunas `yi`, `vi`, `ai, bi, ci, di, n1i, n2i`) | Metanálise de efeitos fixos e aleatórios, meta-regressão e forest plots |
+| **RevMan 5 / Web** | `.csv` | Elaboração de revisões e metanálises da Colaboração Cochrane |
+| **Zotero / Mendeley** | `.bib`, `.ris` | Gerenciamento de referências e citações no editor de texto |
+| **Obsidian / Logseq** | `.md` (Markdown com frontmatter e fichas) | Gestão de conhecimento acadêmico e revisão temática |
+| **Zenodo / OSF** | `.zip` (com `checksums.sha256`) | Depósito de dados de pesquisa e registro com DOI |
 
-## Dados pessoais
+---
 
-As listas guardam nome, ORCID e afiliação dos autores, que são dados públicos das próprias bases e formam os nós das redes de coautoria. Eles ficam só na sua máquina, na pasta de dados, e não vão para nenhum outro lugar. Para apagar tudo, apague a pasta.
+## Onde os Arquivos Ficam Armazenados
 
-## Para quem desenvolve
+Por padrão, na pasta `~/RSL.app` (no Windows: `C:\Users\<seu-usuário>\RSL.app`, configurável via `RSL_DATA_DIR`):
+
+```
+RSL.app/
+├── log.md                     # Registro cronológico auditável de buscas e operações
+├── lists/                     # Metadados JSON completos de cada lista gerada
+├── searches/                  # Parâmetros e strings originais enviadas a cada base
+├── screening/                 # Decisões de triagem, motivos e autoria (humano vs. IA)
+├── notes/                     # Fichamentos estruturados da leitura de artigos
+├── protocols/                 # Protocolos metodológicos pré-busca e versionamento
+├── differential/              # Comparações diferenciais de revisões vivas
+├── fulltext/                  # Textos completos (PDFs) em Acesso Aberto baixados
+├── exports/                   # Arquivos gerados (RIS, CSV, BibTeX, ABNT, VOSviewer, ZIP)
+└── cache/                     # Cache local de respostas das APIs (expira em 7 dias)
+```
+
+---
+
+## Configuração e Variáveis de Ambiente
+
+Todas as configurações podem ser feitas pela tela **Configurações** do app desktop ou por variáveis de ambiente:
+
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `OPENALEX_API_KEY` | Chave gratuita do OpenAlex (10.000 créditos/dia) | Opcional (recomendada) |
+| `SEMANTIC_SCHOLAR_API_KEY` | Chave gratuita da Semantic Scholar | Opcional |
+| `NCBI_API_KEY` | Chave do NCBI para o PubMed (permite mais requisições/segundo) | Opcional |
+| `SCOPUS_API_KEY` | Chave da Elsevier para o Scopus | Opcional (institucional) |
+| `SCOPUS_INSTTOKEN` | Token institucional para Scopus fora da rede universitária | Opcional |
+| `WOS_STARTER_API_KEY` | Chave da Web of Science Starter API (Clarivate) | Opcional |
+| `RSL_CONTACT_EMAIL` | E-mail de contato cortês (Crossref, NCBI e Europe PMC) | Opcional |
+| `RSL_DATA_DIR` | Diretório de armazenamento dos dados | `~/RSL.app` |
+| `RSL_EXPORT_DIR` | Diretório destino dos arquivos exportados | `<RSL_DATA_DIR>/exports` |
+| `RSL_CACHE_DAYS` | Validade do cache local das APIs (em dias) | `7` |
+
+---
+
+## Modo Hospedado (Multi-Usuário Institucional)
+
+Uma universidade, laboratório ou grupo de pesquisa pode rodar o RSL.app em um servidor próprio compartilhado via **Docker** com HTTPS automático pelo **Caddy**:
+- Login seguro por código pessoal gerado pelo administrador (`rslapp token add`).
+- Dados e listas isolados por pesquisador, com cache compartilhado de APIs.
+- Conexão direta por link HTTPS (`https://rsl.sua-universidade.br/mcp`) para Claude e ChatGPT.
+- Veja o guia completo em [`docs/hospedagem.md`](docs/hospedagem.md).
+
+---
+
+## Dados Pessoais, Ética e LGPD
+
+- O RSL.app armazena nomes públicos de autores, afiliações e identificadores ORCID fornecidos pelas próprias bases acadêmicas para viabilizar mapas de coautoria e análise bibliométrica.
+- Os dados ficam **estritamente na sua máquina local**. O RSL.app não possui servidores centrais de coleta, não inclui telemetria oculta e não envia dados dos seus projetos a terceiros além das próprias bases consultadas.
+
+---
+
+## Para Desenvolvedores
 
 ```bash
 git clone https://github.com/Erick-wilding675/RSL-MCP-APP.git
 cd RSL-MCP-APP
-uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev ruff check .
-uv run --isolated --no-editable --reinstall-package rslapp --python 3.10 --extra dev pytest -q
+uv run --extra dev ruff check .
+uv run --extra dev python -m pytest tests/
+uv run --extra desktop-dev --extra desktop pytest tests_desktop/
 ```
 
-A pasta [`docs/`](docs/) tem a descrição do sistema, os requisitos, a arquitetura, as decisões e uma spec por tarefa. Python 3.10 ou mais novo, SDK oficial do MCP (`mcp>=2,<3`).
+- Documentação de arquitetura, contratos e decisões: pasta [`docs/`](docs/).
+- Estado do projeto e diário Blueprint: pasta [`.blueprint/`](.blueprint/).
+- Stack: Python 3.10+, SDK oficial `mcp>=2,<3`, NiceGUI 2.x, HTTPX assíncrono.
+
+---
 
 ## Licença
 
-[MIT](LICENSE). Uso livre, sem fins comerciais por parte do projeto. Respeite os termos de uso de cada base consultada.
+[MIT](LICENSE). Software livre e gratuito. Respeite os termos de uso e licenciamento de cada base de dados consultada.
