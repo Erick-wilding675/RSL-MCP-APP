@@ -238,7 +238,19 @@ Decidido em 2026-11-18 (D-030, D-044): catálogo e assistente de vocabulário co
 3. Publicação da 2.10.0 e teste real. Spec: `specs/21-03-publicacao-2-10-e-teste-real.md`
 
 
-### Depois da 1.2: a versão maior (2.0)
+**Fase 21 pronta em 2026-11-18:** tarefas 21-01 a 21-03 concluídas, 822 testes do núcleo e 71 testes do desktop passando, pacote 2.10.0 publicado no PyPI.
+
+### 22 · Versão 3.0: A Revisão Completa (Texto Aberto, Extração Metanálise, Risco de Viés e Dupla Triagem Kappa)
+
+Decidido em 2026-11-19 (D-030, D-045 a D-049): suporte completo às fases finais de revisão sistemática e metanálise, cobrindo recuperação legal de texto completo em PDF de acesso aberto, tabela e extração de dados estruturados com exportação para R `metafor` e RevMan, avaliação sistemática de risco de viés (RoB 2, ROBINS-I, JBI), cálculo de concordância Kappa de Cohen e Pacote de Reprodutibilidade expandido.
+
+1. Texto Completo Legal em Acesso Aberto: módulo `rslapp.core.fulltext` com resolução OA (OpenAlex, Unpaywall, Europe PMC/PMC) e download de PDFs na pasta da revisão com validação de integridade. Spec: `specs/22-01-texto-completo-open-access.md`
+2. Tabela de Extração de Dados para Metanálise: módulo `rslapp.core.extraction` com extração de estudos (RCT, coortes, etc.), múltiplos desfechos com cálculo de OR, RR, MD e SMD, e exportadores para R `metafor` e RevMan. Spec: `specs/22-02-tabela-extracao-metanalise.md`
+3. Avaliação de Risco de Viés e Qualidade Metodológica: módulo `rslapp.core.risk_of_bias` com suporte a RoB 2, ROBINS-I e JBI, cálculo de julgamento global e matriz de semáforo. Spec: `specs/22-03-avaliacao-risco-de-vies.md`
+4. Dupla Triagem, Kappa de Cohen e Pacote de Reprodutibilidade Expandido: módulo `rslapp.core.screening` estendido com cálculo do Kappa de Cohen e divergências, e Pacote de Reprodutibilidade (`.zip`) incluindo extração, viés e manifesto OA com SHA-256. Spec: `specs/22-04-dupla-triagem-kappa-e-pacote.md`
+5. Novas Ferramentas MCP e Interface Desktop: 8 novas ferramentas MCP (totalizando 37 ferramentas no servidor MCP), telas `/extracao/{list_id}` e `/qualidade/{list_id}`, botões de download de texto completo e indicadores de concordância. Spec: `specs/22-05-desktop-e-ferramentas-mcp.md`
+6. Publicação da 3.0.0 e teste real. Spec: `specs/22-06-publicacao-e-teste-real.md`
+
 
 O Erick quer as três frentes grandes na próxima versão maior (2026-11-11). Cada uma pede uma decisão dele antes da spec, porque mexe com pilha, licença ou custo. A primeira, Scopus e Web of Science, virou a fase 10 (D-023):
 

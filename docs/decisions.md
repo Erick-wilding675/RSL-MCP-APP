@@ -534,5 +534,71 @@ Todas as decisões do projeto, num só lugar, a mais nova por último. Uma decis
 - **Situação:** decidida. Spec 21-01.
 
 
+## D-045 · Recuperação Legal de Texto Completo em Acesso Aberto (v3.0)
+
+- **Decisão:** o RSL.app oferece resolução e download de artigos completos em PDF de acesso aberto legal (Open Access):
+  - **Fontes legais abertas:** OpenAlex (`oa_url`, `best_oa_location`), Unpaywall API (`https://api.unpaywall.org/v2/`), Europe PMC e PMC Open Access subset.
+  - **Rigor ético:** Sci-Hub e mecanismos de quebra de paywall estão terminantemente fora do projeto. Artigos fechados recebem a indicação clara `restricted_paywall`.
+  - **Validação de integridade:** verificação do cabeçalho binário `%PDF` para prevenir download de páginas HTML de erro ou redirecionamento.
+  - **Armazenamento:** `fulltext/{list_id}/{work_id}.pdf` com manifesto auditável `fulltext_manifest.json`.
+  - **Ferramentas MCP e Desktop:** `fetch_fulltext`, `get_fulltext_status`, botão de download em lote e badges visuais na tela Lista.
+- **Motivo:**
+  - Viabiliza a etapa de triagem de texto completo e extração de dados sem obrigar o pesquisador a procurar e baixar manualmente dezenas de PDFs abertos espalhados em diferentes repositórios.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-19
+- **Situação:** decidida. Spec 22-01.
+
+
+## D-046 · Tabela de Extração de Dados para Metanálise, R metafor e RevMan (v3.0)
+
+- **Decisão:** o RSL.app implementa a extração analítica e quantitativa de dados de estudos incluídos:
+  - **Estrutura de dados:** desenho do estudo, grupos amostrais (intervenção vs. controle), desfechos dicotômicos (eventos/total) ou contínuos (média/desvio-padrão), estimativas de efeito (OR, RR, MD, SMD) e intervalos de confiança de 95%.
+  - **Cálculo automático:** conversão e estimativa paramétrica de medidas de efeito para conferência instantânea.
+  - **Exportação:** CSV estruturado para R (`metafor`, `meta`) e RevMan 5 / RevMan Web.
+  - **Rastreabilidade:** citação/página de evidência e registro de autoria (`ai_extracted` vs. `human_verified`).
+  - **Ferramentas MCP e Desktop:** `save_extraction_data`, `get_extraction_table`, `export_extraction_csv`, nova tela `/extracao/{list_id}`.
+- **Motivo:**
+  - Conecta a etapa de revisão sistemática diretamente à síntese estatística / metanálise, eliminando a digitação manual propensa a erros em planilhas externas.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-19
+- **Situação:** decidida. Spec 22-02.
+
+
+## D-047 · Avaliação Sistemática de Risco de Viés: RoB 2, ROBINS-I e JBI (v3.0)
+
+- **Decisão:** o RSL.app oferece suporte aos três principais instrumentos internacionais de qualidade metodológica e risco de viés:
+  - **Instrumentos suportados:** Cochrane RoB 2 (ensaios clínicos randomizados), Cochrane ROBINS-I (estudos observacionais não-randomizados) e JBI Critical Appraisal Checklists.
+  - **Julgamento por domínios e regra global:** avaliação domínio por domínio com justificativa e trecho de evidência textual; cálculo automático do risco geral conforme algoritmos oficiais da Cochrane.
+  - **Matriz de semáforo:** geração de matriz visual pronta para gráficos de semáforo (*traffic-light plot*).
+  - **Ferramentas MCP e Desktop:** `save_risk_of_bias`, `get_risk_of_bias_summary`, nova tela `/qualidade/{list_id}`.
+- **Motivo:**
+  - Exigência mandatória das diretrizes PRISMA 2020 e periódicos de alto impacto em saúde e ciências humanas.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-19
+- **Situação:** decidida. Spec 22-03.
+
+
+## D-048 · Dupla Triagem, Kappa de Cohen e Pacote de Reprodutibilidade Expandido (v3.0)
+
+- **Decisão:** o RSL.app implementa a métrica científica padrão de concordância inter-avaliadores (Kappa de Cohen):
+  - **Cálculo formal:** concordância observada ($P_o$), concordância esperada pelo acaso ($P_e$) e $\kappa$ com categorização de Landis & Koch (Leve, Moderada, Substancial, Quase Perfeita).
+  - **Gestão de divergências:** identificação dos artigos com decisões conflitantes para resolução por consenso ou terceiro revisor.
+  - **Expansão do Pacote de Reprodutibilidade:** inclusão de `extraction.csv`, `extraction.json`, `risk_of_bias.json`, `fulltext_manifest.json` e `screening_concordance.json` no `.zip`, todos com hashes no `checksums.sha256`.
+  - **Ferramenta MCP:** `get_screening_concordance`.
+- **Motivo:**
+  - Aferição rigorosa e publicável da concordância entre pesquisadores independentes e validação formal de sugestões de IA na triagem.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-19
+- **Situação:** decidida. Spec 22-04.
+
+
+## D-049 · Novas Ferramentas MCP e Interface Desktop para a Revisão Completa (v3.0)
+
+- **Decisão:** expansão do servidor MCP para 37 ferramentas públicas e adição das novas telas na interface desktop:
+  - **Servidor MCP:** registro em stdio e HTTP multiusuário das 8 novas ferramentas (`fetch_fulltext`, `get_fulltext_status`, `save_extraction_data`, `get_extraction_table`, `export_extraction_csv`, `save_risk_of_bias`, `get_risk_of_bias_summary`, `get_screening_concordance`).
+  - **Telas Desktop:** `/extracao/{list_id}`, `/qualidade/{list_id}`, atalhos na tela Lista e na tela de Triagem.
+- **Motivo:**
+  - Torna a experiência acessível tanto via agentes de IA conectados (Claude Desktop, Cursor, ChatGPT) quanto para pesquisadores que usam a interface gráfica autônoma.
+- **Decidido por:** Claude, com a aceitação antecipada das recomendações pelo Erick · **Data:** 2026-11-19
+- **Situação:** decidida. Spec 22-05.
+
+
+
 
 
