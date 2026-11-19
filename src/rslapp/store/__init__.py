@@ -69,6 +69,8 @@ class Store:
         self.protocols_dir: Path = self.data_dir / "protocols"
         self.differential_dir: Path = self.data_dir / "differential"
         self.fulltext_dir: Path = self.data_dir / "fulltext"
+        self.extraction_dir: Path = self.data_dir / "extraction"
+        self.quality_dir: Path = self.data_dir / "quality"
         # D-012, D-013: Pasta de cache opcional separada da pasta de dados da pessoa
         self.cache_dir: Path = Path(cache_dir) if cache_dir is not None else self.data_dir / "cache"
         self.log_path: Path = self.data_dir / "log.md"
@@ -480,6 +482,67 @@ class Store:
         p = self.fulltext_dir / clean_lid
         p.mkdir(parents=True, exist_ok=True)
         return p
+
+    # FR-35, D-046: Armazenamento de extração de dados para metanálise
+    def save_extraction(self, list_id: str, extraction_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva atomicamente a ficha de extração do estudo em extraction/{list_id}/{work_id}.json."""
+        clean_lid = sanitize_filename_id(list_id)
+        work_id = str(extraction_data.get("work_id", "")).strip()
+        if not work_id:
+            raise ValueError("extraction_data deve conter 'work_id'")
+
+        clean_wid = sanitize_filename_id(work_id)
+        target_dir = self.extraction_dir / clean_lid
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_file = target_dir / f"{clean_wid}.json"
+
+        payload = copy.deepcopy(extraction_data)
+        payload["work_id"] = work_id
+        if not payload.get("updated_at"):
+            payload["updated_at"] = format_utc_iso(parse_utc_timestamp(None))
+
+        with file_lock(self.lock_path):
+            atomic_write_replace(target_file, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        return payload
+
+    def get_extraction(self, list_id: str, work_id: str | int) -> dict[str, Any] | None:
+        """Devolve a extração de dados de um estudo específico na lista ou None."""
+        clean_lid = sanitize_filename_id(list_id)
+        clean_wid = sanitize_filename_id(work_id)
+        target_file = self.extraction_dir / clean_lid / f"{clean_wid}.json"
+        if not target_file.exists():
+            return None
+        try:
+            return json.loads(target_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def list_extractions(self, list_id: str) -> list[dict[str, Any]]:
+        """Lista todas as fichas de extração de uma lista."""
+        clean_lid = sanitize_filename_id(list_id)
+        target_dir = self.extraction_dir / clean_lid
+        if not target_dir.exists():
+            return []
+        res: list[dict[str, Any]] = []
+        for f in target_dir.glob("*.json"):
+            try:
+                res.append(json.loads(f.read_text(encoding="utf-8")))
+            except (json.JSONDecodeError, OSError):
+                continue
+        res.sort(key=lambda x: str(x.get("work_id", "")))
+        return res
+
+    def delete_extraction(self, list_id: str, work_id: str | int) -> bool:
+        """Remove a extração de dados de um estudo."""
+        clean_lid = sanitize_filename_id(list_id)
+        clean_wid = sanitize_filename_id(work_id)
+        target_file = self.extraction_dir / clean_lid / f"{clean_wid}.json"
+        with file_lock(self.lock_path):
+            if target_file.exists():
+                target_file.unlink()
+                return True
+        return False
+
 
 
 
