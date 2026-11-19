@@ -543,6 +543,67 @@ class Store:
                 return True
         return False
 
+    # FR-36, D-047: Armazenamento de avaliação de risco de viés e qualidade metodológica
+    def save_risk_of_bias(self, list_id: str, assessment_data: dict[str, Any]) -> dict[str, Any]:
+        """Salva atomicamente a avaliação de risco de viés em quality/{list_id}/{work_id}.json."""
+        clean_lid = sanitize_filename_id(list_id)
+        work_id = str(assessment_data.get("work_id", "")).strip()
+        if not work_id:
+            raise ValueError("assessment_data deve conter 'work_id'")
+
+        clean_wid = sanitize_filename_id(work_id)
+        target_dir = self.quality_dir / clean_lid
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_file = target_dir / f"{clean_wid}.json"
+
+        payload = copy.deepcopy(assessment_data)
+        payload["work_id"] = work_id
+        if not payload.get("updated_at"):
+            payload["updated_at"] = format_utc_iso(parse_utc_timestamp(None))
+
+        with file_lock(self.lock_path):
+            atomic_write_replace(target_file, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        return payload
+
+    def get_risk_of_bias(self, list_id: str, work_id: str | int) -> dict[str, Any] | None:
+        """Devolve a avaliação de risco de viés de um estudo na lista ou None."""
+        clean_lid = sanitize_filename_id(list_id)
+        clean_wid = sanitize_filename_id(work_id)
+        target_file = self.quality_dir / clean_lid / f"{clean_wid}.json"
+        if not target_file.exists():
+            return None
+        try:
+            return json.loads(target_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def list_risk_of_bias(self, list_id: str) -> list[dict[str, Any]]:
+        """Lista todas as avaliações de risco de viés de uma lista."""
+        clean_lid = sanitize_filename_id(list_id)
+        target_dir = self.quality_dir / clean_lid
+        if not target_dir.exists():
+            return []
+        res: list[dict[str, Any]] = []
+        for f in target_dir.glob("*.json"):
+            try:
+                res.append(json.loads(f.read_text(encoding="utf-8")))
+            except (json.JSONDecodeError, OSError):
+                continue
+        res.sort(key=lambda x: str(x.get("work_id", "")))
+        return res
+
+    def delete_risk_of_bias(self, list_id: str, work_id: str | int) -> bool:
+        """Remove a avaliação de risco de viés de um estudo."""
+        clean_lid = sanitize_filename_id(list_id)
+        clean_wid = sanitize_filename_id(work_id)
+        target_file = self.quality_dir / clean_lid / f"{clean_wid}.json"
+        with file_lock(self.lock_path):
+            if target_file.exists():
+                target_file.unlink()
+                return True
+        return False
+
+
 
 
 
